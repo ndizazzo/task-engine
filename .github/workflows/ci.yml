@@ -210,25 +210,10 @@ jobs:
 
       - name: Run Gosec Security Scanner
         run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec ./...
 
       - name: Run Nancy vulnerability scanner
         run: |
           go install github.com/sonatypecommunity/nancy@latest
           go list -json -deps ./... | nancy sleuth
-
-  validate-pr:
-    name: Validate PR
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [test, security-scan]
-
-    steps:
-      - name: PR validation complete
-        run: |
-          echo "✅ All PR validation checks passed!"
-          echo "- Tests: ✅ (Ubuntu, macOS)"
-          echo "- Go Versions: ✅ (1.22, 1.23, 1.24.4)"
-          echo "- Security: ✅"
-          echo "- Quality: ✅"
