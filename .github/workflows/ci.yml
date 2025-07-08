@@ -1,0 +1,219 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+env:
+  GO_VERSION: "1.24.4"
+
+jobs:
+  test:
+    name: Test and Quality Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install development tools
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Format check
+        run: |
+          gofmt -s -l .
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted. Run 'go fmt ./...' to fix."
+            exit 1
+          fi
+
+      - name: Vet code
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        run: golangci-lint run --timeout=5m
+
+      - name: Run unit tests
+        run: go test -json ./... | gotestfmt
+
+      - name: Run tests with coverage
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
+  staging-validation:
+    name: Staging Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Validate library builds
+        run: |
+          # Validate that the library can be built successfully
+          go build ./...
+
+      - name: Run integration tests
+        run: |
+          # Run all tests including e2e tests
+          go test -v ./...
+
+      - name: Check go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+  release-validation:
+    name: Release Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install development tools
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+
+      - name: Run tests before release
+        run: |
+          go test -json ./... | gotestfmt
+          golangci-lint run --timeout=5m
+
+      - name: Validate library builds
+        run: |
+          # Validate that the library can be built successfully
+          go build ./...
+
+      - name: Create release documentation
+        run: |
+          VERSION=${{ github.event.release.tag_name }}
+          COMMIT_SHA=${{ github.sha }}
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "# Task Engine Release ${VERSION}" > release-info.md
+          echo "" >> release-info.md
+          echo "- **Version**: ${VERSION}" >> release-info.md
+          echo "- **Commit**: ${COMMIT_SHA}" >> release-info.md
+          echo "- **Build Date**: ${BUILD_DATE}" >> release-info.md
+          echo "- **Go Version**: ${{ env.GO_VERSION }}" >> release-info.md
+          echo "" >> release-info.md
+          echo "## Installation" >> release-info.md
+          echo "" >> release-info.md
+          echo '```bash' >> release-info.md
+          echo "go get github.com/ndizazzo/task-engine@${VERSION}" >> release-info.md
+          echo '```' >> release-info.md
+
+      - name: Upload release documentation
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-info.md
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Gosec Security Scanner
+        run: |
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
+      - name: Run Nancy vulnerability scanner
+        run: |
+          go install github.com/sonatypecommunity/nancy@latest
+          go list -json -deps ./... | nancy sleuth
+
+  validate-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [test, security-scan]
+
+    steps:
+      - name: PR validation complete
+        run: |
+          echo "✅ All PR validation checks passed!"
+          echo "- Tests: ✅"
+          echo "- Security: ✅"
+          echo "- Quality: ✅"
