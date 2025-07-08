@@ -67,7 +67,7 @@ func (a *CreateDirectoriesAction) Execute(ctx context.Context) error {
 		a.Logger.Debug("Creating directory", "path", fullPath)
 
 		// Create directory with proper permissions
-		err := os.MkdirAll(fullPath, 0755)
+		err := os.MkdirAll(fullPath, 0750)
 		if err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", fullPath, err)
 		}

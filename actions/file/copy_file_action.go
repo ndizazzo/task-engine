@@ -49,7 +49,7 @@ func NewCopyFileAction(source, destination string, createDir bool, logger *slog.
 func (a *CopyFileAction) Execute(execCtx context.Context) error {
 	if a.CreateDir {
 		destDir := filepath.Dir(a.Destination)
-		if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(destDir, 0750); err != nil {
 			a.Logger.Debug("Failed to create destination directory", "error", err, "directory", destDir)
 			return err
 		}

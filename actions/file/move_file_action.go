@@ -59,7 +59,7 @@ func (a *MoveFileAction) Execute(execCtx context.Context) error {
 
 	if a.CreateDirs {
 		destDir := filepath.Dir(a.Destination)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
+		if err := os.MkdirAll(destDir, 0750); err != nil {
 			a.Logger.Error("Failed to create destination directory", "dir", destDir, "error", err)
 			return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
 		}

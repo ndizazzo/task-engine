@@ -44,35 +44,28 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Install development tools
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+        run: make install-tools
 
       - name: Download dependencies
-        run: go mod download
+        run: make deps
 
       - name: Verify dependencies
         run: go mod verify
 
       - name: Format check
-        run: |
-          gofmt -s -l .
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "Code is not formatted. Run 'go fmt ./...' to fix."
-            exit 1
-          fi
+        run: make fmt-check
 
       - name: Vet code
-        run: go vet ./...
+        run: make vet
 
       - name: Run golangci-lint
-        run: golangci-lint run --timeout=5m
+        run: make lint
 
       - name: Run unit tests
-        run: go test -json ./... | gotestfmt
+        run: make test
 
       - name: Run tests with coverage
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: make test-coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -107,15 +100,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Install development tools
+        run: make install-tools
+
       - name: Validate library builds
         run: |
           # Validate that the library can be built successfully
           go build ./...
 
       - name: Run integration tests
-        run: |
-          # Run all tests including e2e tests
-          go test -v ./...
+        run: make test
 
       - name: Check go mod tidy
         run: |
@@ -147,14 +141,13 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Install development tools
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+        run: make install-tools
 
       - name: Run tests before release
-        run: |
-          go test -json ./... | gotestfmt
-          golangci-lint run --timeout=5m
+        run: make test
+
+      - name: Run linting before release
+        run: make lint
 
       - name: Validate library builds
         run: |
@@ -208,10 +201,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install development tools
+        run: make install-tools
+
       - name: Run Gosec Security Scanner
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec ./...
+        run: make security
 
       - name: Run Nancy vulnerability scanner
         run: |
