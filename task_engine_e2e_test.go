@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -24,16 +26,20 @@ import (
 
 // isDockerAvailable checks if Docker is available and accessible
 func isDockerAvailable() bool {
-	ctx := context.Background()
-	// Try to create a simple container request to test Docker availability
-	req := testcontainers.ContainerRequest{
-		Image: "alpine:latest",
-		Cmd:   []string{"echo", "test"},
+	// On macOS CI runners, Docker is typically not available
+	if runtime.GOOS == "darwin" {
+		// Check if we're in a CI environment (GitHub Actions sets CI=true)
+		if os.Getenv("CI") == "true" {
+			return false
+		}
 	}
-	_, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          false, // Don't actually start it
-	})
+
+	// Try to run 'docker version' command
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "version")
+	err := cmd.Run()
 	return err == nil
 }
 
