@@ -37,7 +37,7 @@ func TestTaskManager_RunTask(t *testing.T) {
 
 	err = taskManager.RunTask("test-task")
 	assert.NoError(t, err, "Task should start without errors")
-	assert.GreaterOrEqualf(t, task.TotalTime, time.Duration(0), "Task duration should be greater than or equal to 0")
+	assert.GreaterOrEqualf(t, task.GetTotalTime(), time.Duration(0), "Task duration should be greater than or equal to 0")
 }
 
 func TestTaskManager_StopTask(t *testing.T) {
@@ -56,7 +56,7 @@ func TestTaskManager_StopTask(t *testing.T) {
 	err = taskManager.StopTask("test-task")
 
 	assert.NoError(t, err, "Task should be stopped without errors")
-	assert.LessOrEqual(t, task.TotalTime, LongActionTime, "Task should be stopped before the delay expires")
+	assert.LessOrEqual(t, task.GetTotalTime(), LongActionTime, "Task should be stopped before the delay expires")
 }
 
 func TestTaskManager_StopAllTasks(t *testing.T) {
@@ -87,8 +87,8 @@ func TestTaskManager_StopAllTasks(t *testing.T) {
 	taskManager.StopAllTasks()
 
 	// Ensure tasks were stopped
-	assert.NotEqual(t, 100*time.Millisecond, task1.TotalTime, "Task 1 should not complete fully")
-	assert.NotEqual(t, 100*time.Millisecond, task2.TotalTime, "Task 2 should not complete fully")
+	assert.NotEqual(t, 100*time.Millisecond, task1.GetTotalTime(), "Task 1 should not complete fully")
+	assert.NotEqual(t, 100*time.Millisecond, task2.GetTotalTime(), "Task 2 should not complete fully")
 }
 
 func TestTaskManager_StopNonRunningTask(t *testing.T) {

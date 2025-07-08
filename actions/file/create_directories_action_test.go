@@ -23,7 +23,7 @@ func (suite *CreateDirectoriesActionTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	suite.rootPath = filepath.Join(suite.tempDir, "installation")
-	err = os.MkdirAll(suite.rootPath, 0755)
+	err = os.MkdirAll(suite.rootPath, 0750)
 	suite.Require().NoError(err)
 }
 
@@ -56,7 +56,7 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_Success() {
 		info, err := os.Stat(fullPath)
 		suite.NoError(err)
 		suite.True(info.IsDir())
-		suite.Equal(os.FileMode(0755), info.Mode().Perm())
+		suite.Equal(os.FileMode(0750), info.Mode().Perm())
 	}
 }
 
@@ -137,7 +137,7 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_AlreadyExis
 
 	// Pre-create one of the directories
 	existingPath := filepath.Join(suite.rootPath, "existing_dir")
-	err := os.MkdirAll(existingPath, 0755)
+	err := os.MkdirAll(existingPath, 0750)
 	suite.Require().NoError(err)
 
 	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)

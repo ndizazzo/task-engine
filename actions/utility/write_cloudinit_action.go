@@ -66,7 +66,7 @@ func (a *WriteCloudInitConfigAction) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to marshal YAML content: %w", err)
 	}
 
-	file, err := os.OpenFile(a.ConfigPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(a.ConfigPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		a.Logger.Error("Failed to open config file", "ConfigPath", a.ConfigPath, "error", err)
 		return fmt.Errorf("failed to open config file %s: %w", a.ConfigPath, err)

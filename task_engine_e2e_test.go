@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,25 @@ import (
 	"github.com/ndizazzo/task-engine/actions/file"
 )
 
+// isDockerAvailable checks if Docker is available and accessible
+func isDockerAvailable() bool {
+	// On macOS CI runners, Docker is typically not available
+	if runtime.GOOS == "darwin" {
+		// Check if we're in a CI environment (GitHub Actions sets CI=true)
+		if os.Getenv("CI") == "true" {
+			return false
+		}
+	}
+
+	// Try to run 'docker version' command
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "version")
+	err := cmd.Run()
+	return err == nil
+}
+
 type TaskEngineE2ETestSuite struct {
 	suite.Suite
 	ctx           context.Context
@@ -32,6 +53,18 @@ type TaskEngineE2ETestSuite struct {
 }
 
 func (suite *TaskEngineE2ETestSuite) SetupSuite() {
+	// Skip integration tests if explicitly disabled
+	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
+		suite.T().Skip("Integration tests disabled via SKIP_INTEGRATION_TESTS environment variable")
+		return
+	}
+
+	// Skip the entire suite if Docker is not available (e.g., on macOS CI runners)
+	if !isDockerAvailable() {
+		suite.T().Skip("Docker is not available, skipping integration tests")
+		return
+	}
+
 	suite.ctx = context.Background()
 	suite.containerPath = "/tmp/test-workspace"
 	suite.logger = slog.New(slog.NewTextHandler(io.Discard, nil))

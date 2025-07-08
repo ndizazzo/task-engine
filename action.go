@@ -3,6 +3,7 @@ package task_engine
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,8 @@ func (a *Action[T]) Execute(ctx context.Context) error {
 }
 
 func (a *Action[T]) GetDuration() time.Duration {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return a.Duration
 }
 
@@ -61,37 +64,47 @@ type Action[T ActionInterface] struct {
 	EndTime   time.Time
 	Duration  time.Duration
 	Logger    *slog.Logger
+	mu        sync.RWMutex // protects concurrent access to time fields
 }
 
 func (a *Action[T]) InternalExecute(ctx context.Context) error {
+	a.mu.Lock()
 	a.RunID = uuid.New().String()
-	a.log("Starting action", "actionID", a.ID, "runID", a.RunID)
+	runID := a.RunID // Store locally to avoid race conditions in logging
+	a.mu.Unlock()
 
+	a.log("Starting action", "actionID", a.ID, "runID", runID)
+
+	a.mu.Lock()
 	if a.StartTime.IsZero() {
 		a.StartTime = time.Now()
 	}
+	a.mu.Unlock()
 
 	if err := a.Wrapped.BeforeExecute(ctx); err != nil {
-		a.log("BeforeExecute failed", "actionID", a.ID, "runID", a.RunID, "error", err)
+		a.log("BeforeExecute failed", "actionID", a.ID, "runID", runID, "error", err)
 		return err
 	}
 
 	if err := a.Wrapped.Execute(ctx); err != nil {
-		a.log("Execute failed", "actionID", a.ID, "runID", a.RunID, "error", err)
+		a.log("Execute failed", "actionID", a.ID, "runID", runID, "error", err)
 		return err
 	}
 
+	a.mu.Lock()
 	if a.EndTime.IsZero() {
 		a.EndTime = time.Now()
 	}
-	a.Duration = a.EndTime.Sub(a.StartTime)
+	duration := a.EndTime.Sub(a.StartTime)
+	a.Duration = duration
+	a.mu.Unlock()
 
 	if err := a.Wrapped.AfterExecute(ctx); err != nil {
-		a.log("AfterExecute failed", "actionID", a.ID, "runID", a.RunID, "error", err)
+		a.log("AfterExecute failed", "actionID", a.ID, "runID", runID, "error", err)
 		return err
 	}
 
-	a.log("Action completed", "actionID", a.ID, "runID", a.RunID, "duration", a.Duration)
+	a.log("Action completed", "actionID", a.ID, "runID", runID, "duration", duration)
 	return nil
 }
 

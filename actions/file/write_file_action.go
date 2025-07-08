@@ -77,7 +77,7 @@ func (a *WriteFileAction) Execute(execCtx context.Context) error {
 	}
 
 	dir := filepath.Dir(a.FilePath)
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		a.Logger.Error("Failed to create parent directory for file", "path", dir, "error", err)
 		return fmt.Errorf("failed to create directory %s for file: %w", dir, err)
 	}
