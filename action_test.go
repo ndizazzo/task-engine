@@ -53,6 +53,31 @@ func (suite *ActionTestSuite) TestAction_ReturnsErrorOnFailure() {
 	suite.Error(err, "Execute should return an error when Execute fails")
 }
 
+func (suite *ActionTestSuite) TestAction_BeforeExecuteFailure() {
+	action := BeforeExecuteFailingTestAction
+	err := action.Execute(testContext())
+	suite.Error(err, "Execute should return an error when BeforeExecute fails")
+	suite.Contains(err.Error(), "simulated BeforeExecute failure", "Error should contain BeforeExecute failure message")
+}
+
+func (suite *ActionTestSuite) TestAction_AfterExecuteFailure() {
+	action := AfterExecuteFailingTestAction
+	err := action.Execute(testContext())
+	suite.Error(err, "Execute should return an error when AfterExecute fails")
+	suite.Contains(err.Error(), "simulated AfterExecute failure", "Error should contain AfterExecute failure message")
+}
+
+func (suite *ActionTestSuite) TestAction_GetLogger() {
+	action := PassingTestAction
+	logger := action.GetLogger()
+	suite.Nil(logger, "GetLogger should return nil when no logger is set")
+
+	action.Logger = noOpLogger
+	logger = action.GetLogger()
+	suite.NotNil(logger, "GetLogger should return the logger when set")
+	suite.Equal(noOpLogger, logger, "GetLogger should return the same logger that was set")
+}
+
 func TestActionTestSuite(t *testing.T) {
 	suite.Run(t, new(ActionTestSuite))
 }

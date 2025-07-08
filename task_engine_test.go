@@ -46,6 +46,42 @@ func (a *DelayAction) Execute(ctx context.Context) error {
 	return nil
 }
 
+type BeforeExecuteFailingAction struct {
+	task_engine.BaseAction
+	ShouldFailBefore bool
+}
+
+func (a *BeforeExecuteFailingAction) BeforeExecute(ctx context.Context) error {
+	if a.ShouldFailBefore {
+		return errors.New("simulated BeforeExecute failure")
+	}
+	return nil
+}
+
+func (a *BeforeExecuteFailingAction) Execute(ctx context.Context) error {
+	return nil
+}
+
+type AfterExecuteFailingAction struct {
+	task_engine.BaseAction
+	ShouldFailAfter bool
+}
+
+func (a *AfterExecuteFailingAction) BeforeExecute(ctx context.Context) error {
+	return nil
+}
+
+func (a *AfterExecuteFailingAction) Execute(ctx context.Context) error {
+	return nil
+}
+
+func (a *AfterExecuteFailingAction) AfterExecute(ctx context.Context) error {
+	if a.ShouldFailAfter {
+		return errors.New("simulated AfterExecute failure")
+	}
+	return nil
+}
+
 var (
 	noOpLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -70,6 +106,22 @@ var (
 		Wrapped: &DelayAction{
 			BaseAction: task_engine.BaseAction{},
 			Delay:      LongActionTime,
+		},
+	}
+
+	BeforeExecuteFailingTestAction = &task_engine.Action[*BeforeExecuteFailingAction]{
+		ID: "before-execute-failing-action",
+		Wrapped: &BeforeExecuteFailingAction{
+			BaseAction:       task_engine.BaseAction{},
+			ShouldFailBefore: true,
+		},
+	}
+
+	AfterExecuteFailingTestAction = &task_engine.Action[*AfterExecuteFailingAction]{
+		ID: "after-execute-failing-action",
+		Wrapped: &AfterExecuteFailingAction{
+			BaseAction:      task_engine.BaseAction{},
+			ShouldFailAfter: true,
 		},
 	}
 
