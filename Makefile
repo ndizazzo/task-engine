@@ -43,7 +43,7 @@ security: ## Run security checks
 	@gosec ./...
 
 install-tools: ## Install development tools
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	@go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 
