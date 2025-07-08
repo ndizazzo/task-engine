@@ -1,0 +1,2334 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>task-engine: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/ndizazzo/task-engine/action.go (83.3%)</option>
+				
+				<option value="file1">github.com/ndizazzo/task-engine/actions/docker/check_container_health_action.go (94.7%)</option>
+				
+				<option value="file2">github.com/ndizazzo/task-engine/actions/docker/docker_compose_down_action.go (95.0%)</option>
+				
+				<option value="file3">github.com/ndizazzo/task-engine/actions/docker/docker_compose_exec_action.go (93.8%)</option>
+				
+				<option value="file4">github.com/ndizazzo/task-engine/actions/docker/docker_compose_up_action.go (100.0%)</option>
+				
+				<option value="file5">github.com/ndizazzo/task-engine/actions/docker/docker_generic_action.go (100.0%)</option>
+				
+				<option value="file6">github.com/ndizazzo/task-engine/actions/docker/docker_run_action.go (94.4%)</option>
+				
+				<option value="file7">github.com/ndizazzo/task-engine/actions/file/change_ownership_action.go (96.2%)</option>
+				
+				<option value="file8">github.com/ndizazzo/task-engine/actions/file/change_permissions_action.go (95.2%)</option>
+				
+				<option value="file9">github.com/ndizazzo/task-engine/actions/file/copy_file_action.go (62.5%)</option>
+				
+				<option value="file10">github.com/ndizazzo/task-engine/actions/file/create_directories_action.go (82.1%)</option>
+				
+				<option value="file11">github.com/ndizazzo/task-engine/actions/file/delete_file_action.go (100.0%)</option>
+				
+				<option value="file12">github.com/ndizazzo/task-engine/actions/file/move_file_action.go (88.0%)</option>
+				
+				<option value="file13">github.com/ndizazzo/task-engine/actions/file/remove_files_action.go (0.0%)</option>
+				
+				<option value="file14">github.com/ndizazzo/task-engine/actions/file/replace_lines_action.go (65.6%)</option>
+				
+				<option value="file15">github.com/ndizazzo/task-engine/actions/file/write_file_action.go (72.7%)</option>
+				
+				<option value="file16">github.com/ndizazzo/task-engine/actions/system/manage_service_action.go (100.0%)</option>
+				
+				<option value="file17">github.com/ndizazzo/task-engine/actions/system/shutdown_action.go (92.3%)</option>
+				
+				<option value="file18">github.com/ndizazzo/task-engine/actions/utility/fetch_interfaces_action.go (88.2%)</option>
+				
+				<option value="file19">github.com/ndizazzo/task-engine/actions/utility/prerequisite_check_action.go (93.8%)</option>
+				
+				<option value="file20">github.com/ndizazzo/task-engine/actions/utility/read_mac_action.go (0.0%)</option>
+				
+				<option value="file21">github.com/ndizazzo/task-engine/actions/utility/wait_action.go (100.0%)</option>
+				
+				<option value="file22">github.com/ndizazzo/task-engine/actions/utility/write_cloudinit_action.go (0.0%)</option>
+				
+				<option value="file23">github.com/ndizazzo/task-engine/command/command.go (0.0%)</option>
+				
+				<option value="file24">github.com/ndizazzo/task-engine/mocks/command_mock.go (0.0%)</option>
+				
+				<option value="file25">github.com/ndizazzo/task-engine/task.go (90.0%)</option>
+				
+				<option value="file26">github.com/ndizazzo/task-engine/task_manager.go (74.1%)</option>
+				
+				<option value="file27">github.com/ndizazzo/task-engine/tasks/example_file_operations.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package task_engine
+
+import (
+        "context"
+        "log/slog"
+        "sync"
+        "time"
+
+        "github.com/google/uuid"
+)
+
+type ActionInterface interface {
+        BeforeExecute(ctx context.Context) error
+        Execute(ctx context.Context) error
+        AfterExecute(ctx context.Context) error
+}
+
+type ActionWrapper interface {
+        Execute(ctx context.Context) error
+        GetDuration() time.Duration
+        GetLogger() *slog.Logger
+        GetID() string
+}
+
+func (a *Action[T]) Execute(ctx context.Context) error <span class="cov8" title="26">{
+        return a.InternalExecute(ctx)
+}</span>
+
+func (a *Action[T]) GetDuration() time.Duration <span class="cov7" title="14">{
+        a.mu.RLock()
+        defer a.mu.RUnlock()
+        return a.Duration
+}</span>
+
+func (a *Action[T]) GetLogger() *slog.Logger <span class="cov0" title="0">{
+        return a.Logger
+}</span>
+
+func (a *Action[T]) GetID() string <span class="cov5" title="8">{
+        return a.ID
+}</span>
+
+// BaseAction is used as a composite struct for newly defined actions, to provide a default no-op implementation of the before/after
+// hooks. It also has a logger passed from the action that wraps it.
+type BaseAction struct {
+        Logger *slog.Logger
+}
+
+func (ba *BaseAction) BeforeExecute(ctx context.Context) error <span class="cov8" title="26">{
+        return nil
+}</span>
+
+func (a *BaseAction) AfterExecute(ctx context.Context) error <span class="cov7" title="19">{
+        return nil
+}</span>
+
+// ---
+
+type Action[T ActionInterface] struct {
+        ID        string
+        RunID     string
+        Wrapped   T
+        StartTime time.Time
+        EndTime   time.Time
+        Duration  time.Duration
+        Logger    *slog.Logger
+        mu        sync.RWMutex // protects concurrent access to time fields
+}
+
+func (a *Action[T]) InternalExecute(ctx context.Context) error <span class="cov8" title="26">{
+        a.mu.Lock()
+        a.RunID = uuid.New().String()
+        runID := a.RunID // Store locally to avoid race conditions in logging
+        a.mu.Unlock()
+
+        a.log("Starting action", "actionID", a.ID, "runID", runID)
+
+        a.mu.Lock()
+        if a.StartTime.IsZero() </span><span class="cov7" title="20">{
+                a.StartTime = time.Now()
+        }</span>
+        <span class="cov8" title="26">a.mu.Unlock()
+
+        if err := a.Wrapped.BeforeExecute(ctx); err != nil </span><span class="cov0" title="0">{
+                a.log("BeforeExecute failed", "actionID", a.ID, "runID", runID, "error", err)
+                return err
+        }</span>
+
+        <span class="cov8" title="26">if err := a.Wrapped.Execute(ctx); err != nil </span><span class="cov4" title="5">{
+                a.log("Execute failed", "actionID", a.ID, "runID", runID, "error", err)
+                return err
+        }</span>
+
+        <span class="cov7" title="19">a.mu.Lock()
+        if a.EndTime.IsZero() </span><span class="cov7" title="14">{
+                a.EndTime = time.Now()
+        }</span>
+        <span class="cov7" title="19">duration := a.EndTime.Sub(a.StartTime)
+        a.Duration = duration
+        a.mu.Unlock()
+
+        if err := a.Wrapped.AfterExecute(ctx); err != nil </span><span class="cov0" title="0">{
+                a.log("AfterExecute failed", "actionID", a.ID, "runID", runID, "error", err)
+                return err
+        }</span>
+
+        <span class="cov7" title="19">a.log("Action completed", "actionID", a.ID, "runID", runID, "duration", duration)
+        return nil</span>
+}
+
+func (a *Action[T]) log(message string, keyvals ...interface{}) <span class="cov10" title="50">{
+        if a.Logger != nil </span><span class="cov0" title="0">{
+                a.Logger.Info(message, keyvals...)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package docker
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "time"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+// NewCheckContainerHealthAction creates an action that repeatedly runs a command inside a container
+// via docker compose exec until it succeeds or retries are exhausted.
+func NewCheckContainerHealthAction(workingDir string, serviceName string, checkCommand []string, maxRetries int, retryDelay time.Duration, logger *slog.Logger) *task_engine.Action[*CheckContainerHealthAction] <span class="cov7" title="4">{
+        id := fmt.Sprintf("check-health-%s-%s", serviceName, checkCommand[0])
+        return &amp;task_engine.Action[*CheckContainerHealthAction]{
+                ID: id,
+                Wrapped: &amp;CheckContainerHealthAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        WorkingDir:    workingDir,
+                        ServiceName:   serviceName,
+                        CheckCommand:  checkCommand,
+                        MaxRetries:    maxRetries,
+                        RetryDelay:    retryDelay,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+type CheckContainerHealthAction struct {
+        task_engine.BaseAction
+        WorkingDir    string
+        ServiceName   string
+        CheckCommand  []string
+        MaxRetries    int
+        RetryDelay    time.Duration
+        commandRunner command.CommandRunner
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
+func (a *CheckContainerHealthAction) SetCommandRunner(runner command.CommandRunner) <span class="cov7" title="4">{
+        a.commandRunner = runner
+}</span>
+
+func (a *CheckContainerHealthAction) Execute(execCtx context.Context) error <span class="cov7" title="4">{
+        cmdArgs := append([]string{"compose", "exec", a.ServiceName}, a.CheckCommand...)
+
+        for i := 0; i &lt; a.MaxRetries; i++ </span><span class="cov10" title="8">{
+                a.Logger.Info("Checking container health", "service", a.ServiceName, "attempt", i+1, "workingDir", a.WorkingDir)
+
+                var output string
+                var err error
+                if a.WorkingDir != "" </span><span class="cov10" title="8">{
+                        output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.WorkingDir, "docker", cmdArgs...)
+                }</span> else<span class="cov0" title="0"> {
+                        output, err = a.commandRunner.RunCommandWithContext(execCtx, "docker", cmdArgs...)
+                }</span>
+
+                <span class="cov10" title="8">if err == nil </span><span class="cov4" title="2">{
+                        a.Logger.Info("Container health check passed", "service", a.ServiceName, "output", output)
+                        return nil
+                }</span>
+
+                <span class="cov8" title="6">a.Logger.Warn("Container health check failed", "service", a.ServiceName, "error", err, "output", output, "attempt", i+1)
+                select </span>{
+                case &lt;-execCtx.Done():<span class="cov1" title="1">
+                        a.Logger.Info("Context cancelled, stopping health check retries", "service", a.ServiceName)
+                        return execCtx.Err()</span>
+                case &lt;-time.After(a.RetryDelay):<span class="cov7" title="5"></span>
+                        // Continue to next retry
+                }
+        }
+
+        <span class="cov1" title="1">return fmt.Errorf("container %s failed health check after %d retries", a.ServiceName, a.MaxRetries)</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package docker
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+// NewDockerComposeDownAction creates an action to run docker compose down, optionally for specific services.
+// Modified to accept workingDir
+func NewDockerComposeDownAction(logger *slog.Logger, workingDir string, services ...string) *task_engine.Action[*DockerComposeDownAction] <span class="cov10" title="4">{
+        var id string
+        if len(services) == 0 </span><span class="cov5" title="2">{
+                id = "docker-compose-down-all-action"
+        }</span> else<span class="cov5" title="2"> {
+                // Use a hash or similar if service order matters for ID uniqueness, like in UpAction
+                id = fmt.Sprintf("docker-compose-down-%s-action", strings.Join(services, "_"))
+        }</span>
+
+        <span class="cov10" title="4">return &amp;task_engine.Action[*DockerComposeDownAction]{
+                ID: id,
+                Wrapped: &amp;DockerComposeDownAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        WorkingDir:    workingDir, // Store workingDir
+                        Services:      services,
+                        commandRunner: command.NewDefaultCommandRunner(), // Create default runner
+                },
+        }</span>
+}
+
+// DockerComposeDownAction runs docker compose down
+// It can target specific services or all services if none are provided.
+type DockerComposeDownAction struct {
+        task_engine.BaseAction
+        WorkingDir    string // Added WorkingDir
+        Services      []string
+        commandRunner command.CommandRunner
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
+func (a *DockerComposeDownAction) SetCommandRunner(runner command.CommandRunner) <span class="cov10" title="4">{
+        a.commandRunner = runner
+}</span>
+
+func (a *DockerComposeDownAction) Execute(execCtx context.Context) error <span class="cov10" title="4">{
+        args := []string{"compose", "down"}
+        if len(a.Services) &gt; 0 </span><span class="cov5" title="2">{
+                args = append(args, a.Services...)
+        }</span>
+
+        <span class="cov10" title="4">a.Logger.Info("Executing docker compose down", "services", a.Services, "workingDir", a.WorkingDir)
+
+        var output string
+        var err error
+        if a.WorkingDir != "" </span><span class="cov10" title="4">{
+                output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.WorkingDir, "docker", args...)
+        }</span> else<span class="cov0" title="0"> {
+                output, err = a.commandRunner.RunCommandWithContext(execCtx, "docker", args...)
+        }</span>
+
+        <span class="cov10" title="4">if err != nil </span><span class="cov5" title="2">{
+                a.Logger.Error("Failed to run docker compose down", "error", err, "output", output, "services", a.Services)
+                return fmt.Errorf("failed to run docker compose down for services %v: %w. Output: %s", a.Services, err, output)
+        }</span>
+
+        <span class="cov5" title="2">a.Logger.Info("Docker compose down finished successfully", "output", output)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package docker
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+// NewDockerComposeExecAction creates an action to run docker compose exec
+func NewDockerComposeExecAction(logger *slog.Logger, workingDir string, service string, cmdArgs ...string) *task_engine.Action[*DockerComposeExecAction] <span class="cov10" title="2">{
+        id := fmt.Sprintf("docker-compose-exec-%s-%s-action", service, cmdArgs[0])
+        return &amp;task_engine.Action[*DockerComposeExecAction]{
+                ID: id,
+                Wrapped: &amp;DockerComposeExecAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        WorkingDir:    workingDir,
+                        Service:       service,
+                        CommandArgs:   cmdArgs,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+type DockerComposeExecAction struct {
+        task_engine.BaseAction
+        WorkingDir    string
+        Service       string
+        CommandArgs   []string
+        commandRunner command.CommandRunner
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
+func (a *DockerComposeExecAction) SetCommandRunner(runner command.CommandRunner) <span class="cov10" title="2">{
+        a.commandRunner = runner
+}</span>
+
+func (a *DockerComposeExecAction) Execute(execCtx context.Context) error <span class="cov10" title="2">{
+        args := []string{"compose", "exec", a.Service}
+        args = append(args, a.CommandArgs...)
+
+        a.Logger.Info("Executing docker compose exec", "service", a.Service, "command", a.CommandArgs, "workingDir", a.WorkingDir)
+
+        var output string
+        var err error
+        if a.WorkingDir != "" </span><span class="cov10" title="2">{
+                output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.WorkingDir, "docker", args...)
+        }</span> else<span class="cov0" title="0"> {
+                output, err = a.commandRunner.RunCommandWithContext(execCtx, "docker", args...)
+        }</span>
+
+        <span class="cov10" title="2">if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to run docker compose exec", "error", err, "output", output)
+                return fmt.Errorf("failed to run docker compose exec on service %s with command %v in dir %s: %w. Output: %s", a.Service, a.CommandArgs, a.WorkingDir, err, output)
+        }</span>
+        <span class="cov1" title="1">a.Logger.Info("Docker compose exec finished successfully", "output", output)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package docker
+
+import (
+        "context"
+        "crypto/sha256"
+        "encoding/hex"
+        "fmt"
+        "log/slog"
+        "sort"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+func NewDockerComposeUpAction(logger *slog.Logger, workingDir string, services ...string) *task_engine.Action[*DockerComposeUpAction] <span class="cov10" title="4">{
+        var id string
+        if len(services) == 0 </span><span class="cov5" title="2">{
+                id = "docker-compose-up-all-action"
+        }</span> else<span class="cov5" title="2"> {
+                // Sort services for deterministic ID
+                sortedServices := make([]string, len(services))
+                copy(sortedServices, services)
+                sort.Strings(sortedServices)
+
+                // Create a canonical representation
+                canonicalString := strings.Join(sortedServices, "\x00")
+                hashBytes := sha256.Sum256([]byte(canonicalString))
+                hexHash := hex.EncodeToString(hashBytes[:])
+
+                id = fmt.Sprintf("docker-compose-up-%s-action", hexHash)
+        }</span>
+
+        <span class="cov10" title="4">return &amp;task_engine.Action[*DockerComposeUpAction]{
+                ID: id,
+                Wrapped: &amp;DockerComposeUpAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        Services:      services,
+                        WorkingDir:    workingDir,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }</span>
+}
+
+type DockerComposeUpAction struct {
+        task_engine.BaseAction
+        Services      []string
+        WorkingDir    string
+        commandRunner command.CommandRunner
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
+func (a *DockerComposeUpAction) SetCommandRunner(runner command.CommandRunner) <span class="cov10" title="4">{
+        a.commandRunner = runner
+}</span>
+
+func (a *DockerComposeUpAction) Execute(execCtx context.Context) error <span class="cov10" title="4">{
+        args := []string{"compose", "up", "-d"}
+        args = append(args, a.Services...)
+
+        a.Logger.Info("Executing docker compose up", "services", a.Services, "workingDir", a.WorkingDir)
+
+        var output string
+        var err error
+        if a.WorkingDir != "" </span><span class="cov8" title="3">{
+                output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.WorkingDir, "docker", args...)
+        }</span> else<span class="cov1" title="1"> {
+                output, err = a.commandRunner.RunCommandWithContext(execCtx, "docker", args...)
+        }</span>
+
+        <span class="cov10" title="4">if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to run docker compose up", "error", err, "output", output)
+                return fmt.Errorf("failed to run docker compose up for services %v in dir %s: %w. Output: %s", a.Services, a.WorkingDir, err, output)
+        }</span>
+        <span class="cov8" title="3">a.Logger.Info("Docker compose up finished successfully", "output", output)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package docker
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+// NewDockerGenericAction creates an action to run an arbitrary docker command
+func NewDockerGenericAction(logger *slog.Logger, dockerCmd ...string) *task_engine.Action[*DockerGenericAction] <span class="cov10" title="2">{
+        id := fmt.Sprintf("docker-generic-%s-action", strings.Join(dockerCmd, "-"))
+        return &amp;task_engine.Action[*DockerGenericAction]{
+                ID: id,
+                Wrapped: &amp;DockerGenericAction{
+                        BaseAction:       task_engine.BaseAction{Logger: logger},
+                        DockerCmd:        dockerCmd,
+                        CommandProcessor: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+// DockerGenericAction runs a generic docker command and stores its output
+// NOTE: This is desgiend to be pretty simple... more advanced stuff with error handling for specific docker commands
+// should be separate actions
+type DockerGenericAction struct {
+        task_engine.BaseAction
+        DockerCmd        []string
+        CommandProcessor command.CommandRunner
+        Output           string
+}
+
+func (a *DockerGenericAction) Execute(execCtx context.Context) error <span class="cov10" title="2">{
+        a.Logger.Info("Executing docker command", "command", a.DockerCmd)
+        output, err := a.CommandProcessor.RunCommand("docker", a.DockerCmd...)
+        a.Output = strings.TrimSpace(output)
+
+        if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to run docker command", "error", err, "output", output)
+                return fmt.Errorf("failed to run docker command %v: %w. Output: %s", a.DockerCmd, err, output)
+        }</span>
+        <span class="cov1" title="1">a.Logger.Info("Docker command finished successfully", "output", a.Output)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package docker
+
+import (
+        "bytes"
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+// NewDockerRunAction creates an action to run a docker container
+// Optionally accepts a buffer to write the command's stdout to.
+func NewDockerRunAction(logger *slog.Logger, image string, outputBuffer *bytes.Buffer, runArgs ...string) *task_engine.Action[*DockerRunAction] <span class="cov10" title="4">{
+        id := fmt.Sprintf("docker-run-%s-action", image)
+        return &amp;task_engine.Action[*DockerRunAction]{
+                ID: id,
+                Wrapped: &amp;DockerRunAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        Image:         image,
+                        RunArgs:       runArgs,
+                        OutputBuffer:  outputBuffer, // Store buffer pointer
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+// NOTE: Command arguments for inside the container should be part of RunArgs
+type DockerRunAction struct {
+        task_engine.BaseAction
+        Image         string
+        RunArgs       []string
+        commandRunner command.CommandRunner
+        Output        string        // Stores trimmed output regardless of buffer
+        OutputBuffer  *bytes.Buffer // Optional buffer to write output to
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
+func (a *DockerRunAction) SetCommandRunner(runner command.CommandRunner) <span class="cov10" title="4">{
+        a.commandRunner = runner
+}</span>
+
+func (a *DockerRunAction) Execute(execCtx context.Context) error <span class="cov10" title="4">{
+        args := []string{"run"}
+        args = append(args, a.RunArgs...)
+
+        a.Logger.Info("Executing docker run", "image", a.Image, "args", a.RunArgs)
+        output, err := a.commandRunner.RunCommand("docker", args...)
+        a.Output = strings.TrimSpace(output) // Store trimmed output internally
+
+        // Write to buffer if provided
+        if a.OutputBuffer != nil </span><span class="cov1" title="1">{
+                a.OutputBuffer.Reset()
+                _, writeErr := a.OutputBuffer.WriteString(output)
+                if writeErr != nil </span><span class="cov0" title="0">{
+                        a.Logger.Error("Failed to write command output to shared buffer", "error", writeErr)
+                }</span>
+        }
+
+        <span class="cov10" title="4">if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to run docker container", "error", err, "output", output)
+                return fmt.Errorf("failed to run docker container %s with args %v: %w. Output: %s", a.Image, a.RunArgs, err, output)
+        }</span>
+        <span class="cov8" title="3">a.Logger.Info("Docker run finished successfully", "output", a.Output)
+
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+func NewChangeOwnershipAction(path string, owner string, group string, recursive bool, logger *slog.Logger) *task_engine.Action[*ChangeOwnershipAction] <span class="cov10" title="9">{
+        if logger == nil </span><span class="cov0" title="0">{
+                logger = slog.Default()
+        }</span>
+        <span class="cov10" title="9">if path == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        <span class="cov9" title="8">if owner == "" &amp;&amp; group == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="7">id := fmt.Sprintf("change-ownership-%s", strings.ReplaceAll(path, "/", "-"))
+
+        return &amp;task_engine.Action[*ChangeOwnershipAction]{
+                ID: id,
+                Wrapped: &amp;ChangeOwnershipAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        Path:          path,
+                        Owner:         owner,
+                        Group:         group,
+                        Recursive:     recursive,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }</span>
+}
+
+type ChangeOwnershipAction struct {
+        task_engine.BaseAction
+        Path          string
+        Owner         string
+        Group         string
+        Recursive     bool
+        commandRunner command.CommandRunner
+}
+
+func (a *ChangeOwnershipAction) SetCommandRunner(runner command.CommandRunner) <span class="cov8" title="6">{
+        a.commandRunner = runner
+}</span>
+
+func (a *ChangeOwnershipAction) Execute(execCtx context.Context) error <span class="cov8" title="6">{
+        if _, err := os.Stat(a.Path); os.IsNotExist(err) </span><span class="cov1" title="1">{
+                return fmt.Errorf("path does not exist: %s", a.Path)
+        }</span>
+
+        <span class="cov7" title="5">var ownerSpec string
+        switch </span>{
+        case a.Owner != "" &amp;&amp; a.Group != "":<span class="cov5" title="3">
+                ownerSpec = fmt.Sprintf("%s:%s", a.Owner, a.Group)</span>
+        case a.Owner != "":<span class="cov1" title="1">
+                ownerSpec = a.Owner</span>
+        default:<span class="cov1" title="1">
+                ownerSpec = fmt.Sprintf(":%s", a.Group)</span>
+        }
+
+        <span class="cov7" title="5">args := []string{ownerSpec, a.Path}
+        if a.Recursive </span><span class="cov1" title="1">{
+                args = append([]string{"-R"}, args...)
+        }</span>
+
+        <span class="cov7" title="5">a.Logger.Info("Changing ownership", "path", a.Path, "owner", a.Owner, "group", a.Group, "recursive", a.Recursive)
+
+        output, err := a.commandRunner.RunCommandWithContext(execCtx, "chown", args...)
+        if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to change ownership", "error", err, "output", output)
+                return fmt.Errorf("failed to change ownership of %s to %s: %w. Output: %s", a.Path, ownerSpec, err, output)
+        }</span>
+
+        <span class="cov6" title="4">a.Logger.Info("Successfully changed ownership", "path", a.Path, "owner", ownerSpec)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+func NewChangePermissionsAction(path string, permissions string, recursive bool, logger *slog.Logger) *task_engine.Action[*ChangePermissionsAction] <span class="cov10" title="8">{
+        if logger == nil </span><span class="cov0" title="0">{
+                logger = slog.Default()
+        }</span>
+        <span class="cov10" title="8">if path == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        <span class="cov9" title="7">if permissions == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="6">id := fmt.Sprintf("change-permissions-%s", strings.ReplaceAll(path, "/", "-"))
+
+        return &amp;task_engine.Action[*ChangePermissionsAction]{
+                ID: id,
+                Wrapped: &amp;ChangePermissionsAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        Path:          path,
+                        Permissions:   permissions,
+                        Recursive:     recursive,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }</span>
+}
+
+type ChangePermissionsAction struct {
+        task_engine.BaseAction
+        Path          string
+        Permissions   string
+        Recursive     bool
+        commandRunner command.CommandRunner
+}
+
+func (a *ChangePermissionsAction) SetCommandRunner(runner command.CommandRunner) <span class="cov7" title="5">{
+        a.commandRunner = runner
+}</span>
+
+func (a *ChangePermissionsAction) Execute(execCtx context.Context) error <span class="cov7" title="5">{
+        if _, err := os.Stat(a.Path); os.IsNotExist(err) </span><span class="cov1" title="1">{
+                return fmt.Errorf("path does not exist: %s", a.Path)
+        }</span>
+
+        <span class="cov7" title="4">args := []string{a.Permissions, a.Path}
+        if a.Recursive </span><span class="cov1" title="1">{
+                args = append([]string{"-R"}, args...)
+        }</span>
+
+        <span class="cov7" title="4">a.Logger.Info("Changing permissions", "path", a.Path, "permissions", a.Permissions, "recursive", a.Recursive)
+
+        output, err := a.commandRunner.RunCommandWithContext(execCtx, "chmod", args...)
+        if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to change permissions", "error", err, "output", output)
+                return fmt.Errorf("failed to change permissions of %s to %s: %w. Output: %s", a.Path, a.Permissions, err, output)
+        }</span>
+
+        <span class="cov5" title="3">a.Logger.Info("Successfully changed permissions", "path", a.Path, "permissions", a.Permissions)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package file
+
+import (
+        "context"
+        "io"
+        "log/slog"
+        "os"
+        "path/filepath"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+type CopyFileAction struct {
+        task_engine.BaseAction
+
+        Source      string
+        Destination string
+        CreateDir   bool
+}
+
+func NewCopyFileAction(source, destination string, createDir bool, logger *slog.Logger) *task_engine.Action[*CopyFileAction] <span class="cov1" title="1">{
+        if logger == nil </span><span class="cov1" title="1">{
+                logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+        }</span>
+        <span class="cov1" title="1">if source == "" </span><span class="cov0" title="0">{
+                logger.Error("Invalid parameter: source cannot be empty")
+                return nil
+        }</span>
+        <span class="cov1" title="1">if destination == "" </span><span class="cov0" title="0">{
+                logger.Error("Invalid parameter: destination cannot be empty")
+                return nil
+        }</span>
+        <span class="cov1" title="1">if source == destination </span><span class="cov0" title="0">{
+                logger.Error("Invalid parameter: source and destination cannot be the same")
+                return nil
+        }</span>
+
+        <span class="cov1" title="1">return &amp;task_engine.Action[*CopyFileAction]{
+                ID: "copy-file-action",
+                Wrapped: &amp;CopyFileAction{
+                        BaseAction:  task_engine.BaseAction{Logger: logger},
+                        Source:      source,
+                        Destination: destination,
+                        CreateDir:   createDir,
+                },
+        }</span>
+}
+
+func (a *CopyFileAction) Execute(execCtx context.Context) error <span class="cov10" title="3">{
+        if a.CreateDir </span><span class="cov1" title="1">{
+                destDir := filepath.Dir(a.Destination)
+                if err := os.MkdirAll(destDir, 0750); err != nil </span><span class="cov0" title="0">{
+                        a.Logger.Debug("Failed to create destination directory", "error", err, "directory", destDir)
+                        return err
+                }</span>
+        }
+
+        <span class="cov10" title="3">srcFile, err := os.Open(a.Source)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Debug("Failed to open source file", "error", err, "file", a.Source)
+                return err
+        }</span>
+        <span class="cov10" title="3">defer srcFile.Close()
+
+        destFile, err := os.Create(a.Destination)
+        if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Debug("Failed to create destination file", "error", err, "file", a.Destination)
+                return err
+        }</span>
+        <span class="cov6" title="2">defer destFile.Close()
+
+        _, err = io.Copy(destFile, srcFile)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Debug("Failed to copy file", "error", err, "source", a.Source, "destination", a.Destination)
+                return err
+        }</span>
+
+        <span class="cov6" title="2">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "path/filepath"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// NewCreateDirectoriesAction creates an action that creates multiple directories
+// relative to the given installation path.
+func NewCreateDirectoriesAction(logger *slog.Logger, rootPath string, directories []string) *task_engine.Action[*CreateDirectoriesAction] <span class="cov6" title="7">{
+        if logger == nil </span><span class="cov0" title="0">{
+                logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+        }</span>
+        <span class="cov6" title="7">if rootPath == "" </span><span class="cov1" title="1">{
+                logger.Error("Invalid parameter: rootPath cannot be empty")
+                return nil
+        }</span>
+        <span class="cov6" title="6">if len(directories) == 0 </span><span class="cov1" title="1">{
+                logger.Error("Invalid parameter: directories list cannot be empty")
+                return nil
+        }</span>
+
+        <span class="cov5" title="5">return &amp;task_engine.Action[*CreateDirectoriesAction]{
+                ID: "create-directories-action",
+                Wrapped: &amp;CreateDirectoriesAction{
+                        BaseAction:  task_engine.BaseAction{Logger: logger},
+                        RootPath:    rootPath,
+                        Directories: directories,
+                },
+        }</span>
+}
+
+// CreateDirectoriesAction creates multiple directories relative to an installation path
+type CreateDirectoriesAction struct {
+        task_engine.BaseAction
+        RootPath         string
+        Directories      []string
+        CreatedDirsCount int
+}
+
+func (a *CreateDirectoriesAction) Execute(ctx context.Context) error <span class="cov5" title="5">{
+        if a.RootPath == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("root path cannot be empty")
+        }</span>
+
+        <span class="cov5" title="5">if len(a.Directories) == 0 </span><span class="cov0" title="0">{
+                a.Logger.Info("No directories to create")
+                return nil
+        }</span>
+
+        <span class="cov5" title="5">a.Logger.Info("Creating directories", "count", len(a.Directories), "root_path", a.RootPath)
+
+        for _, dir := range a.Directories </span><span class="cov10" title="19">{
+                if dir == "" </span><span class="cov3" title="2">{
+                        a.Logger.Warn("Skipping empty directory path")
+                        continue</span>
+                }
+
+                // Create full path by joining installation path with relative directory
+                <span class="cov9" title="17">fullPath := filepath.Join(a.RootPath, dir)
+
+                a.Logger.Debug("Creating directory", "path", fullPath)
+
+                // Create directory with proper permissions
+                err := os.MkdirAll(fullPath, 0750)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to create directory %s: %w", fullPath, err)
+                }</span>
+
+                <span class="cov9" title="17">a.CreatedDirsCount++
+                a.Logger.Debug("Successfully created directory", "path", fullPath)</span>
+        }
+
+        <span class="cov5" title="5">a.Logger.Info("Successfully created directories", "created_count", a.CreatedDirsCount, "total_count", len(a.Directories))
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// NewDeleteFileAction creates an action to delete a file
+func NewDeleteFileAction(logger *slog.Logger, filePath string) *task_engine.Action[*DeleteFileAction] <span class="cov10" title="3">{
+        id := fmt.Sprintf("delete-file-%s-action", filePath)
+        return &amp;task_engine.Action[*DeleteFileAction]{
+                ID: id,
+                Wrapped: &amp;DeleteFileAction{
+                        BaseAction: task_engine.BaseAction{Logger: logger},
+                        FilePath:   filePath,
+                },
+        }
+}</span>
+
+type DeleteFileAction struct {
+        task_engine.BaseAction
+        FilePath string
+}
+
+func (a *DeleteFileAction) Execute(execCtx context.Context) error <span class="cov10" title="3">{
+        a.Logger.Info("Deleting file", "path", a.FilePath)
+
+        err := os.Remove(a.FilePath)
+        if err != nil </span><span class="cov6" title="2">{
+                if os.IsNotExist(err) </span><span class="cov1" title="1">{
+                        a.Logger.Warn("File does not exist, skipping deletion", "path", a.FilePath)
+                        return nil
+                }</span>
+                <span class="cov1" title="1">a.Logger.Error("Failed to delete file", "path", a.FilePath, "error", err)
+                return fmt.Errorf("failed to delete file %s: %w", a.FilePath, err)</span>
+        }
+
+        <span class="cov1" title="1">a.Logger.Info("Successfully deleted file", "path", a.FilePath)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "path/filepath"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+func NewMoveFileAction(source string, destination string, createDirs bool, logger *slog.Logger) *task_engine.Action[*MoveFileAction] <span class="cov10" title="9">{
+        if logger == nil </span><span class="cov0" title="0">{
+                logger = slog.Default()
+        }</span>
+        <span class="cov10" title="9">if source == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        <span class="cov9" title="8">if destination == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        <span class="cov8" title="7">if source == destination </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="6">id := fmt.Sprintf("move-file-%s", strings.ReplaceAll(filepath.Base(source), "/", "-"))
+
+        return &amp;task_engine.Action[*MoveFileAction]{
+                ID: id,
+                Wrapped: &amp;MoveFileAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        Source:        source,
+                        Destination:   destination,
+                        CreateDirs:    createDirs,
+                        commandRunner: command.NewDefaultCommandRunner(),
+                },
+        }</span>
+}
+
+type MoveFileAction struct {
+        task_engine.BaseAction
+        Source        string
+        Destination   string
+        CreateDirs    bool
+        commandRunner command.CommandRunner
+}
+
+func (a *MoveFileAction) SetCommandRunner(runner command.CommandRunner) <span class="cov7" title="5">{
+        a.commandRunner = runner
+}</span>
+
+func (a *MoveFileAction) Execute(execCtx context.Context) error <span class="cov7" title="5">{
+        if _, err := os.Stat(a.Source); os.IsNotExist(err) </span><span class="cov1" title="1">{
+                return fmt.Errorf("source path does not exist: %s", a.Source)
+        }</span>
+
+        <span class="cov6" title="4">if a.CreateDirs </span><span class="cov1" title="1">{
+                destDir := filepath.Dir(a.Destination)
+                if err := os.MkdirAll(destDir, 0750); err != nil </span><span class="cov0" title="0">{
+                        a.Logger.Error("Failed to create destination directory", "dir", destDir, "error", err)
+                        return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
+                }</span>
+        }
+
+        <span class="cov6" title="4">a.Logger.Info("Moving file/directory", "source", a.Source, "destination", a.Destination, "createDirs", a.CreateDirs)
+
+        output, err := a.commandRunner.RunCommandWithContext(execCtx, "mv", a.Source, a.Destination)
+        if err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to move file/directory", "error", err, "output", output)
+                return fmt.Errorf("failed to move %s to %s: %w. Output: %s", a.Source, a.Destination, err, output)
+        }</span>
+
+        <span class="cov5" title="3">a.Logger.Info("Successfully moved file/directory", "source", a.Source, "destination", a.Destination)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package file
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// Takes a list of fully qualified file paths to remove
+type RemoveFilesAction struct {
+        task_engine.BaseAction
+
+        Paths []string
+}
+
+func NewRemoveFilesAction(filePaths []string, logger *slog.Logger) *task_engine.Action[*RemoveFilesAction] <span class="cov0" title="0">{
+        return &amp;task_engine.Action[*RemoveFilesAction]{
+                ID: "fetch-interfaces-action",
+                Wrapped: &amp;RemoveFilesAction{
+                        BaseAction: task_engine.BaseAction{Logger: logger},
+                        Paths:      filePaths,
+                },
+        }
+}</span>
+
+func (a *RemoveFilesAction) Execute(ctx context.Context) error <span class="cov0" title="0">{
+        if len(a.Paths) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("no file paths provided to RemoveFilesAction")
+        }</span>
+
+        <span class="cov0" title="0">for _, filePath := range a.Paths </span><span class="cov0" title="0">{
+                err := os.Remove(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                                a.Logger.Error("File not found (skipping)", "filePath", filePath)
+                                continue</span>
+                        }
+
+                        <span class="cov0" title="0">a.Logger.Error("Failed to remove file", "filePath", filePath, "error", err)
+                        return fmt.Errorf("failure removing %s: %w", filePath, err)</span>
+                }
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package file
+
+import (
+        "bufio"
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "regexp"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+type ReplaceLinesAction struct {
+        task_engine.BaseAction
+
+        FilePath        string
+        ReplacePatterns map[*regexp.Regexp]string
+}
+
+func NewReplaceLinesAction(
+        filePath string,
+        patterns map[*regexp.Regexp]string, logger *slog.Logger,
+) *task_engine.Action[*ReplaceLinesAction] <span class="cov0" title="0">{
+        return &amp;task_engine.Action[*ReplaceLinesAction]{
+                ID: "replace-lines-action",
+                Wrapped: &amp;ReplaceLinesAction{
+                        BaseAction:      task_engine.BaseAction{Logger: logger},
+                        FilePath:        filePath,
+                        ReplacePatterns: patterns,
+                },
+        }
+}</span>
+
+func (a *ReplaceLinesAction) Execute(ctx context.Context) error <span class="cov6" title="3">{
+        file, err := os.Open(a.FilePath)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to open file",
+                        "FilePath", a.FilePath,
+                        "error", err,
+                )
+                return fmt.Errorf("failed to open file %s: %w", a.FilePath, err)
+        }</span>
+        <span class="cov6" title="3">defer file.Close()
+
+        var updatedLines []string
+        scanner := bufio.NewScanner(file)
+        for scanner.Scan() </span><span class="cov10" title="6">{
+                line := scanner.Text()
+
+                for pattern, replacement := range a.ReplacePatterns </span><span class="cov10" title="6">{
+                        if pattern.MatchString(line) </span><span class="cov6" title="3">{
+                                line = pattern.ReplaceAllString(line, replacement)
+
+                                // Apply only the first matching replacement
+                                break</span>
+                        }
+                }
+
+                <span class="cov10" title="6">updatedLines = append(updatedLines, line)</span>
+        }
+        <span class="cov6" title="3">if err := scanner.Err(); err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to read file",
+                        "FilePath", a.FilePath,
+                        "error", err,
+                )
+                return fmt.Errorf("failed to read file %s: %w", a.FilePath, err)
+        }</span>
+
+        <span class="cov6" title="3">file, err = os.Create(a.FilePath)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to open file for writing",
+                        "FilePath", a.FilePath,
+                        "error", err,
+                )
+                return fmt.Errorf("failed to open file for writing %s: %w", a.FilePath, err)
+        }</span>
+        <span class="cov6" title="3">defer file.Close()
+
+        writer := bufio.NewWriter(file)
+        for _, line := range updatedLines </span><span class="cov10" title="6">{
+                if _, err := writer.WriteString(line + "\n"); err != nil </span><span class="cov0" title="0">{
+                        a.Logger.Error("Failed to write line to file",
+                                "FilePath", a.FilePath,
+                                "Line", line,
+                                "error", err,
+                        )
+                        return fmt.Errorf("failed to write line to file %s: %w", a.FilePath, err)
+                }</span>
+        }
+        <span class="cov6" title="3">if err := writer.Flush(); err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to flush writer",
+                        "FilePath", a.FilePath,
+                        "error", err,
+                )
+                return fmt.Errorf("failed to flush writer for file %s: %w", a.FilePath, err)
+        }</span>
+
+        <span class="cov6" title="3">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package file
+
+import (
+        "bytes"
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+        "os"
+        "path/filepath"
+
+        engine "github.com/ndizazzo/task-engine"
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// NewWriteFileAction creates an action that writes content to a file.
+// If inputBuffer is provided, its content will be used.
+// Otherwise, the provided static content argument is used.
+func NewWriteFileAction(filePath string, content []byte, overwrite bool, inputBuffer *bytes.Buffer, logger *slog.Logger) *engine.Action[*WriteFileAction] <span class="cov10" title="6">{
+        if logger == nil </span><span class="cov0" title="0">{
+                logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+        }</span>
+        <span class="cov10" title="6">if filePath == "" </span><span class="cov0" title="0">{
+                logger.Error("Invalid parameter: filePath cannot be empty")
+                return nil
+        }</span>
+        <span class="cov10" title="6">if inputBuffer == nil &amp;&amp; len(content) == 0 </span><span class="cov0" title="0">{
+                logger.Error("Invalid parameter: either content or inputBuffer must be provided")
+                return nil
+        }</span>
+
+        <span class="cov10" title="6">id := fmt.Sprintf("write-file-%s", filepath.Base(filePath))
+        return &amp;task_engine.Action[*WriteFileAction]{
+                ID: id,
+                Wrapped: &amp;WriteFileAction{
+                        BaseAction:  task_engine.BaseAction{Logger: logger},
+                        FilePath:    filePath,
+                        Content:     content, // Static content (used if buffer is nil)
+                        Overwrite:   overwrite,
+                        InputBuffer: inputBuffer, // Store buffer pointer
+                },
+        }</span>
+}
+
+// WriteFileAction writes specified content to a file
+// It creates parent directories if needed
+// By default (Overwrite=false), it will not overwrite the file if it exists
+// If InputBuffer is set, its content will be used.
+type WriteFileAction struct {
+        engine.BaseAction
+        FilePath    string
+        Content     []byte // Used if InputBuffer is nil
+        Overwrite   bool
+        InputBuffer *bytes.Buffer // Optional buffer to read content from
+}
+
+func (a *WriteFileAction) Execute(execCtx context.Context) error <span class="cov10" title="6">{
+        contentToWrite := a.Content // Default to pre-defined content
+        if a.InputBuffer != nil </span><span class="cov4" title="2">{
+                contentToWrite = a.InputBuffer.Bytes()
+                a.Logger.Debug("Using content from input buffer", "buffer_length", len(contentToWrite))
+        }</span> else<span class="cov7" title="4"> {
+                a.Logger.Debug("Using pre-defined content", "content_length", len(contentToWrite))
+        }</span>
+
+        <span class="cov10" title="6">a.Logger.Info("Attempting to write file", "path", a.FilePath, "content_length", len(contentToWrite), "overwrite", a.Overwrite)
+
+        if !a.Overwrite </span><span class="cov7" title="4">{
+                if _, err := os.Stat(a.FilePath); err == nil </span><span class="cov1" title="1">{
+                        errMsg := fmt.Sprintf("file %s already exists and overwrite is set to false", a.FilePath)
+                        a.Logger.Error(errMsg)
+                        return errors.New(errMsg)
+                }</span> else<span class="cov6" title="3"> if !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        a.Logger.Error("Failed to check if file exists", "path", a.FilePath, "error", err)
+                        return fmt.Errorf("failed to stat file %s before writing: %w", a.FilePath, err)
+                }</span>
+        }
+
+        <span class="cov9" title="5">dir := filepath.Dir(a.FilePath)
+        if err := os.MkdirAll(dir, 0750); err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to create parent directory for file", "path", dir, "error", err)
+                return fmt.Errorf("failed to create directory %s for file: %w", dir, err)
+        }</span>
+
+        // Write the determined content
+        <span class="cov9" title="5">if err := os.WriteFile(a.FilePath, contentToWrite, 0600); err != nil </span><span class="cov1" title="1">{
+                a.Logger.Error("Failed to write file", "path", a.FilePath, "error", err)
+                return fmt.Errorf("failed to write file %s: %w", a.FilePath, err)
+        }</span>
+
+        <span class="cov7" title="4">a.Logger.Info("Successfully wrote file", "path", a.FilePath)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package system
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+func NewManageServiceAction(serviceName, actionType string, logger *slog.Logger) *task_engine.Action[*ManageServiceAction] <span class="cov8" title="4">{
+        return &amp;task_engine.Action[*ManageServiceAction]{
+                ID: fmt.Sprintf("%s-%s-action", actionType, serviceName),
+                Wrapped: &amp;ManageServiceAction{
+                        BaseAction:       task_engine.BaseAction{Logger: logger},
+                        ServiceName:      serviceName,
+                        ActionType:       actionType,
+                        CommandProcessor: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+type ManageServiceAction struct {
+        task_engine.BaseAction
+
+        ServiceName      string
+        ActionType       string
+        CommandProcessor command.CommandRunner
+}
+
+func (a *ManageServiceAction) Execute(execCtx context.Context) error <span class="cov10" title="5">{
+        switch a.ActionType </span>{
+        case "start", "stop", "restart":<span class="cov8" title="4"></span>
+                // Dont allow anything except these commands to be passed to systemctl
+        default:<span class="cov1" title="1">
+                err := fmt.Errorf("invalid action type: %s; must be 'start', 'stop', or 'restart'", a.ActionType)
+                return err</span>
+        }
+
+        <span class="cov8" title="4">_, err := a.CommandProcessor.RunCommand("systemctl", a.ActionType, a.ServiceName)
+        if err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("failed to %s service %s: %w", a.ActionType, a.ServiceName, err)
+        }</span>
+
+        <span class="cov7" title="3">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package system
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "time"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/command"
+)
+
+type ShutdownAction struct {
+        task_engine.BaseAction
+
+        Operation        ShutdownCommandOperation
+        Delay            time.Duration
+        CommandProcessor command.CommandRunner
+}
+
+type ShutdownCommandOperation string
+
+const (
+        ShutdownOperation_Shutdown ShutdownCommandOperation = "shutdown"
+        ShutdownOperation_Restart  ShutdownCommandOperation = "restart"
+        ShutdownOperation_Sleep    ShutdownCommandOperation = "sleep"
+)
+
+func NewShutdownAction(delay time.Duration, operation ShutdownCommandOperation, logger *slog.Logger) *task_engine.Action[*ShutdownAction] <span class="cov10" title="3">{
+        return &amp;task_engine.Action[*ShutdownAction]{
+                ID: "shutdown-host-action",
+                Wrapped: &amp;ShutdownAction{
+                        BaseAction:       task_engine.BaseAction{Logger: logger},
+                        Delay:            delay,
+                        Operation:        operation,
+                        CommandProcessor: command.NewDefaultCommandRunner(),
+                },
+        }
+}</span>
+
+func (a *ShutdownAction) Execute(ctx context.Context) error <span class="cov10" title="3">{
+        additionalFlags := shutdownArgs(a.Operation, a.Delay)
+        _, err := a.CommandProcessor.RunCommand("shutdown", additionalFlags...)
+        return err
+}</span>
+
+func shutdownArgs(operation ShutdownCommandOperation, duration time.Duration) []string <span class="cov10" title="3">{
+        flags := []string{}
+
+        switch operation </span>{
+        case ShutdownOperation_Shutdown:<span class="cov1" title="1">
+                flags = append(flags, "-h")</span>
+        case ShutdownOperation_Restart:<span class="cov6" title="2">
+                flags = append(flags, "-r")</span>
+        case ShutdownOperation_Sleep:<span class="cov0" title="0">
+                flags = append(flags, "-s")</span>
+        }
+
+        <span class="cov10" title="3">if duration &lt;= 0 </span><span class="cov6" title="2">{
+                return append(flags, "now")
+        }</span>
+
+        <span class="cov1" title="1">seconds := int(duration.Seconds())
+        return append(flags, fmt.Sprintf("+%d", seconds))</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package utility
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+        "sort"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+type FetchNetInterfacesAction struct {
+        task_engine.BaseAction
+
+        NetDevicePath string
+        Interfaces    []string
+}
+
+func NewFetchNetInterfacesAction(devicePath string, logger *slog.Logger) *task_engine.Action[*FetchNetInterfacesAction] <span class="cov1" title="1">{
+        return &amp;task_engine.Action[*FetchNetInterfacesAction]{
+                ID: "fetch-interfaces-action",
+                Wrapped: &amp;FetchNetInterfacesAction{
+                        BaseAction:    task_engine.BaseAction{Logger: logger},
+                        NetDevicePath: devicePath,
+                        Interfaces:    []string{},
+                },
+        }
+}</span>
+
+// gathers and sorts the network interfaces from the specified device path
+func (a *FetchNetInterfacesAction) Execute(ctx context.Context) error <span class="cov1" title="1">{
+        if a.NetDevicePath == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("NetDevicePath cannot be empty")
+        }</span>
+
+        <span class="cov1" title="1">entries, err := os.ReadDir(a.NetDevicePath)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to read NetDevicePath", "NetDevicePath", a.NetDevicePath, "error", err)
+                return fmt.Errorf("failed to read NetDevicePath %s: %w", a.NetDevicePath, err)
+        }</span>
+
+        <span class="cov1" title="1">var physical []string
+        var usbEthernet []string
+        var wireless []string
+        var other []string
+
+        for _, entry := range entries </span><span class="cov10" title="5">{
+                if !entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov10" title="5">interfaceName := entry.Name()
+
+                if _, err := os.Stat(fmt.Sprintf("%s/%s/wireless", a.NetDevicePath, interfaceName)); err == nil </span><span class="cov1" title="1">{
+                        wireless = append(wireless, interfaceName)
+                        continue</span>
+                }
+
+                <span class="cov8" title="4">if strings.HasPrefix(interfaceName, "enx") </span><span class="cov1" title="1">{
+                        usbEthernet = append(usbEthernet, interfaceName)
+                        continue</span>
+                }
+
+                <span class="cov7" title="3">if strings.HasPrefix(interfaceName, "en") || strings.HasPrefix(interfaceName, "eth") </span><span class="cov1" title="1">{
+                        physical = append(physical, interfaceName)
+                        continue</span>
+                }
+
+                <span class="cov4" title="2">other = append(other, interfaceName)</span>
+        }
+
+        <span class="cov1" title="1">sort.Strings(physical)
+        sort.Strings(usbEthernet)
+        sort.Strings(wireless)
+        sort.Strings(other)
+
+        // We want to prioritize physical and ethernet devices in our list - append them first
+        a.Interfaces = append(a.Interfaces, physical...)
+        a.Interfaces = append(a.Interfaces, usbEthernet...)
+        a.Interfaces = append(a.Interfaces, wireless...)
+        a.Interfaces = append(a.Interfaces, other...)
+
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package utility
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// ErrNilCheckFunction is returned by NewPrerequisiteCheckAction if the provided check function is nil.
+var ErrNilCheckFunction = errors.New("prerequisite check function cannot be nil")
+
+// PrerequisiteCheckFunc defines the signature for a callback function that checks a prerequisite.
+// It returns true if the parent task should be aborted (prerequisite not met),
+// and an error if the check itself encounters an issue.
+// If the prerequisite is met, it should return (false, nil).
+type PrerequisiteCheckFunc func(ctx context.Context, logger *slog.Logger) (abortTask bool, err error)
+
+// PrerequisiteCheckAction is an action that executes a callback function to check a prerequisite.
+// If the callback indicates the prerequisite is not met, the action returns ErrPrerequisiteNotMet.
+type PrerequisiteCheckAction struct {
+        task_engine.BaseAction
+        Check       PrerequisiteCheckFunc
+        Description string // A human-readable description of what is being checked
+}
+
+// NewPrerequisiteCheckAction creates a new PrerequisiteCheckAction.
+// logger: The logger to be used by the action.
+// description: A human-readable string describing the prerequisite being checked.
+// check: The callback function to execute for the prerequisite check.
+// Returns an error if the check function is nil.
+func NewPrerequisiteCheckAction(logger *slog.Logger, description string, check PrerequisiteCheckFunc) (*task_engine.Action[*PrerequisiteCheckAction], error) <span class="cov10" title="5">{
+        if check == nil </span><span class="cov1" title="1">{
+                return nil, ErrNilCheckFunction
+        }</span>
+
+        <span class="cov8" title="4">id := fmt.Sprintf("prerequisite-check-%s-action", description)
+
+        return &amp;task_engine.Action[*PrerequisiteCheckAction]{
+                ID: id,
+                Wrapped: &amp;PrerequisiteCheckAction{
+                        BaseAction:  task_engine.BaseAction{Logger: logger},
+                        Check:       check,
+                        Description: description,
+                },
+        }, nil</span>
+}
+
+// Execute runs the prerequisite check callback.
+// If the callback indicates the prerequisite is not met (returns abortTask=true),
+// it returns ErrPrerequisiteNotMet.
+// If the callback itself returns an error, that error is propagated.
+func (a *PrerequisiteCheckAction) Execute(ctx context.Context) error <span class="cov8" title="4">{
+        if a.Check == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("critical internal error: prerequisite check function for '%s' is not defined", a.Description)
+        }</span>
+
+        <span class="cov8" title="4">a.Logger.Info("Performing prerequisite check", "description", a.Description)
+        abortTask, err := a.Check(ctx, a.Logger)
+
+        if err != nil </span><span class="cov4" title="2">{
+                a.Logger.Error("Prerequisite check callback failed", "description", a.Description, "error", err)
+                return fmt.Errorf("prerequisite check '%s' encountered an error: %w", a.Description, err)
+        }</span>
+
+        <span class="cov4" title="2">if abortTask </span><span class="cov1" title="1">{
+                a.Logger.Warn("Prerequisite not met, signaling task abort", "description", a.Description)
+                return task_engine.ErrPrerequisiteNotMet
+        }</span>
+
+        <span class="cov1" title="1">a.Logger.Info("Prerequisite check passed", "description", a.Description)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package utility
+
+import (
+        "context"
+        "log/slog"
+        "os"
+        "strings"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+type ReadMACAddressAction struct {
+        task_engine.BaseAction
+
+        Interface string
+        MAC       string
+}
+
+func NewReadMacAction(netInterface string, logger *slog.Logger) *task_engine.Action[*ReadMACAddressAction] <span class="cov0" title="0">{
+        return &amp;task_engine.Action[*ReadMACAddressAction]{
+                ID: "fetch-mac-action",
+                Wrapped: &amp;ReadMACAddressAction{
+                        BaseAction: task_engine.BaseAction{Logger: logger},
+                        Interface:  netInterface,
+                        MAC:        "",
+                },
+        }
+}</span>
+
+func (a *ReadMACAddressAction) Execute(ctx context.Context) error <span class="cov0" title="0">{
+        data, err := os.ReadFile("/sys/class/net/" + a.Interface + "/address")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">a.MAC = strings.TrimSpace(string(data))
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package utility
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "time"
+
+        task_engine "github.com/ndizazzo/task-engine"
+)
+
+// NewWaitAction creates an action that waits for a specified duration.
+func NewWaitAction(logger *slog.Logger, duration time.Duration) *task_engine.Action[*WaitAction] <span class="cov10" title="3">{
+        return &amp;task_engine.Action[*WaitAction]{
+                ID: fmt.Sprintf("wait-%s-action", duration),
+                Wrapped: &amp;WaitAction{
+                        BaseAction: task_engine.BaseAction{Logger: logger},
+                        Duration:   duration,
+                },
+        }
+}</span>
+
+type WaitAction struct {
+        task_engine.BaseAction
+        Duration time.Duration
+}
+
+func (a *WaitAction) Execute(ctx context.Context) error <span class="cov10" title="3">{
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov1" title="1">
+                return ctx.Err()</span>
+        case &lt;-time.After(a.Duration):<span class="cov6" title="2">
+                return nil</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package utility
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "os"
+
+        task_engine "github.com/ndizazzo/task-engine"
+        "gopkg.in/yaml.v3"
+)
+
+type WriteCloudInitConfigAction struct {
+        task_engine.BaseAction
+
+        MACAddress string
+        ConfigPath string
+        Interface  string // TODO: is eth0 the interface on Lemony? IDK, need to check this
+}
+
+func NewWriteCloudInitConfigAction(
+        mac,
+        configPath,
+        netInterface string,
+        logger *slog.Logger,
+) *task_engine.Action[*WriteCloudInitConfigAction] <span class="cov0" title="0">{
+        return &amp;task_engine.Action[*WriteCloudInitConfigAction]{
+                ID: "write-cloudinit-action",
+                Wrapped: &amp;WriteCloudInitConfigAction{
+                        BaseAction: task_engine.BaseAction{Logger: logger},
+                        MACAddress: mac,
+                        ConfigPath: configPath,
+                        Interface:  netInterface,
+                },
+        }
+}</span>
+
+func (a *WriteCloudInitConfigAction) Execute(ctx context.Context) error <span class="cov0" title="0">{
+        a.Logger.Error("Starting WriteCloudInitConfigAction", "ConfigPath", a.ConfigPath, "MACAddress", a.MACAddress, "Interface", a.Interface)
+
+        if a.MACAddress == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("MACAddress cannot be empty")
+        }</span>
+        <span class="cov0" title="0">if a.ConfigPath == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("ConfigPath cannot be empty")
+        }</span>
+
+        <span class="cov0" title="0">data := map[string]interface{}{
+                "network": map[string]interface{}{
+                        "version": 2,
+                        "ethernets": map[string]interface{}{
+                                a.Interface: map[string]interface{}{
+                                        "match": map[string]interface{}{
+                                                "macaddress": a.MACAddress,
+                                        },
+                                        "dhcp4":    true,
+                                        "set-name": a.Interface,
+                                },
+                        },
+                },
+        }
+
+        yamlContent, err := yaml.Marshal(data)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to marshal YAML content", "error", err)
+                return fmt.Errorf("failed to marshal YAML content: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">file, err := os.OpenFile(a.ConfigPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to open config file", "ConfigPath", a.ConfigPath, "error", err)
+                return fmt.Errorf("failed to open config file %s: %w", a.ConfigPath, err)
+        }</span>
+        <span class="cov0" title="0">defer file.Close()
+
+        _, err = file.Write(yamlContent)
+        if err != nil </span><span class="cov0" title="0">{
+                a.Logger.Error("Failed to write to config file", "ConfigPath", a.ConfigPath, "error", err)
+                return fmt.Errorf("failed to write to config file %s: %w", a.ConfigPath, err)
+        }</span>
+
+        <span class="cov0" title="0">a.Logger.Error("Successfully wrote to cloud-init config file", "ConfigPath", a.ConfigPath, "MACAddress", a.MACAddress)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file23" style="display: none">package command
+
+import (
+        "context"
+        "os/exec"
+        "strings"
+)
+
+// CommandRunner interface for executing system commands
+type CommandRunner interface {
+        RunCommand(command string, args ...string) (string, error)
+        RunCommandWithContext(ctx context.Context, command string, args ...string) (string, error)
+        RunCommandInDir(workingDir string, command string, args ...string) (string, error)
+        RunCommandInDirWithContext(ctx context.Context, workingDir string, command string, args ...string) (string, error)
+}
+
+// DefaultCommandRunner is the default implementation of CommandRunner
+type DefaultCommandRunner struct{}
+
+// NewDefaultCommandRunner creates a new default command runner
+func NewDefaultCommandRunner() *DefaultCommandRunner <span class="cov0" title="0">{
+        return &amp;DefaultCommandRunner{}
+}</span>
+
+// RunCommand executes a command and returns the output
+func (r *DefaultCommandRunner) RunCommand(command string, args ...string) (string, error) <span class="cov0" title="0">{
+        return r.RunCommandWithContext(context.Background(), command, args...)
+}</span>
+
+// RunCommandWithContext executes a command with context and returns the output
+func (r *DefaultCommandRunner) RunCommandWithContext(ctx context.Context, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        cmd := exec.CommandContext(ctx, command, args...)
+        output, err := cmd.CombinedOutput()
+        if err != nil </span><span class="cov0" title="0">{
+                return string(output), err
+        }</span>
+        <span class="cov0" title="0">return strings.TrimSpace(string(output)), nil</span>
+}
+
+// RunCommandInDir executes a command in a specific working directory
+func (r *DefaultCommandRunner) RunCommandInDir(workingDir string, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        return r.RunCommandInDirWithContext(context.Background(), workingDir, command, args...)
+}</span>
+
+// RunCommandInDirWithContext executes a command in a specific working directory with context
+func (r *DefaultCommandRunner) RunCommandInDirWithContext(ctx context.Context, workingDir string, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        cmd := exec.CommandContext(ctx, command, args...)
+        if workingDir != "" </span><span class="cov0" title="0">{
+                cmd.Dir = workingDir
+        }</span>
+        <span class="cov0" title="0">output, err := cmd.CombinedOutput()
+        if err != nil </span><span class="cov0" title="0">{
+                return string(output), err
+        }</span>
+        <span class="cov0" title="0">return strings.TrimSpace(string(output)), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file24" style="display: none">package mocks
+
+import (
+        "context"
+        "io"
+        "log/slog"
+
+        "github.com/stretchr/testify/mock"
+)
+
+// MockCommandRunner is a mock implementation of CommandRunner for testing
+type MockCommandRunner struct {
+        mock.Mock
+}
+
+// RunCommand mocks the RunCommand method
+func (m *MockCommandRunner) RunCommand(command string, args ...string) (string, error) <span class="cov0" title="0">{
+        arguments := make([]interface{}, len(args)+1)
+        arguments[0] = command
+        for i, arg := range args </span><span class="cov0" title="0">{
+                arguments[i+1] = arg
+        }</span>
+
+        <span class="cov0" title="0">ret := m.Called(arguments...)
+        return ret.String(0), ret.Error(1)</span>
+}
+
+// RunCommandWithContext mocks the RunCommandWithContext method
+func (m *MockCommandRunner) RunCommandWithContext(ctx context.Context, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        arguments := make([]interface{}, len(args)+2)
+        arguments[0] = ctx
+        arguments[1] = command
+        for i, arg := range args </span><span class="cov0" title="0">{
+                arguments[i+2] = arg
+        }</span>
+
+        <span class="cov0" title="0">ret := m.Called(arguments...)
+        return ret.String(0), ret.Error(1)</span>
+}
+
+// RunCommandInDir mocks the RunCommandInDir method
+func (m *MockCommandRunner) RunCommandInDir(workingDir string, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        arguments := make([]interface{}, len(args)+2)
+        arguments[0] = workingDir
+        arguments[1] = command
+        for i, arg := range args </span><span class="cov0" title="0">{
+                arguments[i+2] = arg
+        }</span>
+
+        <span class="cov0" title="0">ret := m.Called(arguments...)
+        return ret.String(0), ret.Error(1)</span>
+}
+
+// RunCommandInDirWithContext mocks the RunCommandInDirWithContext method
+func (m *MockCommandRunner) RunCommandInDirWithContext(ctx context.Context, workingDir string, command string, args ...string) (string, error) <span class="cov0" title="0">{
+        arguments := make([]interface{}, len(args)+3)
+        arguments[0] = ctx
+        arguments[1] = workingDir
+        arguments[2] = command
+        for i, arg := range args </span><span class="cov0" title="0">{
+                arguments[i+3] = arg
+        }</span>
+
+        <span class="cov0" title="0">ret := m.Called(arguments...)
+        return ret.String(0), ret.Error(1)</span>
+}
+
+// NewDiscardLogger creates a logger that discards all output for testing
+func NewDiscardLogger() *slog.Logger <span class="cov0" title="0">{
+        return slog.New(slog.NewTextHandler(io.Discard, nil))
+}</span>
+</pre>
+		
+		<pre class="file" id="file25" style="display: none">package task_engine
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+        "sync"
+        "time"
+
+        "github.com/google/uuid"
+)
+
+// ErrPrerequisiteNotMet is returned by an action when a prerequisite for task execution
+// is not met, signaling that the task should be gracefully aborted.
+var ErrPrerequisiteNotMet = errors.New("task prerequisite not met")
+
+// Task represents a collection of actions to execute in sequential order
+type Task struct {
+        ID             string
+        RunID          string
+        Name           string
+        Actions        []ActionWrapper
+        Logger         *slog.Logger
+        TotalTime      time.Duration
+        CompletedTasks int
+        mu             sync.Mutex // protects concurrent access to TotalTime and CompletedTasks
+}
+
+func (t *Task) Run(ctx context.Context) error <span class="cov8" title="12">{
+        t.mu.Lock()
+        t.RunID = uuid.New().String()
+        runID := t.RunID // Store locally to avoid race conditions in logging
+        t.mu.Unlock()
+
+        t.log("Starting task", "taskID", t.ID, "runID", runID)
+
+        for _, action := range t.Actions </span><span class="cov9" title="21">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov1" title="1">
+                        t.log("Task canceled", "taskID", t.ID, "runID", runID, "reason", ctx.Err())
+                        return ctx.Err()</span>
+                default:<span class="cov9" title="20">
+                        execErr := action.Execute(ctx)
+                        if execErr != nil </span><span class="cov5" title="4">{
+                                if errors.Is(execErr, ErrPrerequisiteNotMet) </span><span class="cov1" title="1">{
+                                        t.log("Task aborted: prerequisite not met", "taskID", t.ID, "runID", runID, "actionID", action.GetID(), "error", execErr)
+                                        return fmt.Errorf("task %s (run %s) aborted: prerequisite not met in action %s: %w", t.ID, runID, action.GetID(), execErr)
+                                }</span> else<span class="cov4" title="3"> {
+                                        t.log("Task failed: action execution error", "taskID", t.ID, "runID", runID, "actionID", action.GetID(), "error", execErr)
+                                        return fmt.Errorf("task %s (run %s) failed at action %s: %w", t.ID, runID, action.GetID(), execErr)
+                                }</span>
+                        }
+                }
+
+                <span class="cov8" title="14">t.mu.Lock()
+                t.TotalTime += action.GetDuration()
+                t.CompletedTasks += 1
+                t.mu.Unlock()</span>
+        }
+
+        <span class="cov5" title="5">t.log("Task completed", "taskID", t.ID, "runID", runID, "totalDuration", t.GetTotalTime())
+        return nil</span>
+}
+
+func (t *Task) log(message string, keyvals ...interface{}) <span class="cov10" title="22">{
+        if t.Logger != nil </span><span class="cov10" title="22">{
+                t.Logger.Info(message, keyvals...)
+        }</span>
+}
+
+// GetTotalTime returns the total time in a thread-safe manner
+func (t *Task) GetTotalTime() time.Duration <span class="cov7" title="9">{
+        t.mu.Lock()
+        defer t.mu.Unlock()
+        return t.TotalTime
+}</span>
+
+// GetCompletedTasks returns the completed tasks count in a thread-safe manner
+func (t *Task) GetCompletedTasks() int <span class="cov0" title="0">{
+        t.mu.Lock()
+        defer t.mu.Unlock()
+        return t.CompletedTasks
+}</span>
+</pre>
+		
+		<pre class="file" id="file26" style="display: none">package task_engine
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "sync"
+)
+
+type TaskManager struct {
+        Tasks        map[string]*Task
+        runningTasks map[string]context.CancelFunc
+        Logger       *slog.Logger
+        mu           sync.Mutex
+}
+
+func NewTaskManager(logger *slog.Logger) *TaskManager <span class="cov10" title="5">{
+        return &amp;TaskManager{
+                Tasks:        make(map[string]*Task),
+                runningTasks: make(map[string]context.CancelFunc),
+                Logger:       logger,
+        }
+}</span>
+
+func (tm *TaskManager) AddTask(task *Task) error <span class="cov10" title="5">{
+        if task == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("task is nil")
+        }</span>
+
+        <span class="cov10" title="5">tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        task.Logger = tm.Logger.With("taskID", task.ID)
+        tm.Tasks[task.ID] = task
+        tm.Logger.Info("Task added", "taskID", task.ID)
+
+        return nil</span>
+}
+
+func (tm *TaskManager) RunTask(taskID string) error <span class="cov8" title="4">{
+        tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        task, exists := tm.Tasks[taskID]
+        if !exists </span><span class="cov0" title="0">{
+                tm.Logger.Error("Task not found", "taskID", taskID)
+                return fmt.Errorf("task %q not found", taskID)
+        }</span>
+
+        // Create a context for every task
+        <span class="cov8" title="4">ctx, cancel := context.WithCancel(context.Background())
+        tm.runningTasks[taskID] = cancel
+
+        // Start every task in a goroutine
+        go func() </span><span class="cov8" title="4">{
+                defer func() </span><span class="cov4" title="2">{
+                        tm.mu.Lock()
+                        delete(tm.runningTasks, taskID)
+                        tm.mu.Unlock()
+                }</span>()
+
+                <span class="cov8" title="4">err := task.Run(ctx)
+                if err != nil </span><span class="cov1" title="1">{
+                        if ctx.Err() != nil </span><span class="cov1" title="1">{
+                                tm.Logger.Info("Task canceled", "taskID", taskID, "error", err)
+                        }</span> else<span class="cov0" title="0"> {
+                                tm.Logger.Error("Task execution failed", "taskID", taskID, "error", err)
+                        }</span>
+                } else<span class="cov1" title="1"> {
+                        tm.Logger.Info("Task completed", "taskID", taskID)
+                }</span>
+        }()
+
+        <span class="cov8" title="4">return nil</span>
+}
+
+func (tm *TaskManager) StopTask(taskID string) error <span class="cov4" title="2">{
+        tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        cancel, exists := tm.runningTasks[taskID]
+        if !exists </span><span class="cov1" title="1">{
+                return fmt.Errorf("task %q is not running", taskID)
+        }</span>
+
+        // Cancel the task's context
+        <span class="cov1" title="1">cancel()
+        tm.Logger.Info("Task stopped", "taskID", taskID)
+        delete(tm.runningTasks, taskID)
+        return nil</span>
+}
+
+func (tm *TaskManager) StopAllTasks() <span class="cov1" title="1">{
+        tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        for taskID, cancel := range tm.runningTasks </span><span class="cov4" title="2">{
+                cancel()
+                tm.Logger.Info("Task stopped", "taskID", taskID)
+                delete(tm.runningTasks, taskID)
+        }</span>
+}
+
+// GetRunningTasks returns a list of currently running task IDs
+func (tm *TaskManager) GetRunningTasks() []string <span class="cov0" title="0">{
+        tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        taskIDs := make([]string, 0, len(tm.runningTasks))
+        for taskID := range tm.runningTasks </span><span class="cov0" title="0">{
+                taskIDs = append(taskIDs, taskID)
+        }</span>
+        <span class="cov0" title="0">return taskIDs</span>
+}
+
+// IsTaskRunning checks if a specific task is currently running
+func (tm *TaskManager) IsTaskRunning(taskID string) bool <span class="cov0" title="0">{
+        tm.mu.Lock()
+        defer tm.mu.Unlock()
+
+        _, exists := tm.runningTasks[taskID]
+        return exists
+}</span>
+</pre>
+		
+		<pre class="file" id="file27" style="display: none">package tasks
+
+import (
+        "log/slog"
+        "regexp"
+
+        engine "github.com/ndizazzo/task-engine"
+        "github.com/ndizazzo/task-engine/actions/file"
+)
+
+// NewFileOperationsTask creates an example task that demonstrates
+// various file operations including creating, copying, replacing text, and cleanup
+func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task <span class="cov0" title="0">{
+        return &amp;engine.Task{
+                ID:   "file-operations-example",
+                Name: "File Operations Example",
+                Actions: []engine.ActionWrapper{
+                        // Step 1: Create project structure
+                        file.NewCreateDirectoriesAction(
+                                logger,
+                                workingDir,
+                                []string{"src", "tests", "docs", "tmp"},
+                        ),
+
+                        // Step 2: Create initial source file
+                        file.NewWriteFileAction(
+                                workingDir+"/src/main.go",
+                                []byte(initialSourceCode),
+                                true,
+                                nil,
+                                logger,
+                        ),
+
+                        // Step 3: Create a configuration file
+                        file.NewWriteFileAction(
+                                workingDir+"/config.json",
+                                []byte(initialConfig),
+                                true,
+                                nil,
+                                logger,
+                        ),
+
+                        // Step 4: Copy the source file to backup
+                        file.NewCopyFileAction(
+                                workingDir+"/src/main.go",
+                                workingDir+"/src/main.go.backup",
+                                true, // createDir
+                                logger,
+                        ),
+
+                        // Step 5: Replace placeholder text in the source file
+                        file.NewReplaceLinesAction(
+                                workingDir+"/src/main.go",
+                                map[*regexp.Regexp]string{
+                                        regexp.MustCompile("TODO: implement main logic"): "fmt.Println(\"Hello, Task Engine!\")",
+                                },
+                                logger,
+                        ),
+
+                        // Step 6: Replace configuration values
+                        file.NewReplaceLinesAction(
+                                workingDir+"/config.json",
+                                map[*regexp.Regexp]string{
+                                        regexp.MustCompile("\"development\""): "\"production\"",
+                                },
+                                logger,
+                        ),
+
+                        // Step 7: Create documentation
+                        file.NewWriteFileAction(
+                                workingDir+"/docs/README.md",
+                                []byte(documentationContent),
+                                true,
+                                nil,
+                                logger,
+                        ),
+
+                        // Step 8: Create a temporary test file
+                        file.NewWriteFileAction(
+                                workingDir+"/tmp/test.txt",
+                                []byte("This is a temporary test file"),
+                                true,
+                                nil,
+                                logger,
+                        ),
+
+                        // Step 9: Clean up temporary file
+                        file.NewDeleteFileAction(
+                                logger,
+                                workingDir+"/tmp/test.txt",
+                        ),
+                },
+                Logger: logger,
+        }
+}</span>
+
+const initialSourceCode = `package main
+
+import "fmt"
+
+func main() {
+        // TODO: implement main logic
+        fmt.Println("Starting application...")
+}
+`
+
+const initialConfig = `{
+        "app_name": "example-app",
+        "version": "1.0.0",
+        "environment": "development",
+        "database": {
+                "host": "localhost",
+                "port": 5432,
+                "name": "example_db"
+        },
+        "logging": {
+                "level": "info",
+                "format": "json"
+        }
+}
+`
+
+const documentationContent = `# Example Application
+
+This is an example application demonstrating the Task Engine capabilities.
+
+## Features
+
+- File operations and management
+- Configuration handling
+- Directory structure creation
+- Text replacement and processing
+
+## Usage
+
+Run the application with:
+
+` + "```bash" + `
+go run main.go
+` + "```" + `
+
+## Configuration
+
+The application uses a JSON configuration file located at ` + "`config.json`" + `.
+
+## Development
+
+This project demonstrates:
+
+1. **Directory Structure**: Organized project layout
+2. **File Operations**: Create, copy, modify, and delete files
+3. **Text Processing**: Replace content in files
+4. **Cleanup**: Remove temporary files
+
+## License
+
+This is an example project for demonstration purposes.
+`
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
