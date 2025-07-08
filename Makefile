@@ -13,10 +13,9 @@ test-e2e: ## Run end-to-end tests
 
 test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
 
 clean: ## Clean build artifacts
-	@rm -f coverage.out coverage.html
+	@rm -f coverage.out
 	@go clean
 
 fmt: ## Format code
