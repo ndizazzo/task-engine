@@ -72,13 +72,11 @@ jobs:
       - name: Run tests with coverage
         run: make test-coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.4'
         with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   staging-validation:
     name: Staging Validation
