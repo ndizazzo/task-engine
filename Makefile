@@ -11,11 +11,19 @@ test-unit: ## Run unit tests only (excludes e2e tests)
 test-e2e: ## Run end-to-end tests
 	@go test -json -run "TestTaskEngineE2E" | gotestfmt
 
+test-unit-ci: ## Run unit tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-unit.xml --format=testname --packages="./..." -- -run "^Test.*" -skip "TestTaskEngineE2E"
+
+test-e2e-ci: ## Run end-to-end tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-e2e.xml --format=testname --packages="./..." -- -run "TestTaskEngineE2E"
+
+test-ci: test-unit-ci test-e2e-ci ## Run all tests with JUnit XML output for CI
+
 test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
 
 clean: ## Clean build artifacts
-	@rm -f coverage.out
+	@rm -f coverage.out junit-unit.xml junit-e2e.xml
 	@go clean
 
 fmt: ## Format code
@@ -47,6 +55,7 @@ security: ## Run security and vulnerability checks
 install-tools: ## Install development tools
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	@go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+	@go install gotest.tools/gotestsum@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 

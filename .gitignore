@@ -60,3 +60,6 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# JUnit XML files
+junit-*.xml
