@@ -8,19 +8,19 @@ on:
   release:
     types: [published]
 
-env:
-  GO_VERSION: "1.24.4"
-
 jobs:
   test:
     name: Test and Quality Checks
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'pull_request' || github.event_name == 'push'
 
+    env:
+      GO_VERSION: ${{ matrix.go-version }}
+
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ["1.22", "1.23", "1.24.4"]
+        go-version: ["1.23", "1.24.4"]
       fail-fast: false
 
     steps:
@@ -177,7 +177,7 @@ jobs:
           echo "" >> release-info.md
           echo "This release has been tested on:" >> release-info.md
           echo "- **Operating Systems**: Linux, macOS" >> release-info.md
-          echo "- **Go Versions**: 1.22, 1.23, 1.24.4+" >> release-info.md
+          echo "- **Go Versions**: 1.23, 1.24.4+" >> release-info.md
 
       - name: Upload release documentation
         uses: softprops/action-gh-release@v2
@@ -204,10 +204,5 @@ jobs:
       - name: Install development tools
         run: make install-tools
 
-      - name: Run Gosec Security Scanner
+      - name: Run security and vulnerability scans
         run: make security
-
-      - name: Run Nancy vulnerability scanner
-        run: |
-          go install github.com/sonatypecommunity/nancy@latest
-          go list -json -deps ./... | nancy sleuth
