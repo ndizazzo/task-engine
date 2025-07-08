@@ -61,5 +61,6 @@ coverage/
 tmp/
 temp/
 
-# JUnit XML files
+# Test result files
+test-*.json
 junit-*.xml
