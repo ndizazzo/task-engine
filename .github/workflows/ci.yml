@@ -61,7 +61,12 @@ jobs:
       - name: Run golangci-lint
         run: make lint
 
-      - name: Run unit tests
+      - name: Run unit tests only (macOS)
+        if: matrix.os == 'macos-latest'
+        run: make test-unit
+
+      - name: Run all tests (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: make test
 
       - name: Run tests with coverage

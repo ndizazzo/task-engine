@@ -5,8 +5,8 @@ help: ## Show available commands
 
 test: test-unit test-e2e ## Run all tests
 
-test-unit: ## Run unit tests
-	@go test -json ./... | gotestfmt
+test-unit: ## Run unit tests only (excludes e2e tests)
+	@go test -json -run "^Test.*" -skip "TestTaskEngineE2E" ./... | gotestfmt
 
 test-e2e: ## Run end-to-end tests
 	@go test -json -run "TestTaskEngineE2E" | gotestfmt
