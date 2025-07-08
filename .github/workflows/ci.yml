@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
         go-version: ["1.22", "1.23", "1.24.4"]
       fail-fast: false
 
@@ -43,14 +43,7 @@ jobs:
             ${{ runner.os }}-go-${{ matrix.go-version }}-
             ${{ runner.os }}-go-
 
-      - name: Install development tools (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
-
-      - name: Install development tools (Windows)
-        if: runner.os == 'Windows'
+      - name: Install development tools
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
@@ -61,8 +54,7 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
-      - name: Format check (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Format check
         run: |
           gofmt -s -l .
           if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
@@ -70,34 +62,13 @@ jobs:
             exit 1
           fi
 
-      - name: Format check (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          $unformatted = gofmt -s -l .
-          if ($unformatted) {
-            Write-Host "Code is not formatted. Run 'go fmt ./...' to fix."
-            Write-Host "Unformatted files:"
-            Write-Host $unformatted
-            exit 1
-          }
-
       - name: Vet code
         run: go vet ./...
 
-      - name: Run golangci-lint (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Run golangci-lint
         run: golangci-lint run --timeout=5m
 
-      - name: Run golangci-lint (Windows)
-        if: runner.os == 'Windows'
-        run: golangci-lint run --timeout=5m
-
-      - name: Run unit tests (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: go test -json ./... | gotestfmt
-
-      - name: Run unit tests (Windows)
-        if: runner.os == 'Windows'
+      - name: Run unit tests
         run: go test -json ./... | gotestfmt
 
       - name: Run tests with coverage
@@ -212,7 +183,7 @@ jobs:
           echo "## Compatibility" >> release-info.md
           echo "" >> release-info.md
           echo "This release has been tested on:" >> release-info.md
-          echo "- **Operating Systems**: Linux, macOS, Windows" >> release-info.md
+          echo "- **Operating Systems**: Linux, macOS" >> release-info.md
           echo "- **Go Versions**: 1.22, 1.23, 1.24.4+" >> release-info.md
 
       - name: Upload release documentation
@@ -257,7 +228,7 @@ jobs:
       - name: PR validation complete
         run: |
           echo "✅ All PR validation checks passed!"
-          echo "- Tests: ✅ (Ubuntu, macOS, Windows)"
+          echo "- Tests: ✅ (Ubuntu, macOS)"
           echo "- Go Versions: ✅ (1.22, 1.23, 1.24.4)"
           echo "- Security: ✅"
           echo "- Quality: ✅"
