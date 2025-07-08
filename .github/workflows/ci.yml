@@ -63,22 +63,26 @@ jobs:
 
       - name: Run unit tests only (macOS)
         if: matrix.os == 'macos-latest'
-        run: make test-unit
+        run: make test-unit-ci
 
       - name: Run all tests (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
-        run: make test
+        run: make test-ci
 
       - name: Run tests with coverage
         run: make test-coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.4'
         with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   staging-validation:
     name: Staging Validation
@@ -114,7 +118,7 @@ jobs:
           go build ./...
 
       - name: Run integration tests
-        run: make test
+        run: make test-ci
 
       - name: Check go mod tidy
         run: |
@@ -149,7 +153,7 @@ jobs:
         run: make install-tools
 
       - name: Run tests before release
-        run: make test
+        run: make test-ci
 
       - name: Run linting before release
         run: make lint

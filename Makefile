@@ -5,18 +5,34 @@ help: ## Show available commands
 
 test: test-unit test-e2e ## Run all tests
 
-test-unit: ## Run unit tests only (excludes e2e tests)
-	@go test -json -run "^Test.*" -skip "TestTaskEngineE2E" ./... | gotestfmt
+# Base test execution - generates JSON output
+test-unit-json: ## Run unit tests and save JSON output
+	@go test -json -run "^Test.*" -skip "TestTaskEngineE2E" ./... > test-unit.json
 
-test-e2e: ## Run end-to-end tests
-	@go test -json -run "TestTaskEngineE2E" | gotestfmt
+test-e2e-json: ## Run e2e tests and save JSON output  
+	@go test -json -run "TestTaskEngineE2E" > test-e2e.json
+
+# Local development formatters (human-readable)
+test-unit: test-unit-json ## Run unit tests with human-readable output
+	@cat test-unit.json | gotestfmt
+
+test-e2e: test-e2e-json ## Run e2e tests with human-readable output
+	@cat test-e2e.json | gotestfmt
+
+# CI formatters (JUnit XML)
+test-unit-ci: test-unit-json ## Run unit tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json
+
+test-e2e-ci: test-e2e-json ## Run e2e tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-e2e.xml --format=testname --raw-command -- cat test-e2e.json
+
+test-ci: test-unit-ci test-e2e-ci ## Run all tests with JUnit XML output for CI
 
 test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
 
 clean: ## Clean build artifacts
-	@rm -f coverage.out coverage.html
+	@rm -f coverage.out junit-unit.xml junit-e2e.xml test-unit.json test-e2e.json
 	@go clean
 
 fmt: ## Format code
@@ -48,6 +64,7 @@ security: ## Run security and vulnerability checks
 install-tools: ## Install development tools
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	@go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+	@go install gotest.tools/gotestsum@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
