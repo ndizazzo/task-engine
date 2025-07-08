@@ -1,9 +1,7 @@
 # Task Engine
 
 [![CI/CD Pipeline](https://github.com/ndizazzo/task-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/ndizazzo/task-engine/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ndizazzo/task-engine)](https://goreportcard.com/report/github.com/ndizazzo/task-engine)
-[![codecov](https://codecov.io/gh/ndizazzo/task-engine/branch/main/graph/badge.svg)](https://codecov.io/gh/ndizazzo/task-engine)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ndizazzo/task-engine.svg)](https://pkg.go.dev/github.com/ndizazzo/task-engine)
+[![codecov](https://codecov.io/gh/ndizazzo/task-engine/graph/badge.svg?token=O020V4C6TV)](https://codecov.io/gh/ndizazzo/task-engine)
 
 A powerful, type-safe Go task execution framework with built-in actions for file operations, Docker management, system administration, and more.
 
