@@ -5,17 +5,26 @@ help: ## Show available commands
 
 test: test-unit test-e2e ## Run all tests
 
-test-unit: ## Run unit tests only (excludes e2e tests)
-	@go test -json -run "^Test.*" -skip "TestTaskEngineE2E" ./... | gotestfmt
+# Base test execution - generates JSON output
+test-unit-json: ## Run unit tests and save JSON output
+	@go test -json -run "^Test.*" -skip "TestTaskEngineE2E" ./... > test-unit.json
 
-test-e2e: ## Run end-to-end tests
-	@go test -json -run "TestTaskEngineE2E" | gotestfmt
+test-e2e-json: ## Run e2e tests and save JSON output  
+	@go test -json -run "TestTaskEngineE2E" > test-e2e.json
 
-test-unit-ci: ## Run unit tests with JUnit XML output for CI
-	@gotestsum --junitfile=junit-unit.xml --format=testname --packages="./..." -- -run "^Test.*" -skip "TestTaskEngineE2E"
+# Local development formatters (human-readable)
+test-unit: test-unit-json ## Run unit tests with human-readable output
+	@cat test-unit.json | gotestfmt
 
-test-e2e-ci: ## Run end-to-end tests with JUnit XML output for CI
-	@gotestsum --junitfile=junit-e2e.xml --format=testname --packages="./..." -- -run "TestTaskEngineE2E"
+test-e2e: test-e2e-json ## Run e2e tests with human-readable output
+	@cat test-e2e.json | gotestfmt
+
+# CI formatters (JUnit XML)
+test-unit-ci: test-unit-json ## Run unit tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json
+
+test-e2e-ci: test-e2e-json ## Run e2e tests with JUnit XML output for CI
+	@gotestsum --junitfile=junit-e2e.xml --format=testname --raw-command -- cat test-e2e.json
 
 test-ci: test-unit-ci test-e2e-ci ## Run all tests with JUnit XML output for CI
 
@@ -23,7 +32,7 @@ test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
 
 clean: ## Clean build artifacts
-	@rm -f coverage.out junit-unit.xml junit-e2e.xml
+	@rm -f coverage.out junit-unit.xml junit-e2e.xml test-unit.json test-e2e.json
 	@go clean
 
 fmt: ## Format code
