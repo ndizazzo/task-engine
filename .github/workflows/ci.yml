@@ -14,8 +14,14 @@ env:
 jobs:
   test:
     name: Test and Quality Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ["1.22", "1.23", "1.24.4"]
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -24,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ matrix.go-version }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -32,11 +38,19 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
             ${{ runner.os }}-go-
 
-      - name: Install development tools
+      - name: Install development tools (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+
+      - name: Install development tools (Windows)
+        if: runner.os == 'Windows'
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
@@ -47,7 +61,8 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
-      - name: Format check
+      - name: Format check (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           gofmt -s -l .
           if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
@@ -55,13 +70,34 @@ jobs:
             exit 1
           fi
 
+      - name: Format check (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $unformatted = gofmt -s -l .
+          if ($unformatted) {
+            Write-Host "Code is not formatted. Run 'go fmt ./...' to fix."
+            Write-Host "Unformatted files:"
+            Write-Host $unformatted
+            exit 1
+          }
+
       - name: Vet code
         run: go vet ./...
 
-      - name: Run golangci-lint
+      - name: Run golangci-lint (Linux/macOS)
+        if: runner.os != 'Windows'
         run: golangci-lint run --timeout=5m
 
-      - name: Run unit tests
+      - name: Run golangci-lint (Windows)
+        if: runner.os == 'Windows'
+        run: golangci-lint run --timeout=5m
+
+      - name: Run unit tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: go test -json ./... | gotestfmt
+
+      - name: Run unit tests (Windows)
+        if: runner.os == 'Windows'
         run: go test -json ./... | gotestfmt
 
       - name: Run tests with coverage
@@ -69,6 +105,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.4'
         with:
           file: ./coverage.out
           flags: unittests
@@ -171,6 +208,12 @@ jobs:
           echo '```bash' >> release-info.md
           echo "go get github.com/ndizazzo/task-engine@${VERSION}" >> release-info.md
           echo '```' >> release-info.md
+          echo "" >> release-info.md
+          echo "## Compatibility" >> release-info.md
+          echo "" >> release-info.md
+          echo "This release has been tested on:" >> release-info.md
+          echo "- **Operating Systems**: Linux, macOS, Windows" >> release-info.md
+          echo "- **Go Versions**: 1.22, 1.23, 1.24.4+" >> release-info.md
 
       - name: Upload release documentation
         uses: softprops/action-gh-release@v2
@@ -214,6 +257,7 @@ jobs:
       - name: PR validation complete
         run: |
           echo "✅ All PR validation checks passed!"
-          echo "- Tests: ✅"
+          echo "- Tests: ✅ (Ubuntu, macOS, Windows)"
+          echo "- Go Versions: ✅ (1.22, 1.23, 1.24.4)"
           echo "- Security: ✅"
           echo "- Quality: ✅"
