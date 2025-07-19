@@ -129,6 +129,87 @@ func (suite *WriteFileTestSuite) TestExecuteSuccessWithBuffer() {
 	suite.Equal([]byte(expectedContent), actualContent)
 }
 
+func (suite *WriteFileTestSuite) TestNewWriteFileActionNilLogger() {
+	targetFile := filepath.Join(suite.tempDir, "test.txt")
+	content := []byte("test content")
+
+	// Should not panic and should create a default logger
+	action := file.NewWriteFileAction(targetFile, content, true, nil, nil)
+	suite.NotNil(action)
+	suite.NotNil(action.Wrapped.Logger)
+}
+
+func (suite *WriteFileTestSuite) TestNewWriteFileActionEmptyFilePath() {
+	logger := command_mock.NewDiscardLogger()
+	content := []byte("test content")
+
+	// Should return nil for empty file path
+	action := file.NewWriteFileAction("", content, true, nil, logger)
+	suite.Nil(action)
+}
+
+func (suite *WriteFileTestSuite) TestNewWriteFileActionNoContentNoBuffer() {
+	targetFile := filepath.Join(suite.tempDir, "test.txt")
+	logger := command_mock.NewDiscardLogger()
+
+	// Should return nil when neither content nor buffer is provided
+	action := file.NewWriteFileAction(targetFile, nil, true, nil, logger)
+	suite.Nil(action)
+}
+
+func (suite *WriteFileTestSuite) TestNewWriteFileActionValidParameters() {
+	targetFile := filepath.Join(suite.tempDir, "test.txt")
+	content := []byte("test content")
+	logger := command_mock.NewDiscardLogger()
+
+	// Should return valid action for valid parameters
+	action := file.NewWriteFileAction(targetFile, content, true, nil, logger)
+	suite.NotNil(action)
+	suite.Equal("write-file-test.txt", action.ID)
+	suite.Equal(targetFile, action.Wrapped.FilePath)
+	suite.Equal(content, action.Wrapped.Content)
+	suite.True(action.Wrapped.Overwrite)
+	suite.Nil(action.Wrapped.InputBuffer)
+}
+
+func (suite *WriteFileTestSuite) TestNewWriteFileActionWithBuffer() {
+	targetFile := filepath.Join(suite.tempDir, "test.txt")
+	var buffer bytes.Buffer
+	buffer.WriteString("buffer content")
+	logger := command_mock.NewDiscardLogger()
+
+	// Should return valid action when using buffer
+	action := file.NewWriteFileAction(targetFile, nil, false, &buffer, logger)
+	suite.NotNil(action)
+	suite.Equal("write-file-test.txt", action.ID)
+	suite.Equal(targetFile, action.Wrapped.FilePath)
+	suite.Nil(action.Wrapped.Content)
+	suite.False(action.Wrapped.Overwrite)
+	suite.Equal(&buffer, action.Wrapped.InputBuffer)
+}
+
+func (suite *WriteFileTestSuite) TestExecuteFailureStatError() {
+	// Create a path that will cause a stat error (e.g., a path with invalid characters on some systems)
+	// This is a bit tricky to test reliably across platforms, so let's test a different scenario
+	// where we can't create the parent directory due to permissions
+
+	// Create a read-only directory
+	readOnlyDir := filepath.Join(suite.tempDir, "read_only")
+	err := os.Mkdir(readOnlyDir, 0555)
+	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
+
+	// Try to write to a file in a subdirectory that can't be created
+	targetFile := filepath.Join(readOnlyDir, "subdir", "test.txt")
+	content := []byte("test content")
+	logger := command_mock.NewDiscardLogger()
+	action := file.NewWriteFileAction(targetFile, content, false, nil, logger)
+
+	// Execute the action - should fail because we can't create the parent directory
+	execErr := action.Wrapped.Execute(context.Background())
+	suite.Error(execErr)
+	suite.ErrorContains(execErr, "failed to create directory")
+}
+
 func TestWriteFileTestSuite(t *testing.T) {
 	suite.Run(t, new(WriteFileTestSuite))
 }

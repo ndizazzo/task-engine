@@ -44,7 +44,8 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 			file.NewCopyFileAction(
 				workingDir+"/src/main.go",
 				workingDir+"/src/main.go.backup",
-				true, // createDir
+				true,  // createDir
+				false, // recursive
 				logger,
 			),
 
@@ -85,9 +86,11 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 			),
 
 			// Step 9: Clean up temporary file
-			file.NewDeleteFileAction(
-				logger,
+			file.NewDeletePathAction(
 				workingDir+"/tmp/test.txt",
+				false, // recursive
+				false, // dryRun
+				logger,
 			),
 		},
 		Logger: logger,

@@ -1,6 +1,13 @@
 # Built-in Actions Inventory
 
-This document provides a comprehensive inventory of all built-in actions available in the Task Engine.
+This document provides a comprehensive inventory of all built-in actions available in the Task Engine. For practical examples and usage patterns, see the example tasks in the `tasks/` directory.
+
+## Action Categories Summary
+
+- **File Operations**: 11 actions for comprehensive file/directory management
+- **Docker Operations**: 6 actions for container orchestration and management
+- **System Management**: 3 actions for system-level operations
+- **Utilities**: 4 actions for workflow control and system information
 
 ## File & Directory Operations
 
@@ -16,15 +23,7 @@ Creates multiple directories with proper path handling.
 - `directories`: List of directory names to create
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewCreateDirectoriesAction(
-    "/tmp/myproject",
-    []string{"src", "docs", "tests"},
-    logger,
-)
-```
+**See Example:** `tasks.NewFileOperationsTask()` - Demonstrates directory creation as part of a complete file operations workflow.
 
 ### WriteFileAction
 
@@ -40,58 +39,125 @@ Writes content to files with optional buffering and overwrite control.
 - `inputBuffer`: Alternative content source (can be nil)
 - `logger`: Logger instance
 
-**Example:**
+**See Example:** `tasks.NewFileOperationsTask()` - Shows file creation with various content types and configurations.
 
-```go
-action := actions.NewWriteFileAction(
-    "/tmp/config.yaml",
-    []byte("key: value\n"),
-    true,
-    nil,
-    logger,
-)
-```
+### ReadFileAction
+
+Reads file contents and stores them in a provided byte array buffer.
+
+**Constructor:** `NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logger)`
+
+**Parameters:**
+
+- `filePath`: Path to the file to read
+- `outputBuffer`: Pointer to byte array where file contents will be stored
+- `logger`: Logger instance
+
+**Features:**
+
+- Validates file existence before reading
+- Ensures the path is a regular file (not a directory)
+- Handles permission errors gracefully
+- Supports reading files of any size (limited by available memory)
+- Preserves all file content including special characters and unicode
+
+**See Example:** `tasks.NewReadFileOperationsTask()` - Demonstrates file reading with error handling and content processing.
+
+### CompressFileAction
+
+Compresses a file using the specified compression algorithm (currently supports gzip).
+
+**Constructor:** `NewCompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger)`
+
+**Parameters:**
+
+- `sourcePath`: Source file path to compress
+- `destinationPath`: Destination path for the compressed file
+- `compressionType`: Type of compression to use (e.g., `file.GzipCompression`)
+- `logger`: Logger instance
+
+**Supported Compression Types:**
+
+- `file.GzipCompression`: Gzip compression (`.gz` files)
+
+**Features:**
+
+- Validates source file existence and type
+- Creates destination directories automatically
+- Provides compression ratio information
+- Handles large files efficiently
+- Supports empty files
+
+**See Example:** `tasks.NewCompressionOperationsTask()` - Shows compression workflows with multiple files and auto-detection.
+
+### DecompressFileAction
+
+Decompresses a file using the specified compression algorithm. Supports auto-detection from file extension.
+
+**Constructor:** `NewDecompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger)`
+
+**Parameters:**
+
+- `sourcePath`: Source compressed file path
+- `destinationPath`: Destination path for the decompressed file
+- `compressionType`: Type of compression (can be empty for auto-detection)
+- `logger`: Logger instance
+
+**Auto-Detection:**
+
+When `compressionType` is empty, the action will auto-detect the compression type from the file extension:
+
+- `.gz`, `.gzip` → Gzip compression
+
+**Features:**
+
+- Validates source file existence and type
+- Creates destination directories automatically
+- Provides compression ratio information
+- Supports auto-detection from file extensions
+- Handles large files efficiently
+
+**See Example:** `tasks.NewCompressionWithAutoDetectTask()` - Demonstrates auto-detection capabilities.
 
 ### CopyFileAction
 
-Copies files with optional directory creation.
+Copies files and directories with optional recursive copying and directory creation.
 
-**Constructor:** `NewCopyFileAction(source string, destination string, createDirs bool, logger *slog.Logger)`
+**Constructor:** `NewCopyFileAction(source string, destination string, createDirs bool, recursive bool, logger *slog.Logger)`
 
 **Parameters:**
 
-- `source`: Source file path
-- `destination`: Destination file path
+- `source`: Source file or directory path
+- `destination`: Destination file or directory path
 - `createDirs`: Whether to create destination directories
+- `recursive`: Whether to copy directories recursively (uses -R flag equivalent)
 - `logger`: Logger instance
 
-**Example:**
+**See Example:** `tasks.NewFileOperationsTask()` - Shows file copying as part of backup and workflow operations.
 
-```go
-action := actions.NewCopyFileAction(
-    "/tmp/source.txt",
-    "/tmp/backup/source.txt",
-    true,
-    logger,
-)
-```
+### DeletePathAction
 
-### DeleteFileAction
+Safely deletes files and directories with optional recursive deletion and dry-run support.
 
-Safely deletes files with proper error handling.
-
-**Constructor:** `NewDeleteFileAction(filePath string, logger *slog.Logger)`
+**Constructor:** `NewDeletePathAction(path string, recursive bool, dryRun bool, logger *slog.Logger)`
 
 **Parameters:**
 
-- `filePath`: Path to file to delete
+- `path`: Path to file or directory to delete
+- `recursive`: Whether to delete directories recursively
+- `dryRun`: Whether to simulate deletion without actually deleting
 - `logger`: Logger instance
 
-**Example:**
+**Features:**
 
-```go
-action := actions.NewDeleteFileAction("/tmp/tempfile.txt", logger)
-```
+- Supports both files and directories
+- Recursive directory deletion with comprehensive logging
+- Dry-run mode for safe testing
+- Detailed deletion planning and statistics
+- Handles symlinks and special files
+- Graceful handling of non-existent paths
+
+**See Example:** `tasks.NewFileOperationsTask()` - Demonstrates safe file deletion and cleanup operations.
 
 ### ReplaceLinesAction
 
@@ -106,16 +172,7 @@ Replaces text in files using regex patterns.
 - `replacement`: Replacement text
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewReplaceLinesAction(
-    "/etc/config.conf",
-    `^port=.*`,
-    "port=8080",
-    logger,
-)
-```
+**See Example:** `tasks.NewFileOperationsTask()` - Shows text replacement in configuration files and source code.
 
 ### ChangeOwnershipAction
 
@@ -131,18 +188,6 @@ Changes file/directory ownership using chown command.
 - `recursive`: Whether to apply recursively
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewChangeOwnershipAction(
-    "/var/www/html",
-    "www-data",
-    "www-data",
-    true,
-    logger,
-)
-```
-
 ### ChangePermissionsAction
 
 Changes file/directory permissions using chmod command.
@@ -156,17 +201,6 @@ Changes file/directory permissions using chmod command.
 - `recursive`: Whether to apply recursively
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewChangePermissionsAction(
-    "/usr/local/bin/myapp",
-    "755",
-    false,
-    logger,
-)
-```
-
 ### MoveFileAction
 
 Moves/renames files and directories using mv command.
@@ -179,17 +213,6 @@ Moves/renames files and directories using mv command.
 - `destination`: Destination path
 - `createDirs`: Whether to create destination directories
 - `logger`: Logger instance
-
-**Example:**
-
-```go
-action := actions.NewMoveFileAction(
-    "/tmp/oldname.txt",
-    "/tmp/newname.txt",
-    false,
-    logger,
-)
-```
 
 ## Docker Operations
 
@@ -205,15 +228,7 @@ Starts Docker Compose services with optional working directory.
 - `workingDir`: Working directory for docker-compose command
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewDockerComposeUpAction(
-    []string{"web", "db"},
-    "/path/to/docker-compose",
-    logger,
-)
-```
+**See Example:** `tasks.NewDockerSetupTask()` - Demonstrates Docker environment setup and service management.
 
 ### DockerComposeDownAction
 
@@ -227,16 +242,6 @@ Stops Docker Compose services with optional working directory.
 - `workingDir`: Working directory for docker-compose command
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewDockerComposeDownAction(
-    []string{},
-    "/path/to/docker-compose",
-    logger,
-)
-```
-
 ### DockerComposeExecAction
 
 Executes commands in Docker Compose containers.
@@ -249,17 +254,6 @@ Executes commands in Docker Compose containers.
 - `command`: Command to execute
 - `workingDir`: Working directory for docker-compose command
 - `logger`: Logger instance
-
-**Example:**
-
-```go
-action := actions.NewDockerComposeExecAction(
-    "web",
-    []string{"php", "artisan", "migrate"},
-    "/path/to/project",
-    logger,
-)
-```
 
 ### DockerRunAction
 
@@ -275,18 +269,6 @@ Runs Docker containers with flexible configuration.
 - `inputBuffer`: Input buffer for container
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewDockerRunAction(
-    "nginx:alpine",
-    []string{"nginx", "-g", "daemon off;"},
-    []string{"-p", "80:80", "-d"},
-    nil,
-    logger,
-)
-```
-
 ### CheckContainerHealthAction
 
 Performs health checks on containers with retry logic.
@@ -301,18 +283,6 @@ Performs health checks on containers with retry logic.
 - `workingDir`: Working directory for docker commands
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewCheckContainerHealthAction(
-    "web-container",
-    10,
-    5*time.Second,
-    "/path/to/project",
-    logger,
-)
-```
-
 ### DockerGenericAction
 
 Executes generic Docker commands with flexible arguments.
@@ -323,15 +293,6 @@ Executes generic Docker commands with flexible arguments.
 
 - `args`: Docker command arguments
 - `logger`: Logger instance
-
-**Example:**
-
-```go
-action := actions.NewDockerGenericAction(
-    []string{"network", "create", "mynetwork"},
-    logger,
-)
-```
 
 ## System Management
 
@@ -347,15 +308,7 @@ Controls systemd services (start/stop/restart).
 - `action`: Action to perform ("start", "stop", "restart")
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewManageServiceAction(
-    "nginx",
-    "restart",
-    logger,
-)
-```
+**See Example:** `tasks.NewSystemManagementTask()` - Demonstrates system service management operations.
 
 ### ShutdownAction
 
@@ -369,15 +322,32 @@ Performs system shutdown or restart with optional delays.
 - `delay`: Delay before shutdown (e.g., "5", "now")
 - `logger`: Logger instance
 
-**Example:**
+### UpdatePackagesAction
 
-```go
-action := actions.NewShutdownAction(
-    "restart",
-    "5",
-    logger,
-)
-```
+Installs packages using the appropriate package manager for the operating system. Supports Debian-based Linux (apt) and macOS (Homebrew).
+
+**Constructor:** `NewUpdatePackagesAction(packageNames []string, logger *slog.Logger)`
+
+**Parameters:**
+
+- `packageNames`: List of package names to install
+- `logger`: Logger instance
+
+**Supported Platforms:**
+
+- **Debian-based Linux**: Uses `apt install -y` (automatically updates package list first)
+- **macOS**: Uses `brew install`
+- **Auto-detection**: Automatically detects the appropriate package manager
+
+**Features:**
+
+- Non-interactive installation (uses `-y` flag for apt)
+- Automatic package list updates for apt
+- Cross-platform compatibility
+- Comprehensive error handling
+- Detailed logging of installation progress
+
+**See Example:** `tasks.NewPackageManagementTask()` - Shows package installation workflows for different platforms.
 
 ## Utilities
 
@@ -392,14 +362,7 @@ Waits for a specified duration with context cancellation support.
 - `duration`: Duration to wait
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewWaitAction(
-    30*time.Second,
-    logger,
-)
-```
+**See Example:** `tasks.NewUtilityOperationsTask()` - Demonstrates utility operations including timing and delays.
 
 ### PrerequisiteCheckAction
 
@@ -412,18 +375,6 @@ Performs conditional execution based on custom check functions.
 - `checkFunc`: Function that returns true if prerequisites are met
 - `logger`: Logger instance
 
-**Example:**
-
-```go
-action := actions.NewPrerequisiteCheckAction(
-    func(ctx context.Context) (bool, error) {
-        _, err := os.Stat("/path/to/required/file")
-        return err == nil, nil
-    },
-    logger,
-)
-```
-
 ### FetchInterfacesAction
 
 Retrieves network interface information from the system.
@@ -434,43 +385,32 @@ Retrieves network interface information from the system.
 
 - `logger`: Logger instance
 
-**Example:**
+### ReadMACAddressAction
 
-```go
-action := actions.NewFetchInterfacesAction(logger)
-```
+Reads the MAC address of a specific network interface from the system.
 
-## Action Categories Summary
+**Constructor:** `NewReadMacAction(netInterface string, logger *slog.Logger)`
 
-- **File Operations**: 8 actions for comprehensive file/directory management
-- **Docker Operations**: 6 actions for container orchestration and management
-- **System Management**: 2 actions for system-level operations
-- **Utilities**: 3 actions for workflow control and system information
+**Parameters:**
 
-## Common Patterns
+- `netInterface`: Name of the network interface (e.g., "eth0", "wlan0")
+- `logger`: Logger instance
 
-### Error Handling
+**Features:**
 
-All actions implement proper error handling with:
+- Reads MAC address from `/sys/class/net/{interface}/address`
+- Trims whitespace from the result
+- Stores MAC address in the action for later retrieval
 
-- Input validation
-- Context cancellation support
-- Detailed error messages with context
-- Structured logging
+## Example Tasks
 
-### Testing Support
+For practical examples and complete workflows, see the following task functions in the `tasks/` directory:
 
-All actions support:
+- **File Operations**: `tasks.NewFileOperationsTask()` - Complete file management workflow
+- **Compression**: `tasks.NewCompressionOperationsTask()` - File compression and decompression
+- **Package Management**: `tasks.NewPackageManagementTask()` - Cross-platform package installation
+- **System Management**: `tasks.NewSystemManagementTask()` - System-level operations
+- **Utility Operations**: `tasks.NewUtilityOperationsTask()` - Utility and helper operations
+- **Docker Setup**: `tasks.NewDockerSetupTask()` - Docker environment configuration
 
-- Dependency injection for command runners
-- Mock implementations for testing
-- Comprehensive test coverage
-
-### Logging
-
-All actions provide:
-
-- Structured logging with consistent fields
-- Info-level logging for successful operations
-- Error-level logging with detailed context
-- Debug-level logging for troubleshooting
+Each example task demonstrates real-world usage patterns and can be used as a starting point for your own workflows.

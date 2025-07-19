@@ -175,6 +175,7 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineWithCopyOperations() {
 				sourceFile,
 				destFile,
 				true,
+				false,
 				suite.logger,
 			),
 		},
@@ -315,6 +316,7 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineComplexWorkflow() {
 			file.NewCopyFileAction(
 				filepath.Join(projectPath, "src", "main.go"),
 				filepath.Join(projectPath, "scripts", "main.go.backup"),
+				false,
 				false,
 				suite.logger,
 			),
