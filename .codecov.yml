@@ -1,0 +1,25 @@
+# Codecov configuration for task-engine
+# https://docs.codecov.com/docs/codecovyml-reference
+
+# Exclude example tasks and test files from coverage
+ignore:
+  - "tasks/example_*.go"
+  - "**/*_test.go"
+  - "mocks/"
+  - ".github/"
+  - "docs/"
+
+# Coverage settings
+coverage:
+  precision: 2
+  round: down
+  range: 80..100
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
