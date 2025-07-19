@@ -16,13 +16,20 @@ func NewDockerSetupTask(logger *slog.Logger, projectPath string) *engine.Task {
 		Actions: []engine.ActionWrapper{
 			// This would include Docker actions when they're available
 			// For now, we'll create a placeholder task
-			file.NewWriteFileAction(
-				projectPath+"/docker-setup.log",
-				[]byte("Docker setup completed"),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					projectPath+"/docker-setup.log",
+					[]byte("Docker setup completed"),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -48,13 +55,20 @@ func NewSystemManagementTask(logger *slog.Logger, serviceName string) *engine.Ta
 		Actions: []engine.ActionWrapper{
 			// This would include system management actions
 			// For now, we'll create a placeholder task
-			file.NewWriteFileAction(
-				"/tmp/system-management.log",
-				[]byte("System management operations completed"),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					"/tmp/system-management.log",
+					[]byte("System management operations completed"),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -68,13 +82,20 @@ func NewUtilityOperationsTask(logger *slog.Logger) *engine.Task {
 		Actions: []engine.ActionWrapper{
 			// This would include utility actions
 			// For now, we'll create a placeholder task
-			file.NewWriteFileAction(
-				"/tmp/utility-operations.log",
-				[]byte("Utility operations completed"),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					"/tmp/utility-operations.log",
+					[]byte("Utility operations completed"),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}

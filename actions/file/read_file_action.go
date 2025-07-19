@@ -13,17 +13,12 @@ import (
 
 // NewReadFileAction creates an action that reads content from a file.
 // The file contents will be stored in the provided buffer.
-func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logger) *engine.Action[*ReadFileAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
-	if filePath == "" {
-		logger.Error("Invalid parameter: filePath cannot be empty")
-		return nil
+func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logger) (*engine.Action[*ReadFileAction], error) {
+	if err := ValidateSourcePath(filePath); err != nil {
+		return nil, fmt.Errorf("invalid file path: %w", err)
 	}
 	if outputBuffer == nil {
-		logger.Error("Invalid parameter: outputBuffer cannot be nil")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: outputBuffer cannot be nil")
 	}
 
 	id := fmt.Sprintf("read-file-%s", filepath.Base(filePath))
@@ -34,7 +29,7 @@ func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logge
 			FilePath:     filePath,
 			OutputBuffer: outputBuffer,
 		},
-	}
+	}, nil
 }
 
 // ReadFileAction reads content from a file and stores it in the provided buffer
@@ -45,37 +40,44 @@ type ReadFileAction struct {
 }
 
 func (a *ReadFileAction) Execute(execCtx context.Context) error {
-	a.Logger.Info("Attempting to read file", "path", a.FilePath)
+	// Sanitize path to prevent path traversal attacks
+	sanitizedPath, err := SanitizePath(a.FilePath)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+
+	a.Logger.Info("Attempting to read file", "path", sanitizedPath)
 
 	// Check if file exists
-	fileInfo, err := os.Stat(a.FilePath)
+	fileInfo, err := os.Stat(sanitizedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			errMsg := fmt.Sprintf("file %s does not exist", a.FilePath)
+			errMsg := fmt.Sprintf("file %s does not exist", sanitizedPath)
 			a.Logger.Error(errMsg)
 			return errors.New(errMsg)
 		}
-		a.Logger.Error("Failed to stat file", "path", a.FilePath, "error", err)
-		return fmt.Errorf("failed to stat file %s: %w", a.FilePath, err)
+		a.Logger.Error("Failed to stat file", "path", sanitizedPath, "error", err)
+		return fmt.Errorf("failed to stat file %s: %w", sanitizedPath, err)
 	}
 
 	// Check if it's a regular file
 	if fileInfo.IsDir() {
-		errMsg := fmt.Sprintf("path %s is a directory, not a file", a.FilePath)
+		errMsg := fmt.Sprintf("path %s is a directory, not a file", sanitizedPath)
 		a.Logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
 
 	// Read the file contents
-	content, err := os.ReadFile(a.FilePath)
+	// nosec G304 - Path is sanitized by SanitizePath function
+	content, err := os.ReadFile(sanitizedPath)
 	if err != nil {
-		a.Logger.Error("Failed to read file", "path", a.FilePath, "error", err)
-		return fmt.Errorf("failed to read file %s: %w", a.FilePath, err)
+		a.Logger.Error("Failed to read file", "path", sanitizedPath, "error", err)
+		return fmt.Errorf("failed to read file %s: %w", sanitizedPath, err)
 	}
 
 	// Store the content in the output buffer
 	*a.OutputBuffer = content
 
-	a.Logger.Info("Successfully read file", "path", a.FilePath, "size", len(content))
+	a.Logger.Info("Successfully read file", "path", sanitizedPath, "size", len(content))
 	return nil
 }

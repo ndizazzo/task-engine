@@ -42,8 +42,9 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_Success() {
 		"scripts",
 	}
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
-	err := action.Execute(context.Background())
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
@@ -64,9 +65,10 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_EmptyInstal
 	logger := mocks.NewDiscardLogger()
 	directories := []string{"data"}
 
-	action := file.NewCreateDirectoriesAction(logger, "", directories)
+	action, err := file.NewCreateDirectoriesAction(logger, "", directories)
 
 	// With validation, action should be nil for invalid parameters
+	suite.Error(err)
 	suite.Nil(action, "Action should be nil when rootPath is empty")
 }
 
@@ -74,9 +76,10 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_EmptyDirect
 	logger := mocks.NewDiscardLogger()
 	directories := []string{}
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
 
 	// With validation, action should be nil for empty directories list
+	suite.Error(err)
 	suite.Nil(action, "Action should be nil when directories list is empty")
 }
 
@@ -90,8 +93,9 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_WithEmptyDi
 		"config",
 	}
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
-	err := action.Execute(context.Background())
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 
 	suite.NoError(err)
 	// Should create 3 directories (skipping the 2 empty ones)
@@ -115,8 +119,9 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_NestedPaths
 		"config/backend",
 	}
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
-	err := action.Execute(context.Background())
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
@@ -140,7 +145,8 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_AlreadyExis
 	err := os.MkdirAll(existingPath, 0750)
 	suite.Require().NoError(err)
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 
 	suite.NoError(err)
@@ -161,8 +167,9 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_RelativePat
 		"logs/./app",
 	}
 
-	action := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
-	err := action.Execute(context.Background())
+	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)

@@ -15,17 +15,12 @@ import (
 // NewWriteFileAction creates an action that writes content to a file.
 // If inputBuffer is provided, its content will be used.
 // Otherwise, the provided static content argument is used.
-func NewWriteFileAction(filePath string, content []byte, overwrite bool, inputBuffer *bytes.Buffer, logger *slog.Logger) *engine.Action[*WriteFileAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
-	if filePath == "" {
-		logger.Error("Invalid parameter: filePath cannot be empty")
-		return nil
+func NewWriteFileAction(filePath string, content []byte, overwrite bool, inputBuffer *bytes.Buffer, logger *slog.Logger) (*engine.Action[*WriteFileAction], error) {
+	if err := ValidateDestinationPath(filePath); err != nil {
+		return nil, fmt.Errorf("invalid file path: %w", err)
 	}
 	if inputBuffer == nil && len(content) == 0 {
-		logger.Error("Invalid parameter: either content or inputBuffer must be provided")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: either content or inputBuffer must be provided")
 	}
 
 	id := fmt.Sprintf("write-file-%s", filepath.Base(filePath))
@@ -38,7 +33,7 @@ func NewWriteFileAction(filePath string, content []byte, overwrite bool, inputBu
 			Overwrite:   overwrite,
 			InputBuffer: inputBuffer, // Store buffer pointer
 		},
-	}
+	}, nil
 }
 
 // WriteFileAction writes specified content to a file
@@ -54,6 +49,12 @@ type WriteFileAction struct {
 }
 
 func (a *WriteFileAction) Execute(execCtx context.Context) error {
+	// Sanitize path to prevent path traversal attacks
+	sanitizedPath, err := SanitizePath(a.FilePath)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+
 	contentToWrite := a.Content // Default to pre-defined content
 	if a.InputBuffer != nil {
 		contentToWrite = a.InputBuffer.Bytes()
@@ -62,31 +63,31 @@ func (a *WriteFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Debug("Using pre-defined content", "content_length", len(contentToWrite))
 	}
 
-	a.Logger.Info("Attempting to write file", "path", a.FilePath, "content_length", len(contentToWrite), "overwrite", a.Overwrite)
+	a.Logger.Info("Attempting to write file", "path", sanitizedPath, "content_length", len(contentToWrite), "overwrite", a.Overwrite)
 
 	if !a.Overwrite {
-		if _, err := os.Stat(a.FilePath); err == nil {
-			errMsg := fmt.Sprintf("file %s already exists and overwrite is set to false", a.FilePath)
+		if _, err := os.Stat(sanitizedPath); err == nil {
+			errMsg := fmt.Sprintf("file %s already exists and overwrite is set to false", sanitizedPath)
 			a.Logger.Error(errMsg)
 			return errors.New(errMsg)
 		} else if !os.IsNotExist(err) {
-			a.Logger.Error("Failed to check if file exists", "path", a.FilePath, "error", err)
-			return fmt.Errorf("failed to stat file %s before writing: %w", a.FilePath, err)
+			a.Logger.Error("Failed to check if file exists", "path", sanitizedPath, "error", err)
+			return fmt.Errorf("failed to stat file %s before writing: %w", sanitizedPath, err)
 		}
 	}
 
-	dir := filepath.Dir(a.FilePath)
+	dir := filepath.Dir(sanitizedPath)
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		a.Logger.Error("Failed to create parent directory for file", "path", dir, "error", err)
 		return fmt.Errorf("failed to create directory %s for file: %w", dir, err)
 	}
 
 	// Write the determined content
-	if err := os.WriteFile(a.FilePath, contentToWrite, 0600); err != nil {
-		a.Logger.Error("Failed to write file", "path", a.FilePath, "error", err)
-		return fmt.Errorf("failed to write file %s: %w", a.FilePath, err)
+	if err := os.WriteFile(sanitizedPath, contentToWrite, 0600); err != nil {
+		a.Logger.Error("Failed to write file", "path", sanitizedPath, "error", err)
+		return fmt.Errorf("failed to write file %s: %w", sanitizedPath, err)
 	}
 
-	a.Logger.Info("Successfully wrote file", "path", a.FilePath)
+	a.Logger.Info("Successfully wrote file", "path", sanitizedPath)
 	return nil
 }

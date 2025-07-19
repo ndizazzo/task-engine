@@ -16,25 +16,19 @@ import (
 
 // NewDecompressFileAction creates an action that decompresses a file using the specified compression type.
 // If compressionType is empty, it will be auto-detected from the file extension.
-func NewDecompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) *engine.Action[*DecompressFileAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
+func NewDecompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) (*engine.Action[*DecompressFileAction], error) {
 	if sourcePath == "" {
-		logger.Error("Invalid parameter: sourcePath cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: sourcePath cannot be empty")
 	}
 	if destinationPath == "" {
-		logger.Error("Invalid parameter: destinationPath cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: destinationPath cannot be empty")
 	}
 
 	// Auto-detect compression type if not specified
 	if compressionType == "" {
 		compressionType = DetectCompressionType(sourcePath)
 		if compressionType == "" {
-			logger.Error("Could not auto-detect compression type from file extension", "sourcePath", sourcePath)
-			return nil
+			return nil, fmt.Errorf("could not auto-detect compression type from file extension: %s", sourcePath)
 		}
 	}
 
@@ -43,8 +37,7 @@ func NewDecompressFileAction(sourcePath string, destinationPath string, compress
 	case GzipCompression:
 		// Valid compression type
 	default:
-		logger.Error("Invalid compression type", "compressionType", compressionType)
-		return nil
+		return nil, fmt.Errorf("invalid compression type: %s", compressionType)
 	}
 
 	id := fmt.Sprintf("decompress-file-%s-%s", compressionType, filepath.Base(sourcePath))
@@ -56,7 +49,7 @@ func NewDecompressFileAction(sourcePath string, destinationPath string, compress
 			DestinationPath: destinationPath,
 			CompressionType: compressionType,
 		},
-	}
+	}, nil
 }
 
 // DecompressFileAction decompresses a file using the specified compression algorithm
@@ -153,7 +146,12 @@ func (a *DecompressFileAction) decompressGzip(source io.Reader, destination io.W
 	}
 	defer gzipReader.Close()
 
-	_, err = io.Copy(destination, gzipReader)
+	// Use a limited reader to prevent decompression bomb attacks
+	// Limit to 100MB to prevent DoS attacks
+	const maxDecompressedSize = 100 * 1024 * 1024 // 100MB
+	limitedReader := io.LimitReader(gzipReader, maxDecompressedSize)
+
+	_, err = io.Copy(destination, limitedReader)
 	if err != nil {
 		return fmt.Errorf("failed to decompress with gzip: %w", err)
 	}

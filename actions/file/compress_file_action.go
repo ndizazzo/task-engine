@@ -25,21 +25,15 @@ const (
 )
 
 // NewCompressFileAction creates an action that compresses a file using the specified compression type.
-func NewCompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) *engine.Action[*CompressFileAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
+func NewCompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) (*engine.Action[*CompressFileAction], error) {
 	if sourcePath == "" {
-		logger.Error("Invalid parameter: sourcePath cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: sourcePath cannot be empty")
 	}
 	if destinationPath == "" {
-		logger.Error("Invalid parameter: destinationPath cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: destinationPath cannot be empty")
 	}
 	if compressionType == "" {
-		logger.Error("Invalid parameter: compressionType cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: compressionType cannot be empty")
 	}
 
 	// Validate compression type
@@ -47,8 +41,7 @@ func NewCompressFileAction(sourcePath string, destinationPath string, compressio
 	case GzipCompression:
 		// Valid compression type
 	default:
-		logger.Error("Invalid compression type", "compressionType", compressionType)
-		return nil
+		return nil, fmt.Errorf("invalid compression type: %s", compressionType)
 	}
 
 	id := fmt.Sprintf("compress-file-%s-%s", compressionType, filepath.Base(sourcePath))
@@ -60,7 +53,7 @@ func NewCompressFileAction(sourcePath string, destinationPath string, compressio
 			DestinationPath: destinationPath,
 			CompressionType: compressionType,
 		},
-	}
+	}, nil
 }
 
 // CompressFileAction compresses a file using the specified compression algorithm

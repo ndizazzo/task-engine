@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -19,33 +20,27 @@ type CopyFileAction struct {
 	Recursive   bool
 }
 
-func NewCopyFileAction(source, destination string, createDir, recursive bool, logger *slog.Logger) *task_engine.Action[*CopyFileAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+func NewCopyFileAction(source, destination string, createDir, recursive bool, logger *slog.Logger) (*task_engine.Action[*CopyFileAction], error) {
+	if err := ValidateSourcePath(source); err != nil {
+		return nil, fmt.Errorf("invalid source path: %w", err)
 	}
-	if source == "" {
-		logger.Error("Invalid parameter: source cannot be empty")
-		return nil
-	}
-	if destination == "" {
-		logger.Error("Invalid parameter: destination cannot be empty")
-		return nil
+	if err := ValidateDestinationPath(destination); err != nil {
+		return nil, fmt.Errorf("invalid destination path: %w", err)
 	}
 	if source == destination {
-		logger.Error("Invalid parameter: source and destination cannot be the same")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: source and destination cannot be the same")
 	}
 
 	return &task_engine.Action[*CopyFileAction]{
 		ID: "copy-file-action",
 		Wrapped: &CopyFileAction{
-			BaseAction:  task_engine.BaseAction{Logger: logger},
+			BaseAction:  task_engine.NewBaseAction(logger),
 			Source:      source,
 			Destination: destination,
 			CreateDir:   createDir,
 			Recursive:   recursive,
 		},
-	}
+	}, nil
 }
 
 func (a *CopyFileAction) Execute(execCtx context.Context) error {
@@ -144,21 +139,33 @@ func (a *CopyFileAction) executeRecursiveCopy() error {
 }
 
 func (a *CopyFileAction) copyFile(src, dst string, mode os.FileMode) error {
+	// Sanitize paths to prevent path traversal attacks
+	sanitizedSrc, err := SanitizePath(src)
+	if err != nil {
+		return fmt.Errorf("invalid source path: %w", err)
+	}
+	sanitizedDst, err := SanitizePath(dst)
+	if err != nil {
+		return fmt.Errorf("invalid destination path: %w", err)
+	}
+
 	// Create destination directory if it doesn't exist
-	destDir := filepath.Dir(dst)
+	destDir := filepath.Dir(sanitizedDst)
 	if err := os.MkdirAll(destDir, 0750); err != nil {
 		return err
 	}
 
 	// Open source file
-	srcFile, err := os.Open(src)
+	// nosec G304 - Path is sanitized by SanitizePath function
+	srcFile, err := os.Open(sanitizedSrc)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
 	// Create destination file
-	dstFile, err := os.Create(dst)
+	// nosec G304 - Path is sanitized by SanitizePath function
+	dstFile, err := os.Create(sanitizedDst)
 	if err != nil {
 		return err
 	}
@@ -174,20 +181,30 @@ func (a *CopyFileAction) copyFile(src, dst string, mode os.FileMode) error {
 }
 
 func (a *CopyFileAction) copySymlink(src, dst string) error {
+	// Sanitize paths to prevent path traversal attacks
+	sanitizedSrc, err := SanitizePath(src)
+	if err != nil {
+		return fmt.Errorf("invalid source path: %w", err)
+	}
+	sanitizedDst, err := SanitizePath(dst)
+	if err != nil {
+		return fmt.Errorf("invalid destination path: %w", err)
+	}
+
 	// Read the symlink target
-	target, err := os.Readlink(src)
+	target, err := os.Readlink(sanitizedSrc)
 	if err != nil {
 		return err
 	}
 
 	// Create the destination directory if it doesn't exist
-	destDir := filepath.Dir(dst)
+	destDir := filepath.Dir(sanitizedDst)
 	if err := os.MkdirAll(destDir, 0750); err != nil {
 		return err
 	}
 
 	// Create the symlink in the destination
-	return os.Symlink(target, dst)
+	return os.Symlink(target, sanitizedDst)
 }
 
 func (a *CopyFileAction) executeFileCopy() error {

@@ -32,9 +32,10 @@ func (suite *WriteFileTestSuite) TestExecuteSuccessNewFile() {
 	targetFile := filepath.Join(suite.tempDir, "subdir", "output.txt")
 	expectedContent := []byte("Hello, World!\nThis is a test.")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewWriteFileAction(targetFile, expectedContent, false, nil, logger)
+	action, err := file.NewWriteFileAction(targetFile, expectedContent, false, nil, logger)
+	suite.Require().NoError(err)
 
-	_, err := os.Stat(targetFile)
+	_, err = os.Stat(targetFile)
 	suite.True(os.IsNotExist(err))
 
 	err = action.Wrapped.Execute(context.Background())
@@ -50,9 +51,10 @@ func (suite *WriteFileTestSuite) TestExecuteSuccessEmptyContent() {
 	logger := command_mock.NewDiscardLogger()
 	// Use an empty buffer instead of nil content to satisfy validation
 	var buffer bytes.Buffer
-	action := file.NewWriteFileAction(targetFile, nil, false, &buffer, logger)
+	action, err := file.NewWriteFileAction(targetFile, nil, false, &buffer, logger)
+	suite.Require().NoError(err)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 	fileInfo, err := os.Stat(targetFile)
 	suite.NoError(err)
@@ -67,7 +69,8 @@ func (suite *WriteFileTestSuite) TestExecuteFailureAlreadyExistsNoOverwrite() {
 
 	newContent := []byte("New Content")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewWriteFileAction(targetFile, newContent, false, nil, logger)
+	action, err := file.NewWriteFileAction(targetFile, newContent, false, nil, logger)
+	suite.Require().NoError(err)
 
 	execErr := action.Wrapped.Execute(context.Background())
 	suite.Error(execErr)
@@ -86,7 +89,8 @@ func (suite *WriteFileTestSuite) TestExecuteSuccessAlreadyExistsOverwrite() {
 
 	newContent := []byte("New Content - Overwritten")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewWriteFileAction(targetFile, newContent, true, nil, logger) // overwrite = true
+	action, err := file.NewWriteFileAction(targetFile, newContent, true, nil, logger) // overwrite = true
+	suite.Require().NoError(err)
 
 	execErr := action.Wrapped.Execute(context.Background())
 	suite.NoError(execErr)
@@ -104,7 +108,8 @@ func (suite *WriteFileTestSuite) TestExecuteFailureNoPermissions() {
 	targetFile := filepath.Join(readOnlyDir, "cant_write_here")
 	content := []byte("some content")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewWriteFileAction(targetFile, content, false, nil, logger) // overwrite = false
+	action, err := file.NewWriteFileAction(targetFile, content, false, nil, logger) // overwrite = false
+	suite.Require().NoError(err)
 
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
@@ -119,7 +124,8 @@ func (suite *WriteFileTestSuite) TestExecuteSuccessWithBuffer() {
 	_, err := buffer.WriteString(expectedContent)
 	suite.Require().NoError(err)
 
-	action := file.NewWriteFileAction(targetFile, nil, true, &buffer, logger)
+	action, err := file.NewWriteFileAction(targetFile, nil, true, &buffer, logger)
+	suite.Require().NoError(err)
 
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
@@ -133,18 +139,20 @@ func (suite *WriteFileTestSuite) TestNewWriteFileActionNilLogger() {
 	targetFile := filepath.Join(suite.tempDir, "test.txt")
 	content := []byte("test content")
 
-	// Should not panic and should create a default logger
-	action := file.NewWriteFileAction(targetFile, content, true, nil, nil)
+	// Should not panic and should allow nil logger
+	action, err := file.NewWriteFileAction(targetFile, content, true, nil, nil)
+	suite.NoError(err)
 	suite.NotNil(action)
-	suite.NotNil(action.Wrapped.Logger)
+	suite.Nil(action.Wrapped.Logger)
 }
 
 func (suite *WriteFileTestSuite) TestNewWriteFileActionEmptyFilePath() {
 	logger := command_mock.NewDiscardLogger()
 	content := []byte("test content")
 
-	// Should return nil for empty file path
-	action := file.NewWriteFileAction("", content, true, nil, logger)
+	// Should return error for empty file path
+	action, err := file.NewWriteFileAction("", content, true, nil, logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -152,8 +160,9 @@ func (suite *WriteFileTestSuite) TestNewWriteFileActionNoContentNoBuffer() {
 	targetFile := filepath.Join(suite.tempDir, "test.txt")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return nil when neither content nor buffer is provided
-	action := file.NewWriteFileAction(targetFile, nil, true, nil, logger)
+	// Should return error when neither content nor buffer is provided
+	action, err := file.NewWriteFileAction(targetFile, nil, true, nil, logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -163,7 +172,8 @@ func (suite *WriteFileTestSuite) TestNewWriteFileActionValidParameters() {
 	logger := command_mock.NewDiscardLogger()
 
 	// Should return valid action for valid parameters
-	action := file.NewWriteFileAction(targetFile, content, true, nil, logger)
+	action, err := file.NewWriteFileAction(targetFile, content, true, nil, logger)
+	suite.NoError(err)
 	suite.NotNil(action)
 	suite.Equal("write-file-test.txt", action.ID)
 	suite.Equal(targetFile, action.Wrapped.FilePath)
@@ -179,7 +189,8 @@ func (suite *WriteFileTestSuite) TestNewWriteFileActionWithBuffer() {
 	logger := command_mock.NewDiscardLogger()
 
 	// Should return valid action when using buffer
-	action := file.NewWriteFileAction(targetFile, nil, false, &buffer, logger)
+	action, err := file.NewWriteFileAction(targetFile, nil, false, &buffer, logger)
+	suite.NoError(err)
 	suite.NotNil(action)
 	suite.Equal("write-file-test.txt", action.ID)
 	suite.Equal(targetFile, action.Wrapped.FilePath)
@@ -202,7 +213,8 @@ func (suite *WriteFileTestSuite) TestExecuteFailureStatError() {
 	targetFile := filepath.Join(readOnlyDir, "subdir", "test.txt")
 	content := []byte("test content")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewWriteFileAction(targetFile, content, false, nil, logger)
+	action, err := file.NewWriteFileAction(targetFile, content, false, nil, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action - should fail because we can't create the parent directory
 	execErr := action.Wrapped.Execute(context.Background())

@@ -9,7 +9,6 @@ import (
 
 	"syscall"
 
-	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
 	command_mock "github.com/ndizazzo/task-engine/mocks"
 	"github.com/stretchr/testify/suite"
@@ -32,16 +31,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_Success() {
 	err := os.WriteFile(sourceFile, []byte("test content"), 0600)
 	suite.NoError(err)
 
-	copyAction := &task_engine.Action[*file.CopyFileAction]{
-		ID: "copy-file-success",
-		Wrapped: &file.CopyFileAction{
-			Source:      sourceFile,
-			Destination: destinationFile,
-			CreateDir:   false,
-			Recursive:   false,
-		},
-	}
-
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -61,16 +52,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_CreateDirTrue() {
 	err := os.WriteFile(sourceFile, []byte("test content"), 0600)
 	suite.NoError(err)
 
-	copyAction := &task_engine.Action[*file.CopyFileAction]{
-		ID: "copy-file-create-dir",
-		Wrapped: &file.CopyFileAction{
-			Source:      sourceFile,
-			Destination: destinationFile,
-			CreateDir:   true,
-			Recursive:   false,
-		},
-	}
-
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, true, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -86,7 +69,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_CreateDirFalse() {
 	err := os.WriteFile(sourceFile, []byte("test content"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 
 	suite.Error(err)
@@ -108,7 +92,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveSuccess() {
 	err = os.WriteFile(sourceFile2, []byte("content2"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -148,7 +133,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithNestedDirectorie
 	err = os.WriteFile(sourceFile, []byte("nested content"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -179,7 +165,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithCreateDir() {
 	err = os.WriteFile(sourceFile, []byte("content"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -205,7 +192,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveFileAsSource() {
 	suite.NoError(err)
 
 	// Test recursive copy with a file (should work the same as non-recursive)
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -221,8 +209,9 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_SourceDoesNotExist() {
 	nonExistentSource := filepath.Join(suite.tempDir, "nonexistent.txt")
 	destinationFile := filepath.Join(suite.tempDir, "destination.txt")
 
-	copyAction := file.NewCopyFileAction(nonExistentSource, destinationFile, false, false, nil)
-	err := copyAction.Execute(context.Background())
+	copyAction, err := file.NewCopyFileAction(nonExistentSource, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
+	err = copyAction.Execute(context.Background())
 
 	suite.Error(err)
 	suite.True(os.IsNotExist(err))
@@ -232,8 +221,9 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveSourceDoesNotExist()
 	nonExistentSource := filepath.Join(suite.tempDir, "nonexistent_dir")
 	destinationDir := filepath.Join(suite.tempDir, "dest_dir")
 
-	copyAction := file.NewCopyFileAction(nonExistentSource, destinationDir, false, true, nil)
-	err := copyAction.Execute(context.Background())
+	copyAction, err := file.NewCopyFileAction(nonExistentSource, destinationDir, false, true, nil)
+	suite.Require().NoError(err)
+	err = copyAction.Execute(context.Background())
 
 	suite.Error(err)
 	suite.True(os.IsNotExist(err))
@@ -243,15 +233,18 @@ func (suite *CopyFileActionTestSuite) TestNewCopyFileAction_InvalidParameters() 
 	logger := command_mock.NewDiscardLogger()
 
 	// Test empty source
-	action := file.NewCopyFileAction("", "/dest", false, false, logger)
+	action, err := file.NewCopyFileAction("", "/dest", false, false, logger)
+	suite.Error(err)
 	suite.Nil(action)
 
 	// Test empty destination
-	action = file.NewCopyFileAction("/source", "", false, false, logger)
+	action, err = file.NewCopyFileAction("/source", "", false, false, logger)
+	suite.Error(err)
 	suite.Nil(action)
 
 	// Test same source and destination
-	action = file.NewCopyFileAction("/same", "/same", false, false, logger)
+	action, err = file.NewCopyFileAction("/same", "/same", false, false, logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -269,7 +262,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_ReadOnlySource() {
 	err = os.Chmod(sourceFile, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err) // Should still be able to read and copy
 
@@ -294,7 +288,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_ReadOnlyDestination() {
 	err = os.WriteFile(destinationFile, []byte("existing content"), 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail to overwrite read-only file
 
@@ -317,7 +312,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_ReadOnlyDestinationDirectory(
 	err = os.MkdirAll(readOnlyDir, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail to create file in read-only directory
 
@@ -338,7 +334,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_LargeFile() {
 	err := os.WriteFile(sourceFile, largeContent, 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -357,7 +354,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_EmptyFile() {
 	err := os.WriteFile(sourceFile, []byte{}, 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -375,7 +373,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_SpecialCharacters() {
 	err := os.WriteFile(sourceFile, []byte(content), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -403,7 +402,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithSymlinks() {
 	err = os.Symlink(realFile, symlinkFile)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -437,7 +437,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithCircularSymlinks
 	err = os.Symlink(circularLink, circularLink)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err) // Should handle circular symlinks gracefully
 
@@ -466,7 +467,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithBrokenSymlinks()
 	err = os.Symlink("/nonexistent/path", brokenLink)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err) // Should handle broken symlinks gracefully
 
@@ -495,7 +497,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithEmptyDirectories
 	err = os.MkdirAll(emptyDir2, 0750)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -530,7 +533,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithHiddenFiles() {
 	err = os.WriteFile(dotFile, []byte("dot file content"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -566,7 +570,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithPermissionErrors
 	err = os.WriteFile(restrictedFile, []byte("restricted content"), 0000)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to read restricted file
 
@@ -594,7 +599,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithDirectoryCreatio
 	err = os.MkdirAll(parentDir, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// This might succeed or fail depending on the system, but we're testing the path
 	// The important thing is that it doesn't panic and handles the scenario gracefully
@@ -625,7 +631,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithRelativePathErro
 	err = os.Chdir("/tmp")
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// This might succeed or fail depending on the system, but we're testing the path calculation
 	// The important thing is that it doesn't panic
@@ -648,7 +655,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithSymlinkCopyFailu
 	err = os.MkdirAll(destinationDir, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should continue despite symlink copy failure
 	suite.NoError(err)
@@ -678,7 +686,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithSpecialFiles() {
 		suite.T().Skip("Cannot create FIFO on this system")
 	}
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -705,7 +714,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_FileCopyWithDirectoryCreation
 	err = os.MkdirAll(filepath.Dir(destinationFile), 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, true, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, true, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to create destination directory
 
@@ -722,7 +732,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_FileCopyWithSourceOpenFailure
 	err := os.MkdirAll(sourceDir, 0750)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to open directory as file
 }
@@ -739,7 +750,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_FileCopyWithDestinationCreate
 	err = os.WriteFile(destinationFile, []byte("existing"), 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to create destination file
 
@@ -759,7 +771,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_FileCopyWithCopyFailure() {
 	err = os.Chmod(sourceFile, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	copyAction, err := file.NewCopyFileAction(sourceFile, destinationFile, false, false, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// This might succeed or fail depending on the system, but we're testing the copy path
 	// The important thing is that it doesn't panic
@@ -790,7 +803,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_SymlinkWithReadlinkFailure() 
 	err = os.Remove(realFile)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should continue despite readlink failure
 	suite.NoError(err)
@@ -813,7 +827,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_SymlinkWithDirectoryCreationF
 	err = os.MkdirAll(destinationDir, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should continue despite directory creation failure
 	suite.NoError(err)
@@ -842,7 +857,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_SymlinkWithSymlinkCreationFai
 	err = os.WriteFile(destSymlinkFile, []byte("blocking file"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should continue despite symlink creation failure
 	suite.NoError(err)
@@ -872,7 +888,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithFileCopyFailure(
 	err = os.MkdirAll(destinationDir, 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to copy files
 
@@ -903,7 +920,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithDirectoryCreatio
 	err = os.WriteFile(nestedDestDir, []byte("blocking file"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.Error(err) // Should fail when trying to create nested directory
 }
@@ -926,7 +944,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithWalkError() {
 	err = os.MkdirAll(restrictedDir, 0000)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should handle walk errors gracefully
 	suite.NoError(err)
@@ -957,7 +976,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithChmodFailure() {
 	err = os.WriteFile(destFile, []byte("existing"), 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should fail when trying to overwrite read-only file
 	suite.Error(err)
@@ -988,7 +1008,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithIoCopyFailure() 
 	err = os.WriteFile(destFile, []byte("existing"), 0400)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	// Should fail when trying to overwrite read-only file
 	suite.Error(err)
@@ -1015,7 +1036,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithDeepNesting() {
 	err = os.WriteFile(deepFile, []byte("deep content"), 0600)
 	suite.NoError(err)
 
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 	err = copyAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -1045,7 +1067,8 @@ func (suite *CopyFileActionTestSuite) TestCopyFile_RecursiveWithConcurrentAccess
 	}
 
 	// Start copy operation
-	copyAction := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	copyAction, err := file.NewCopyFileAction(sourceDir, destinationDir, true, true, nil)
+	suite.Require().NoError(err)
 
 	// Simulate concurrent access by modifying source files during copy
 	go func() {

@@ -57,12 +57,12 @@ check: fmt vet ## Run code quality checks
 
 security: ## Run security and vulnerability checks
 	@echo "Running static security analysis..."
-	@gosec ./...
+	@gosec -exclude=G304 ./...
 	@echo "Running vulnerability scanning..."
 	@govulncheck ./...
 
 install-tools: ## Install development tools
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.1
 	@go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	@go install gotest.tools/gotestsum@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest

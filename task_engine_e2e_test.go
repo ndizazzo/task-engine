@@ -116,18 +116,26 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineFileOperations() {
 		ID:   "e2e-file-operations",
 		Name: "End-to-End File Operations Test",
 		Actions: []task_engine.ActionWrapper{
-			file.NewCreateDirectoriesAction(
-				suite.logger,
-				suite.hostTempDir,
-				testDirs,
-			),
-			file.NewWriteFileAction(
-				testFilePath,
-				testFileContent,
-				true,
-				nil,
-				suite.logger,
-			),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewCreateDirectoriesAction(
+					suite.logger,
+					suite.hostTempDir,
+					testDirs,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					testFilePath,
+					testFileContent,
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
 		},
 		Logger: suite.logger,
 	}
@@ -159,25 +167,37 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineWithCopyOperations() {
 		ID:   "e2e-copy-operations",
 		Name: "End-to-End Copy Operations Test",
 		Actions: []task_engine.ActionWrapper{
-			file.NewCreateDirectoriesAction(
-				suite.logger,
-				suite.hostTempDir,
-				[]string{"source"},
-			),
-			file.NewWriteFileAction(
-				sourceFile,
-				configContent,
-				true,
-				nil,
-				suite.logger,
-			),
-			file.NewCopyFileAction(
-				sourceFile,
-				destFile,
-				true,
-				false,
-				suite.logger,
-			),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewCreateDirectoriesAction(
+					suite.logger,
+					suite.hostTempDir,
+					[]string{"source"},
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					sourceFile,
+					configContent,
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewCopyFileAction(
+					sourceFile,
+					destFile,
+					true,
+					false,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
 		},
 		Logger: suite.logger,
 	}
@@ -208,13 +228,17 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineErrorHandling() {
 		ID:   "e2e-error-handling",
 		Name: "End-to-End Error Handling Test",
 		Actions: []task_engine.ActionWrapper{
-			file.NewWriteFileAction(
-				invalidPath,
-				[]byte("This should fail"),
-				true,
-				nil,
-				suite.logger,
-			),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					invalidPath,
+					[]byte("This should fail"),
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
 		},
 		Logger: suite.logger,
 	}
@@ -280,46 +304,70 @@ func (suite *TaskEngineE2ETestSuite) TestTaskEngineComplexWorkflow() {
 		ID:   "e2e-complex-workflow",
 		Name: "End-to-End Complex Workflow Test",
 		Actions: []task_engine.ActionWrapper{
-			file.NewCreateDirectoriesAction(
-				suite.logger,
-				projectPath,
-				[]string{"src", "docs", "tests", "configs", "scripts"},
-			),
-			file.NewWriteFileAction(
-				filepath.Join(projectPath, "src", "main.go"),
-				[]byte("package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}"),
-				true,
-				nil,
-				suite.logger,
-			),
-			file.NewWriteFileAction(
-				filepath.Join(projectPath, "docs", "README.md"),
-				[]byte("# Complex Project\n\nThis is a complex project structure created by task engine."),
-				true,
-				nil,
-				suite.logger,
-			),
-			file.NewWriteFileAction(
-				filepath.Join(projectPath, "configs", "app.yaml"),
-				[]byte("app:\n  name: complex-project\n  version: 1.0.0\n  debug: true"),
-				true,
-				nil,
-				suite.logger,
-			),
-			file.NewWriteFileAction(
-				filepath.Join(projectPath, "tests", "main_test.go"),
-				[]byte("package main\n\nimport \"testing\"\n\nfunc TestMain(t *testing.T) {\n\t// Test implementation\n}"),
-				true,
-				nil,
-				suite.logger,
-			),
-			file.NewCopyFileAction(
-				filepath.Join(projectPath, "src", "main.go"),
-				filepath.Join(projectPath, "scripts", "main.go.backup"),
-				false,
-				false,
-				suite.logger,
-			),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewCreateDirectoriesAction(
+					suite.logger,
+					projectPath,
+					[]string{"src", "docs", "tests", "configs", "scripts"},
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					filepath.Join(projectPath, "src", "main.go"),
+					[]byte("package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}"),
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					filepath.Join(projectPath, "docs", "README.md"),
+					[]byte("# Complex Project\n\nThis is a complex project structure created by task engine."),
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					filepath.Join(projectPath, "configs", "app.yaml"),
+					[]byte("app:\n  name: complex-project\n  version: 1.0.0\n  debug: true"),
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					filepath.Join(projectPath, "tests", "main_test.go"),
+					[]byte("package main\n\nimport \"testing\"\n\nfunc TestMain(t *testing.T) {\n\t// Test implementation\n}"),
+					true,
+					nil,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := file.NewCopyFileAction(
+					filepath.Join(projectPath, "src", "main.go"),
+					filepath.Join(projectPath, "scripts", "main.go.backup"),
+					false,
+					false,
+					suite.logger,
+				)
+				require.NoError(suite.T(), err)
+				return action
+			}(),
 		},
 		Logger: suite.logger,
 	}

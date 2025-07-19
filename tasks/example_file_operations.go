@@ -16,38 +16,66 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 		Name: "File Operations Example",
 		Actions: []engine.ActionWrapper{
 			// Step 1: Create project structure
-			file.NewCreateDirectoriesAction(
-				logger,
-				workingDir,
-				[]string{"src", "tests", "docs", "tmp"},
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewCreateDirectoriesAction(
+					logger,
+					workingDir,
+					[]string{"src", "tests", "docs", "tmp"},
+				)
+				if err != nil {
+					logger.Error("Failed to create directories action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 2: Create initial source file
-			file.NewWriteFileAction(
-				workingDir+"/src/main.go",
-				[]byte(initialSourceCode),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					workingDir+"/src/main.go",
+					[]byte(initialSourceCode),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 3: Create a configuration file
-			file.NewWriteFileAction(
-				workingDir+"/config.json",
-				[]byte(initialConfig),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					workingDir+"/config.json",
+					[]byte(initialConfig),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 4: Copy the source file to backup
-			file.NewCopyFileAction(
-				workingDir+"/src/main.go",
-				workingDir+"/src/main.go.backup",
-				true,  // createDir
-				false, // recursive
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewCopyFileAction(
+					workingDir+"/src/main.go",
+					workingDir+"/src/main.go.backup",
+					true,  // createDir
+					false, // recursive
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create copy file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 5: Replace placeholder text in the source file
 			file.NewReplaceLinesAction(
@@ -68,30 +96,51 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 			),
 
 			// Step 7: Create documentation
-			file.NewWriteFileAction(
-				workingDir+"/docs/README.md",
-				[]byte(documentationContent),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					workingDir+"/docs/README.md",
+					[]byte(documentationContent),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 8: Create a temporary test file
-			file.NewWriteFileAction(
-				workingDir+"/tmp/test.txt",
-				[]byte("This is a temporary test file"),
-				true,
-				nil,
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(
+					workingDir+"/tmp/test.txt",
+					[]byte("This is a temporary test file"),
+					true,
+					nil,
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 9: Clean up temporary file
-			file.NewDeletePathAction(
-				workingDir+"/tmp/test.txt",
-				false, // recursive
-				false, // dryRun
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action, err := file.NewDeletePathAction(
+					workingDir+"/tmp/test.txt",
+					false, // recursive
+					false, // dryRun
+					logger,
+				)
+				if err != nil {
+					logger.Error("Failed to create delete path action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}

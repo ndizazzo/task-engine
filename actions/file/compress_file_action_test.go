@@ -41,7 +41,8 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessGzip() {
 
 	destFile := filepath.Join(suite.tempDir, "compressed.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -74,7 +75,8 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessGzipLargeFile() {
 
 	destFile := filepath.Join(suite.tempDir, "large_compressed.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -99,7 +101,8 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessGzipEmptyFile() {
 
 	destFile := filepath.Join(suite.tempDir, "empty_compressed.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -115,10 +118,11 @@ func (suite *CompressFileTestSuite) TestExecuteFailureSourceNotExists() {
 	nonExistentFile := filepath.Join(suite.tempDir, "nonexistent.txt")
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(nonExistentFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(nonExistentFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
 	suite.ErrorContains(err, "does not exist")
 }
@@ -131,7 +135,8 @@ func (suite *CompressFileTestSuite) TestExecuteFailureSourceIsDirectory() {
 
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceDir, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceDir, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -152,7 +157,8 @@ func (suite *CompressFileTestSuite) TestExecuteFailureNoWritePermission() {
 
 	destFile := filepath.Join(readOnlyDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -164,18 +170,20 @@ func (suite *CompressFileTestSuite) TestNewCompressFileActionNilLogger() {
 	sourceFile := filepath.Join(suite.tempDir, "source.txt")
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 
-	// Should not panic and should create a default logger
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, nil)
+	// Should not panic and should allow nil logger
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, nil)
+	suite.NoError(err)
 	suite.NotNil(action)
-	suite.NotNil(action.Wrapped.Logger)
+	suite.Nil(action.Wrapped.Logger)
 }
 
 func (suite *CompressFileTestSuite) TestNewCompressFileActionEmptySourcePath() {
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return nil for empty source path
-	action := file.NewCompressFileAction("", destFile, file.GzipCompression, logger)
+	// Should return error for empty source path
+	action, err := file.NewCompressFileAction("", destFile, file.GzipCompression, logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -183,8 +191,9 @@ func (suite *CompressFileTestSuite) TestNewCompressFileActionEmptyDestinationPat
 	sourceFile := filepath.Join(suite.tempDir, "source.txt")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return nil for empty destination path
-	action := file.NewCompressFileAction(sourceFile, "", file.GzipCompression, logger)
+	// Should return error for empty destination path
+	action, err := file.NewCompressFileAction(sourceFile, "", file.GzipCompression, logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -193,8 +202,9 @@ func (suite *CompressFileTestSuite) TestNewCompressFileActionEmptyCompressionTyp
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return nil for empty compression type
-	action := file.NewCompressFileAction(sourceFile, destFile, "", logger)
+	// Should return error for empty compression type
+	action, err := file.NewCompressFileAction(sourceFile, destFile, "", logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -203,8 +213,9 @@ func (suite *CompressFileTestSuite) TestNewCompressFileActionInvalidCompressionT
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return nil for invalid compression type
-	action := file.NewCompressFileAction(sourceFile, destFile, "invalid", logger)
+	// Should return error for invalid compression type
+	action, err := file.NewCompressFileAction(sourceFile, destFile, "invalid", logger)
+	suite.Error(err)
 	suite.Nil(action)
 }
 
@@ -214,7 +225,8 @@ func (suite *CompressFileTestSuite) TestNewCompressFileActionValidParameters() {
 	logger := command_mock.NewDiscardLogger()
 
 	// Should return valid action for valid parameters
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.NoError(err)
 	suite.NotNil(action)
 	suite.Equal("compress-file-gzip-source.txt", action.ID)
 	suite.Equal(sourceFile, action.Wrapped.SourcePath)
@@ -232,7 +244,8 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessCreatesDestinationDirector
 	// Try to compress to a path with non-existent directory
 	destFile := filepath.Join(suite.tempDir, "new_dir", "subdir", "output.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
@@ -260,7 +273,8 @@ func (suite *CompressFileTestSuite) TestExecuteFailureStatErrorNotIsNotExist() {
 
 	destFile := filepath.Join(suite.tempDir, "output.gz")
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
+	suite.Require().NoError(err)
 
 	// Execute the action
 	err = action.Wrapped.Execute(context.Background())

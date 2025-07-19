@@ -31,13 +31,34 @@ func NewCompressionOperationsTask(logger *slog.Logger, workingDir string) *engin
 		Name: "Compression Operations Example",
 		Actions: []engine.ActionWrapper{
 			// Step 1: Create the test file
-			file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 2: Compress the file using gzip
-			file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger)
+				if err != nil {
+					logger.Error("Failed to create compress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Step 3: Decompress the file back to a new location
-			file.NewDecompressFileAction(compressedFile, decompressedFile, file.GzipCompression, logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, file.GzipCompression, logger)
+				if err != nil {
+					logger.Error("Failed to create decompress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -60,13 +81,34 @@ func NewCompressionWithAutoDetectTask(logger *slog.Logger, workingDir string) *e
 		Name: "Compression Auto-Detection Example",
 		Actions: []engine.ActionWrapper{
 			// Create the test file
-			file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+				if err != nil {
+					logger.Error("Failed to create write file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Compress with .gz extension
-			file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger)
+				if err != nil {
+					logger.Error("Failed to create compress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Decompress using auto-detection (empty compression type)
-			file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger),
+			func() engine.ActionWrapper {
+				action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger)
+				if err != nil {
+					logger.Error("Failed to create decompress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -103,18 +145,33 @@ func NewCompressionWorkflowTask(logger *slog.Logger, workingDir string) *engine.
 	// Step 1: Create source files
 	for i, sourceFile := range sourceFiles {
 		content := contents[i] + " " + contents[i] + " " + contents[i] // Repeat for better compression
-		actions = append(actions, file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger))
+		action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+		if err != nil {
+			logger.Error("Failed to create write file action", "error", err)
+			continue
+		}
+		actions = append(actions, action)
 	}
 
 	// Step 2: Compress each file
 	for i, sourceFile := range sourceFiles {
-		actions = append(actions, file.NewCompressFileAction(sourceFile, compressedFiles[i], file.GzipCompression, logger))
+		action, err := file.NewCompressFileAction(sourceFile, compressedFiles[i], file.GzipCompression, logger)
+		if err != nil {
+			logger.Error("Failed to create compress file action", "error", err)
+			continue
+		}
+		actions = append(actions, action)
 	}
 
 	// Step 3: Decompress all files to a backup directory
 	for i, compressedFile := range compressedFiles {
 		decompressedFile := backupDir + "/restored" + string(rune('1'+i)) + ".txt"
-		actions = append(actions, file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger))
+		action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger)
+		if err != nil {
+			logger.Error("Failed to create decompress file action", "error", err)
+			continue
+		}
+		actions = append(actions, action)
 	}
 
 	return &engine.Task{

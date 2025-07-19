@@ -25,36 +25,38 @@ type DeleteEntry struct {
 	Error error
 }
 
-func NewDeletePathAction(path string, recursive bool, dryRun bool, logger *slog.Logger) *task_engine.Action[*DeletePathAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
-	if path == "" {
-		logger.Error("Invalid parameter: path cannot be empty")
-		return nil
+func NewDeletePathAction(path string, recursive bool, dryRun bool, logger *slog.Logger) (*task_engine.Action[*DeletePathAction], error) {
+	if err := ValidateSourcePath(path); err != nil {
+		return nil, fmt.Errorf("invalid path: %w", err)
 	}
 
 	return &task_engine.Action[*DeletePathAction]{
 		ID: "delete-path-action",
 		Wrapped: &DeletePathAction{
-			BaseAction: task_engine.BaseAction{Logger: logger},
+			BaseAction: task_engine.NewBaseAction(logger),
 			Path:       path,
 			Recursive:  recursive,
 			DryRun:     dryRun,
 		},
-	}
+	}, nil
 }
 
 func (a *DeletePathAction) Execute(execCtx context.Context) error {
+	// Sanitize path to prevent path traversal attacks
+	sanitizedPath, err := SanitizePath(a.Path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+
 	// Check if path exists
-	info, err := os.Stat(a.Path)
+	info, err := os.Stat(sanitizedPath)
 	if os.IsNotExist(err) {
-		a.Logger.Warn("Path does not exist, skipping deletion", "path", a.Path)
+		a.Logger.Warn("Path does not exist, skipping deletion", "path", sanitizedPath)
 		return nil
 	}
 	if err != nil {
-		a.Logger.Error("Failed to stat path", "path", a.Path, "error", err)
-		return fmt.Errorf("failed to stat path %s: %w", a.Path, err)
+		a.Logger.Error("Failed to stat path", "path", sanitizedPath, "error", err)
+		return fmt.Errorf("failed to stat path %s: %w", sanitizedPath, err)
 	}
 
 	// If it's a directory and recursive flag is set, use recursive delete logic
@@ -64,12 +66,12 @@ func (a *DeletePathAction) Execute(execCtx context.Context) error {
 
 	// If it's a directory but recursive flag is not set, return error
 	if info.IsDir() && !a.Recursive {
-		a.Logger.Error("Cannot delete directory without recursive flag", "path", a.Path)
-		return fmt.Errorf("cannot delete directory %s without recursive flag", a.Path)
+		a.Logger.Error("Cannot delete directory without recursive flag", "path", sanitizedPath)
+		return fmt.Errorf("cannot delete directory %s without recursive flag", sanitizedPath)
 	}
 
 	// Otherwise, use the original file-based delete logic
-	return a.executeFileDelete()
+	return a.executeFileDelete(sanitizedPath)
 }
 
 func (a *DeletePathAction) executeRecursiveDelete() error {
@@ -205,30 +207,30 @@ func (a *DeletePathAction) logDeletePlan(entries []DeleteEntry) {
 	}
 }
 
-func (a *DeletePathAction) executeFileDelete() error {
-	a.Logger.Info("Deleting file", "path", a.Path, "dryRun", a.DryRun)
+func (a *DeletePathAction) executeFileDelete(sanitizedPath string) error {
+	a.Logger.Info("Deleting file", "path", sanitizedPath, "dryRun", a.DryRun)
 
 	// Get file info for logging
-	info, err := os.Stat(a.Path)
+	info, err := os.Stat(sanitizedPath)
 	if err == nil {
-		a.Logger.Info("Would delete file", "path", a.Path, "size", info.Size(), "mode", info.Mode())
+		a.Logger.Info("Would delete file", "path", sanitizedPath, "size", info.Size(), "mode", info.Mode())
 	}
 
 	if a.DryRun {
-		a.Logger.Info("Dry run completed - file would be deleted", "path", a.Path)
+		a.Logger.Info("Dry run completed - file would be deleted", "path", sanitizedPath)
 		return nil
 	}
 
-	err = os.Remove(a.Path)
+	err = os.Remove(sanitizedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			a.Logger.Warn("File does not exist, skipping deletion", "path", a.Path)
+			a.Logger.Warn("File does not exist, skipping deletion", "path", sanitizedPath)
 			return nil
 		}
-		a.Logger.Error("Failed to delete file", "path", a.Path, "error", err)
-		return fmt.Errorf("failed to delete file %s: %w", a.Path, err)
+		a.Logger.Error("Failed to delete file", "path", sanitizedPath, "error", err)
+		return fmt.Errorf("failed to delete file %s: %w", sanitizedPath, err)
 	}
 
-	a.Logger.Info("Successfully deleted file", "path", a.Path)
+	a.Logger.Info("Successfully deleted file", "path", sanitizedPath)
 	return nil
 }
