@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	engine "github.com/ndizazzo/task-engine"
-	task_engine "github.com/ndizazzo/task-engine"
 )
 
 // NewReadFileAction creates an action that reads content from a file.
@@ -28,10 +27,10 @@ func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logge
 	}
 
 	id := fmt.Sprintf("read-file-%s", filepath.Base(filePath))
-	return &task_engine.Action[*ReadFileAction]{
+	return &engine.Action[*ReadFileAction]{
 		ID: id,
 		Wrapped: &ReadFileAction{
-			BaseAction:   task_engine.BaseAction{Logger: logger},
+			BaseAction:   engine.BaseAction{Logger: logger},
 			FilePath:     filePath,
 			OutputBuffer: outputBuffer,
 		},

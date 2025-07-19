@@ -57,14 +57,14 @@ func (a *CopyFileAction) Execute(execCtx context.Context) error {
 
 	// If recursive flag is set, use recursive copy logic
 	if a.Recursive {
-		return a.executeRecursiveCopy(execCtx)
+		return a.executeRecursiveCopy()
 	}
 
 	// Otherwise, use the original file-based copy logic
-	return a.executeFileCopy(execCtx)
+	return a.executeFileCopy()
 }
 
-func (a *CopyFileAction) executeRecursiveCopy(execCtx context.Context) error {
+func (a *CopyFileAction) executeRecursiveCopy() error {
 	sourceInfo, err := os.Stat(a.Source)
 	if err != nil {
 		a.Logger.Error("Failed to stat source", "source", a.Source, "error", err)
@@ -73,7 +73,7 @@ func (a *CopyFileAction) executeRecursiveCopy(execCtx context.Context) error {
 
 	// If source is a file, just copy it normally
 	if !sourceInfo.IsDir() {
-		return a.executeFileCopy(execCtx)
+		return a.executeFileCopy()
 	}
 
 	// For directories, create destination directory and copy contents recursively
@@ -190,7 +190,7 @@ func (a *CopyFileAction) copySymlink(src, dst string) error {
 	return os.Symlink(target, dst)
 }
 
-func (a *CopyFileAction) executeFileCopy(execCtx context.Context) error {
+func (a *CopyFileAction) executeFileCopy() error {
 	if a.CreateDir {
 		destDir := filepath.Dir(a.Destination)
 		if err := os.MkdirAll(destDir, 0750); err != nil {

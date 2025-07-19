@@ -59,7 +59,7 @@ func (a *DeletePathAction) Execute(execCtx context.Context) error {
 
 	// If it's a directory and recursive flag is set, use recursive delete logic
 	if info.IsDir() && a.Recursive {
-		return a.executeRecursiveDelete(execCtx)
+		return a.executeRecursiveDelete()
 	}
 
 	// If it's a directory but recursive flag is not set, return error
@@ -69,10 +69,10 @@ func (a *DeletePathAction) Execute(execCtx context.Context) error {
 	}
 
 	// Otherwise, use the original file-based delete logic
-	return a.executeFileDelete(execCtx)
+	return a.executeFileDelete()
 }
 
-func (a *DeletePathAction) executeRecursiveDelete(execCtx context.Context) error {
+func (a *DeletePathAction) executeRecursiveDelete() error {
 	a.Logger.Info("Executing recursive delete", "path", a.Path, "dryRun", a.DryRun)
 
 	// Build list of entries to delete for dry-run and logging
@@ -205,7 +205,7 @@ func (a *DeletePathAction) logDeletePlan(entries []DeleteEntry) {
 	}
 }
 
-func (a *DeletePathAction) executeFileDelete(execCtx context.Context) error {
+func (a *DeletePathAction) executeFileDelete() error {
 	a.Logger.Info("Deleting file", "path", a.Path, "dryRun", a.DryRun)
 
 	// Get file info for logging

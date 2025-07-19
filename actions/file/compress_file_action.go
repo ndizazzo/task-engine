@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	engine "github.com/ndizazzo/task-engine"
-	task_engine "github.com/ndizazzo/task-engine"
 )
 
 // CompressionType represents the type of compression to use
@@ -53,10 +52,10 @@ func NewCompressFileAction(sourcePath string, destinationPath string, compressio
 	}
 
 	id := fmt.Sprintf("compress-file-%s-%s", compressionType, filepath.Base(sourcePath))
-	return &task_engine.Action[*CompressFileAction]{
+	return &engine.Action[*CompressFileAction]{
 		ID: id,
 		Wrapped: &CompressFileAction{
-			BaseAction:      task_engine.BaseAction{Logger: logger},
+			BaseAction:      engine.BaseAction{Logger: logger},
 			SourcePath:      sourcePath,
 			DestinationPath: destinationPath,
 			CompressionType: compressionType,

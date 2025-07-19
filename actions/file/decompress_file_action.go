@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	engine "github.com/ndizazzo/task-engine"
-	task_engine "github.com/ndizazzo/task-engine"
 )
 
 // NewDecompressFileAction creates an action that decompresses a file using the specified compression type.
@@ -49,10 +48,10 @@ func NewDecompressFileAction(sourcePath string, destinationPath string, compress
 	}
 
 	id := fmt.Sprintf("decompress-file-%s-%s", compressionType, filepath.Base(sourcePath))
-	return &task_engine.Action[*DecompressFileAction]{
+	return &engine.Action[*DecompressFileAction]{
 		ID: id,
 		Wrapped: &DecompressFileAction{
-			BaseAction:      task_engine.BaseAction{Logger: logger},
+			BaseAction:      engine.BaseAction{Logger: logger},
 			SourcePath:      sourcePath,
 			DestinationPath: destinationPath,
 			CompressionType: compressionType,

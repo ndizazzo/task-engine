@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	engine "github.com/ndizazzo/task-engine"
-	task_engine "github.com/ndizazzo/task-engine"
 )
 
 // NewWriteFileAction creates an action that writes content to a file.
@@ -30,10 +29,10 @@ func NewWriteFileAction(filePath string, content []byte, overwrite bool, inputBu
 	}
 
 	id := fmt.Sprintf("write-file-%s", filepath.Base(filePath))
-	return &task_engine.Action[*WriteFileAction]{
+	return &engine.Action[*WriteFileAction]{
 		ID: id,
 		Wrapped: &WriteFileAction{
-			BaseAction:  task_engine.BaseAction{Logger: logger},
+			BaseAction:  engine.BaseAction{Logger: logger},
 			FilePath:    filePath,
 			Content:     content, // Static content (used if buffer is nil)
 			Overwrite:   overwrite,
