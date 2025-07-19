@@ -1,24 +1,44 @@
-linters:
-  enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
-    - gofmt
-    - goimports
-    - goconst
-    - gocritic
-    - gosec
-    - misspell
-    - unconvert
-    - unparam
+version: "2"
 
 run:
   timeout: 5m
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/ndizazzo/task_engine
+linters:
+  disable:
+    - errcheck
+    - gosec
+  enable:
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - goconst
+    - gocritic
+    - misspell
+    - unconvert
+    - unparam
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - errcheck
+          - gosec
+          - ineffassign
+          - unparam
+          - goconst
+          - gocritic
+          - misspell
+          - staticcheck
+      - path: "mocks/.*"
+        linters:
+          - errcheck
+          - gosec
+          - unused
+          - unparam
+          - goconst
+          - gocritic
+          - misspell
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

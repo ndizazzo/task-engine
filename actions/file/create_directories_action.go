@@ -12,17 +12,12 @@ import (
 
 // NewCreateDirectoriesAction creates an action that creates multiple directories
 // relative to the given installation path.
-func NewCreateDirectoriesAction(logger *slog.Logger, rootPath string, directories []string) *task_engine.Action[*CreateDirectoriesAction] {
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	}
+func NewCreateDirectoriesAction(logger *slog.Logger, rootPath string, directories []string) (*task_engine.Action[*CreateDirectoriesAction], error) {
 	if rootPath == "" {
-		logger.Error("Invalid parameter: rootPath cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: rootPath cannot be empty")
 	}
 	if len(directories) == 0 {
-		logger.Error("Invalid parameter: directories list cannot be empty")
-		return nil
+		return nil, fmt.Errorf("invalid parameter: directories list cannot be empty")
 	}
 
 	return &task_engine.Action[*CreateDirectoriesAction]{
@@ -32,7 +27,7 @@ func NewCreateDirectoriesAction(logger *slog.Logger, rootPath string, directorie
 			RootPath:    rootPath,
 			Directories: directories,
 		},
-	}
+	}, nil
 }
 
 // CreateDirectoriesAction creates multiple directories relative to an installation path

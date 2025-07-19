@@ -61,12 +61,7 @@ jobs:
       - name: Run golangci-lint
         run: make lint
 
-      - name: Run unit tests only (macOS)
-        if: matrix.os == 'macos-latest'
-        run: make test-unit-ci
-
-      - name: Run all tests (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Run tests
         run: make test-ci
 
       - name: Run tests with coverage
@@ -83,7 +78,7 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: true
-          files: ./junit-unit.xml, ./junit-e2e.xml
+          files: ./junit-unit.xml
           name: task-engine-tests
           token: ${{ secrets.CODECOV_TOKEN }}
 

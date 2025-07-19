@@ -2,6 +2,7 @@ package task_engine
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -44,6 +45,14 @@ func (a *Action[T]) GetID() string {
 // hooks. It also has a logger passed from the action that wraps it.
 type BaseAction struct {
 	Logger *slog.Logger
+}
+
+// NewBaseAction creates a new BaseAction with a logger. If logger is nil, it uses a discard logger.
+func NewBaseAction(logger *slog.Logger) BaseAction {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return BaseAction{Logger: logger}
 }
 
 func (ba *BaseAction) BeforeExecute(ctx context.Context) error {

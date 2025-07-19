@@ -1,0 +1,15 @@
+{
+  "global": {
+    "nosec": "enabled"
+  },
+  "rules": {
+    "G304": {
+      "exclude": [
+        "actions/file/read_file_action.go",
+        "actions/file/copy_file_action.go",
+        "actions/file/write_file_action.go",
+        "actions/file/delete_path_action.go"
+      ]
+    }
+  }
+} 

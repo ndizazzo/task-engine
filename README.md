@@ -24,32 +24,14 @@ import (
     "os"
 
     "github.com/ndizazzo/task-engine"
-    "github.com/ndizazzo/task-engine/actions"
+    "github.com/ndizazzo/task-engine/tasks"
 )
 
 func main() {
     logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-    // Create a simple task
-    task := &task_engine.Task{
-        ID:   "setup-project",
-        Name: "Project Setup",
-        Actions: []task_engine.ActionWrapper{
-            actions.NewCreateDirectoriesAction(
-                "/tmp/myproject",
-                []string{"src", "docs", "tests"},
-                logger,
-            ),
-            actions.NewWriteFileAction(
-                "/tmp/myproject/README.md",
-                []byte("# My Project\n\nWelcome to my project!"),
-                true, // overwrite if exists
-                nil,  // no input buffer
-                logger,
-            ),
-        },
-        Logger: logger,
-    }
+    // Create a simple task using the file operations example
+    task := tasks.NewFileOperationsTask(logger, "/tmp/myproject")
 
     // Execute the task
     if err := task.Run(context.Background()); err != nil {
@@ -64,7 +46,7 @@ func main() {
 ## Features
 
 - **Type-Safe Actions**: Generic-based architecture with compile-time safety
-- **19+ Built-in Actions**: File operations, Docker management, system commands
+- **24+ Built-in Actions**: File operations, Docker management, system commands, package management
 - **Lifecycle Management**: Before/Execute/After hooks with proper error handling
 - **Context Support**: Cancellation and timeout handling
 - **Comprehensive Logging**: Structured logging with configurable output
@@ -82,7 +64,7 @@ import "github.com/ndizazzo/task-engine/tasks"
 task := tasks.NewDockerSetupTask(logger, "/path/to/project")
 ```
 
-Sets up a complete Docker environment with MySQL, Redis, Nginx, and monitoring.
+Sets up a complete Docker environment with service management and health checks.
 
 ### File Operations Workflow
 
@@ -91,6 +73,38 @@ task := tasks.NewFileOperationsTask(logger, "/path/to/project")
 ```
 
 Demonstrates file creation, copying, text replacement, and cleanup.
+
+### Package Management
+
+```go
+task := tasks.NewPackageManagementTask(logger, []string{"git", "curl", "wget", "htop"})
+```
+
+Cross-platform package installation supporting Debian-based Linux (apt) and macOS (Homebrew).
+
+### Compression Operations
+
+```go
+task := tasks.NewCompressionOperationsTask(logger, "/path/to/project")
+```
+
+Shows file compression and decompression workflows with auto-detection.
+
+### System Management
+
+```go
+task := tasks.NewSystemManagementTask(logger, "nginx")
+```
+
+Demonstrates system service management and administrative operations.
+
+### Utility Operations
+
+```go
+task := tasks.NewUtilityOperationsTask(logger)
+```
+
+Shows utility operations including timing, prerequisites, and system information.
 
 ## Creating Custom Actions
 
