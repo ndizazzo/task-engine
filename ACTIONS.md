@@ -5,8 +5,8 @@ This document provides a comprehensive inventory of all built-in actions availab
 ## Action Categories Summary
 
 - **File Operations**: 11 actions for comprehensive file/directory management
-- **Docker Operations**: 6 actions for container orchestration and management
-- **System Management**: 3 actions for system-level operations
+- **Docker Operations**: 12 actions for container orchestration and management
+- **System Management**: 4 actions for system-level operations
 - **Utilities**: 4 actions for workflow control and system information
 
 ## File & Directory Operations
@@ -104,7 +104,6 @@ Decompresses a file using the specified compression algorithm. Supports auto-det
 - `logger`: Logger instance
 
 **Auto-Detection:**
-
 When `compressionType` is empty, the action will auto-detect the compression type from the file extension:
 
 - `.gz`, `.gzip` → Gzip compression
@@ -216,6 +215,77 @@ Moves/renames files and directories using mv command.
 
 ## Docker Operations
 
+### GetDockerStatusAction
+
+Retrieves the state of specific Docker containers by ID or name.
+
+**Constructor:** `NewGetContainerStateAction(logger *slog.Logger, containerIdentifiers ...string)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `containerIdentifiers`: Variable number of container IDs or names to query
+
+**Returns:** `ContainerState` struct with ID, names, image, and status information
+
+**Features:**
+
+- Supports multiple container queries in a single action
+- Handles containers with multiple names/aliases
+- Robust JSON parsing with error recovery
+- Returns structured container information
+
+### GetAllContainersStateAction
+
+Retrieves the state of all Docker containers on the system.
+
+**Constructor:** `NewGetAllContainersStateAction(logger *slog.Logger)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+
+**Returns:** Array of `ContainerState` structs for all containers
+
+**Features:**
+
+- Comprehensive container enumeration
+- Includes stopped, running, and paused containers
+- Efficient JSON parsing for large container lists
+
+### ContainerState Struct
+
+Container state information is returned in a structured format:
+
+```go
+type ContainerState struct {
+    ID     string   // Container ID
+    Names  []string // Container names (can be multiple)
+    Image  string   // Container image
+    Status string   // Container status with full state information
+}
+```
+
+**Supported Container States:**
+
+- `created` - Container created but not started
+- `restarting` - Container is restarting (with restart policy)
+- `running` - Container is running (shows as "Up X time")
+- `removing` - Container is being removed
+- `paused` - Container is paused
+- `exited` - Container has exited (shows as "Exited (code) X time ago")
+- `dead` - Container is dead (failed to start or was killed)
+
+**Status Examples:**
+
+- `"Up 2 hours"` - Running for 2 hours
+- `"Exited (0) 1 hour ago"` - Exited with code 0, 1 hour ago
+- `"Paused"` - Currently paused
+- `"Created"` - Created but not started
+- `"Restarting (1) 2 minutes ago"` - Restarting, attempt 1, 2 minutes ago
+- `"Dead"` - Container is dead
+- `"Removing"` - Container is being removed
+
 ### DockerComposeUpAction
 
 Starts Docker Compose services with optional working directory.
@@ -283,6 +353,257 @@ Performs health checks on containers with retry logic.
 - `workingDir`: Working directory for docker commands
 - `logger`: Logger instance
 
+### DockerLoadAction
+
+Loads Docker images from tar archive files with support for platform filtering and quiet mode.
+
+**Constructor:** `NewDockerLoadAction(logger *slog.Logger, tarFilePath string, options ...DockerLoadOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `tarFilePath`: Path to the tar archive file containing Docker images
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithPlatform(platform string)`: Load only the specified platform variant (e.g., "linux/amd64", "linux/arm64")
+- `WithQuiet()`: Suppress the load output
+
+**Features:**
+
+- Loads images from tar archive files using `docker load -i`
+- Supports platform-specific loading for multi-architecture images
+- Quiet mode for reduced output in automated workflows
+- Parses and stores loaded image names and IDs
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+
+**Returns:** Array of loaded image names/IDs in the `LoadedImages` field
+
+**See Example:** `tasks.NewDockerLoadTask()` - Demonstrates various Docker load operations including platform-specific loading and batch operations.
+
+### DockerImageRmAction
+
+Removes Docker images by name/tag or ID with support for force removal and pruning control.
+
+**Constructors:**
+
+- `NewDockerImageRmByNameAction(logger *slog.Logger, imageName string, options ...DockerImageRmOption)`: Remove image by name and tag
+- `NewDockerImageRmByIDAction(logger *slog.Logger, imageID string, options ...DockerImageRmOption)`: Remove image by ID
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `imageName`: Image name and tag (e.g., "nginx:latest", "my-registry.com/namespace/image:v1.0")
+- `imageID`: Image ID (e.g., "sha256:abc123def456789")
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithForce()`: Force the removal of the image (equivalent to `docker image rm -f`)
+- `WithNoPrune()`: Prevent removal of untagged parent images (equivalent to `docker image rm --no-prune`)
+
+**Features:**
+
+- Two distinct constructors for different use cases (name/tag vs ID)
+- Supports force removal for images that might be in use
+- Controls pruning behavior for parent layers
+- Parses and stores removed image names and IDs
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+- Handles registry images with complex naming patterns
+
+**Returns:** Array of removed image names/IDs in the `RemovedImages` field
+
+**See Example:** `tasks.NewDockerImageRmTask()` - Demonstrates various Docker image removal operations including force removal and cleanup workflows.
+
+### DockerImageListAction
+
+Lists Docker images with comprehensive metadata including repository, tag, image ID, creation time, and size.
+
+**Constructor:** `NewDockerImageListAction(logger *slog.Logger, options ...DockerImageListOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithAll()`: Show all images (including intermediate images)
+- `WithDigests()`: Show digests
+- `WithFilter(filter string)`: Filter output based on conditions
+- `WithFormat(format string)`: Use a custom template for output
+- `WithNoTrunc()`: Don't truncate output
+- `WithQuiet()`: Only show image IDs
+
+**Features:**
+
+- Lists all Docker images with detailed metadata
+- Supports filtering by various criteria (dangling, label, before, since, etc.)
+- Custom output formatting using Go templates
+- Handles dangling images (`<none>:<none>`)
+- Parses and stores structured image information
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+
+**Returns:** Array of `DockerImage` structs with repository, tag, image ID, created time, and size
+
+**DockerImage Structure:**
+
+```go
+type DockerImage struct {
+    Repository string
+    Tag        string
+    ImageID    string
+    Created    string
+    Size       string
+}
+```
+
+**See Example:** `tasks.NewDockerImageListTask()` - Demonstrates various Docker image listing operations including filtering and formatting.
+
+### DockerComposeLsAction
+
+Lists Docker Compose stacks with their status and configuration files.
+
+**Constructor:** `NewDockerComposeLsAction(logger *slog.Logger, options ...DockerComposeLsOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithAll()`: Show all stacks (including stopped ones)
+- `WithFilter(filter string)`: Filter output based on conditions
+- `WithFormat(format string)`: Use a custom template for output
+- `WithQuiet()`: Only show stack names
+- `WithWorkingDir(workingDir string)`: Set working directory for docker-compose command
+
+**Features:**
+
+- Lists all Docker Compose stacks with their current status
+- Shows configuration files used by each stack
+- Supports filtering by stack name or other criteria
+- Custom output formatting using Go templates
+- Parses and stores structured stack information
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+
+**Returns:** Array of `ComposeStack` structs with name, status, and config files
+
+**ComposeStack Structure:**
+
+```go
+type ComposeStack struct {
+    Name        string
+    Status      string
+    ConfigFiles string
+}
+```
+
+**See Example:** `tasks.NewDockerComposeLsTask()` - Demonstrates Docker Compose stack listing operations including filtering and status monitoring.
+
+### DockerComposePsAction
+
+Lists services for Docker Compose stacks with detailed container information.
+
+**Constructor:** `NewDockerComposePsAction(services []string, logger *slog.Logger, options ...DockerComposePsOption)`
+
+**Parameters:**
+
+- `services`: List of services to list (empty for all)
+- `logger`: Logger instance
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithAll()`: Show all containers (including stopped ones)
+- `WithFilter(filter string)`: Filter output based on conditions
+- `WithFormat(format string)`: Use a custom template for output
+- `WithQuiet()`: Only show container names
+- `WithWorkingDir(workingDir string)`: Set working directory for docker-compose command
+
+**Features:**
+
+- Lists services for Docker Compose stacks with detailed information
+- Shows container name, image, command, service name, status, and ports
+- Supports filtering by service status or other criteria
+- Custom output formatting using Go templates
+- Parses and stores structured service information
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+
+**Returns:** Array of `ComposeService` structs with container details
+
+**ComposeService Structure:**
+
+```go
+type ComposeService struct {
+    Name        string
+    Image       string
+    Command     string
+    ServiceName string
+    Status      string
+    Ports       string
+}
+```
+
+**See Example:** `tasks.NewDockerComposePsTask()` - Demonstrates Docker Compose service listing operations including status monitoring and port mapping.
+
+### DockerPsAction
+
+Lists Docker containers with comprehensive metadata including container ID, image, command, status, ports, and names.
+
+**Constructor:** `NewDockerPsAction(logger *slog.Logger, options ...DockerPsOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `options`: Optional configuration options (see below)
+
+**Options:**
+
+- `WithPsAll()`: Show all containers (including stopped ones)
+- `WithPsFilter(filter string)`: Filter output based on conditions
+- `WithPsFormat(format string)`: Use a custom template for output
+- `WithPsLast(n int)`: Show n last created containers
+- `WithPsLatest()`: Show the latest created container
+- `WithPsNoTrunc()`: Don't truncate output
+- `WithPsQuiet()`: Only show container IDs
+- `WithPsSize()`: Display total file sizes
+
+**Features:**
+
+- Lists all Docker containers with detailed metadata
+- Supports filtering by various criteria (status, label, ancestor, etc.)
+- Custom output formatting using Go templates
+- Shows container size information when requested
+- Parses and stores structured container information
+- Comprehensive error handling with detailed error messages
+- Flexible configuration through functional options pattern
+
+**Returns:** Array of `Container` structs with container details
+
+**Container Structure:**
+
+```go
+type Container struct {
+    ContainerID string
+    Image       string
+    Command     string
+    Created     string
+    Status      string
+    Ports       string
+    Names       string
+}
+```
+
+**See Example:** `tasks.NewDockerPsTask()` - Demonstrates various Docker container listing operations including filtering, formatting, and status monitoring.
+
 ### DockerGenericAction
 
 Executes generic Docker commands with flexible arguments.
@@ -295,6 +616,48 @@ Executes generic Docker commands with flexible arguments.
 - `logger`: Logger instance
 
 ## System Management
+
+### GetServiceStatusAction
+
+Retrieves the status of one or more systemd services using `systemctl show` with specific properties for reliable parsing.
+
+**Constructor:** `NewGetServiceStatusAction(logger *slog.Logger, serviceNames ...string)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `serviceNames`: Variable number of service names to check
+
+**Features:**
+
+- Uses `systemctl show` with specific properties for reliable, machine-readable output
+- Handles multiple services in a single action
+- Retrieves comprehensive service information including:
+  - Service description and documentation
+  - Loaded state and vendor information
+  - Active state and sub-status
+  - Service path and configuration details
+- Gracefully handles non-existent services
+- More efficient and reliable than parsing human-readable `systemctl status` output
+- Handles various service states (running, exited, dead, etc.)
+- Processes each service individually to avoid mixed output issues
+
+**ServiceStatus Structure:**
+
+```go
+type ServiceStatus struct {
+    Name        string `json:"name"`
+    Loaded      string `json:"loaded"`
+    Active      string `json:"active"`
+    Sub         string `json:"sub"`
+    Description string `json:"description"`
+    Path        string `json:"path"`
+    Vendor      string `json:"vendor"`
+    Exists      bool   `json:"exists"`
+}
+```
+
+**See Example:** `tasks.NewServiceStatusTask()` - Demonstrates service status checking and health monitoring.
 
 ### ManageServiceAction
 
@@ -412,5 +775,6 @@ For practical examples and complete workflows, see the following task functions 
 - **System Management**: `tasks.NewSystemManagementTask()` - System-level operations
 - **Utility Operations**: `tasks.NewUtilityOperationsTask()` - Utility and helper operations
 - **Docker Setup**: `tasks.NewDockerSetupTask()` - Docker environment configuration
+- **Container State**: `tasks.NewContainerStateTask()` - Container monitoring and state management
 
 Each example task demonstrates real-world usage patterns and can be used as a starting point for your own workflows.
