@@ -357,6 +357,29 @@ abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours    
 				},
 			},
 		},
+		{
+			name:               "whitespace only output",
+			output:             "   \n  \t  \n  ",
+			expectedContainers: []Container(nil),
+		},
+		{
+			name: "output with unparseable lines",
+			output: `CONTAINER ID   IMAGE     COMMAND                  CREATED         STATUS         PORTS     NAMES
+abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1
+invalid line without quotes
+another invalid line`,
+			expectedContainers: []Container{
+				{
+					ContainerID: "abc123def456",
+					Image:       "nginx",
+					Command:     "nginx -g 'daemon off",
+					Created:     "2 hours ago",
+					Status:      "Up 2 hours",
+					Ports:       "0.0.0.0:8080->80/tcp",
+					Names:       "myapp_web_1",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -439,6 +462,182 @@ func TestDockerPsAction_parseContainerLine(t *testing.T) {
 			line:              "",
 			expectedContainer: nil,
 		},
+		{
+			name:              "line without quoted command",
+			line:              "abc123def456 nginx nginx -g daemon off 2 hours ago Up 2 hours 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: nil,
+		},
+		{
+			name:              "line with unclosed quote",
+			line:              "abc123def456 nginx \"nginx -g 'daemon off 2 hours ago Up 2 hours 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: nil,
+		},
+		{
+			name:              "insufficient remaining parts after command",
+			line:              "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago",
+			expectedContainer: nil,
+		},
+		{
+			name:              "no 'ago' in created field",
+			line:              "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours Up 2 hours 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: nil,
+		},
+		{
+			name: "container with Exited status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Exited (0) 1 hour ago 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Exited",
+				Ports:       "",
+				Names:       "(0) 1 hour ago 0.0.0.0:8080->80/tcp myapp_web_1",
+			},
+		},
+		{
+			name: "container with Exited status without ago",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Exited (0) 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Exited",
+				Ports:       "",
+				Names:       "(0) 0.0.0.0:8080->80/tcp myapp_web_1",
+			},
+		},
+		{
+			name: "container with Created status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Created 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Created",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Restarting status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Restarting (1) 5 minutes ago 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Restarting",
+				Ports:       "",
+				Names:       "(1) 5 minutes ago 0.0.0.0:8080->80/tcp myapp_web_1",
+			},
+		},
+		{
+			name: "container with Restarting status without ago",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Restarting (1) 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Restarting",
+				Ports:       "",
+				Names:       "(1) 0.0.0.0:8080->80/tcp myapp_web_1",
+			},
+		},
+		{
+			name: "container with Paused status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Paused 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Paused",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Dead status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Dead 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Dead",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Removing status",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Removing 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Removing",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with unknown status (default case)",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago UnknownStatus 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "UnknownStatus",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Up status and no clear boundary",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Up 2 hours 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Up 2 hours",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Up status and numeric boundary",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Up 2 hours 123 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Up 2 hours 123",
+				Ports:       "0.0.0.0:8080->80/tcp",
+				Names:       "myapp_web_1",
+			},
+		},
+		{
+			name: "container with Up status and non-time boundary",
+			line: "abc123def456 nginx \"nginx -g 'daemon off\" 2 hours ago Up 2 hours custom_field 0.0.0.0:8080->80/tcp myapp_web_1",
+			expectedContainer: &Container{
+				ContainerID: "abc123def456",
+				Image:       "nginx",
+				Command:     "nginx -g 'daemon off",
+				Created:     "2 hours ago",
+				Status:      "Up 2 hours",
+				Ports:       "",
+				Names:       "custom_field 0.0.0.0:8080->80/tcp myapp_web_1",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -456,6 +655,24 @@ func TestDockerPsAction_parseContainerLine(t *testing.T) {
 func TestDockerPsAction_Execute_EmptyOutput(t *testing.T) {
 	logger := slog.Default()
 	expectedOutput := ""
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "ps").Return(expectedOutput, nil)
+
+	action := NewDockerPsAction(logger)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err := action.Wrapped.Execute(context.Background())
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedOutput, action.Wrapped.Output)
+	assert.Empty(t, action.Wrapped.Containers)
+	mockRunner.AssertExpectations(t)
+}
+
+func TestDockerPsAction_Execute_WhitespaceOnlyOutput(t *testing.T) {
+	logger := slog.Default()
+	expectedOutput := "   \n  \t  \n  "
 
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "ps").Return(expectedOutput, nil)
