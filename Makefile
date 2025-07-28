@@ -10,12 +10,22 @@ test-unit-json: ## Run unit tests and save JSON output
 	@go test -json -run "^Test.*" ./... > test-unit.json
 
 # Local development formatters (human-readable)
-test-unit: test-unit-json ## Run unit tests with human-readable output
-	@cat test-unit.json | gotestfmt
+test-unit: test-unit-json install-tools ## Run unit tests with human-readable output
+	@if command -v gotestfmt >/dev/null 2>&1; then \
+		cat test-unit.json | gotestfmt; \
+	else \
+		echo "gotestfmt not found, running tests without formatting..."; \
+		go test ./...; \
+	fi
 
 # CI formatters (JUnit XML)
-test-unit-ci: test-unit-json ## Run unit tests with JUnit XML output for CI
-	@gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json
+test-unit-ci: test-unit-json install-tools ## Run unit tests with JUnit XML output for CI
+	@if command -v gotestsum >/dev/null 2>&1; then \
+		gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json; \
+	else \
+		echo "gotestsum not found, running tests without JUnit XML..."; \
+		go test ./...; \
+	fi
 
 test-ci: test-unit-ci ## Run all tests with JUnit XML output for CI
 
