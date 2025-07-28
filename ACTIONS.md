@@ -4,8 +4,8 @@ This document provides a comprehensive inventory of all built-in actions availab
 
 ## Action Categories Summary
 
-- **File Operations**: 11 actions for comprehensive file/directory management
-- **Docker Operations**: 12 actions for container orchestration and management
+- **File Operations**: 12 actions for comprehensive file/directory management
+- **Docker Operations**: 14 actions for container orchestration and management
 - **System Management**: 4 actions for system-level operations
 - **Utilities**: 4 actions for workflow control and system information
 
@@ -212,6 +212,58 @@ Moves/renames files and directories using mv command.
 - `destination`: Destination path
 - `createDirs`: Whether to create destination directories
 - `logger`: Logger instance
+
+### ExtractFileAction
+
+Extracts files from archive formats (tar, zip) with comprehensive security features and auto-detection.
+
+**Constructor:** `NewExtractFileAction(sourcePath string, destinationPath string, archiveType ArchiveType, logger *slog.Logger)`
+
+**Parameters:**
+
+- `sourcePath`: Path to the archive file to extract
+- `destinationPath`: Directory where files will be extracted
+- `archiveType`: Type of archive (can be empty for auto-detection)
+- `logger`: Logger instance
+
+**Supported Archive Types:**
+
+- `file.TarArchive`: Tar archives (`.tar`)
+- `file.ZipArchive`: Zip archives (`.zip`)
+- `file.AutoDetect`: Auto-detect from file extension
+
+**Auto-Detection:**
+When `archiveType` is `file.AutoDetect`, the action will auto-detect the archive type from the file extension:
+
+- `.tar` → Tar archive
+- `.zip` → Zip archive
+
+**Security Features:**
+
+- **Path Traversal Protection**: Validates and sanitizes file paths to prevent zip slip attacks
+- **Decompression Bomb Protection**: Limits file sizes to prevent memory exhaustion attacks
+- **Integer Overflow Protection**: Safe permission setting with bit masking
+- **Insecure Permissions Prevention**: Uses secure default permissions (0600 for files, 0750 for directories)
+
+**Features:**
+
+- Validates source file existence and type
+- Creates destination directories automatically
+- Supports both tar and zip archive formats
+- Auto-detection from file extensions
+- Comprehensive security measures
+- Handles large archives efficiently
+- Preserves file permissions (when safe)
+- Detailed error reporting
+
+**Error Handling:**
+
+- Returns error if compressed archives (`.tar.gz`) are passed directly
+- Validates archive integrity before extraction
+- Handles corrupted or invalid archives gracefully
+- Provides detailed error messages for troubleshooting
+
+**See Example:** `tasks.NewExtractOperationsTask()` - Demonstrates archive extraction workflows with security considerations.
 
 ## Docker Operations
 
@@ -604,6 +656,96 @@ type Container struct {
 
 **See Example:** `tasks.NewDockerPsTask()` - Demonstrates various Docker container listing operations including filtering, formatting, and status monitoring.
 
+### DockerPullAction
+
+Pulls Docker images with support for single architecture specifications and platform options.
+
+**Constructor:** `NewDockerPullAction(logger *slog.Logger, images map[string]ImageSpec, options ...DockerPullOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `images`: Map of image names to `ImageSpec` configurations
+- `options`: Optional configuration options (see below)
+
+**ImageSpec Structure:**
+
+```go
+type ImageSpec struct {
+    Image        string
+    Tag          string
+    Architecture string
+}
+```
+
+**Options:**
+
+- `WithAllTags()`: Pull all tags for the specified images
+- `WithPullQuietOutput()`: Suppress verbose output
+- `WithPullPlatform(platform string)`: Specify platform for pulled images
+
+**Features:**
+
+- Pulls Docker images with architecture-specific platform targeting
+- Supports multiple images in a single action
+- Platform override options for cross-platform compatibility
+- Quiet mode for reduced output in automated workflows
+- Comprehensive error handling with detailed error messages
+- Tracks successfully pulled and failed images
+- Flexible configuration through functional options pattern
+
+**Returns:** Arrays of successfully pulled and failed image names in `PulledImages` and `FailedImages` fields
+
+**See Example:** `tasks.NewDockerPullTask()` - Demonstrates Docker image pulling operations with various configurations.
+
+### DockerPullMultiArchAction
+
+Pulls Docker images for multiple architectures in a single action with robust error handling.
+
+**Constructor:** `NewDockerPullMultiArchAction(logger *slog.Logger, multiArchImages map[string]MultiArchImageSpec, options ...DockerPullOption)`
+
+**Parameters:**
+
+- `logger`: Logger instance
+- `multiArchImages`: Map of image names to `MultiArchImageSpec` configurations
+- `options`: Optional configuration options (see below)
+
+**MultiArchImageSpec Structure:**
+
+```go
+type MultiArchImageSpec struct {
+    Image         string
+    Tag           string
+    Architectures []string
+}
+```
+
+**Options:**
+
+- `WithAllTags()`: Pull all tags for the specified images
+- `WithPullQuietOutput()`: Suppress verbose output
+- `WithPullPlatform(platform string)`: Override platform for all architectures
+
+**Features:**
+
+- Pulls the same image for multiple architectures (e.g., amd64, arm64, arm/v7)
+- Robust error handling with partial success support
+- Continues pulling other architectures even if some fail
+- Detailed logging per architecture
+- Platform override capability for all architectures
+- Tracks successfully pulled and failed images
+- Flexible configuration through functional options pattern
+
+**Error Handling:**
+
+- **Partial Success**: If some architectures fail, others still succeed
+- **Complete Failure**: Only fails if ALL architectures fail for an image
+- **Warning Messages**: Alerts when partial failures occur
+
+**Returns:** Arrays of successfully pulled and failed image names in `PulledImages` and `FailedImages` fields
+
+**See Example:** `tasks.NewDockerPullMultiArchTask()` - Demonstrates multi-architecture Docker image pulling operations.
+
 ### DockerGenericAction
 
 Executes generic Docker commands with flexible arguments.
@@ -776,5 +918,8 @@ For practical examples and complete workflows, see the following task functions 
 - **Utility Operations**: `tasks.NewUtilityOperationsTask()` - Utility and helper operations
 - **Docker Setup**: `tasks.NewDockerSetupTask()` - Docker environment configuration
 - **Container State**: `tasks.NewContainerStateTask()` - Container monitoring and state management
+- **Docker Pull**: `tasks.NewDockerPullTask()` - Docker image pulling operations
+- **Docker Pull Multi-Arch**: `tasks.NewDockerPullMultiArchTask()` - Multi-architecture image pulling
+- **Extract Operations**: `tasks.NewExtractOperationsTask()` - Archive extraction with security features
 
 Each example task demonstrates real-world usage patterns and can be used as a starting point for your own workflows.
