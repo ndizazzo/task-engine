@@ -606,6 +606,494 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessCreatesDestinationDirectory
 	suite.NoError(err, "Extracted file should have been created")
 }
 
+func (suite *ExtractFileTestSuite) TestExecuteFailureStatError() {
+	// Create a file with a path that will cause stat to fail
+	invalidPath := filepath.Join(suite.tempDir, "nonexistent", "file.tar")
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      invalidPath,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err := action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "does not exist")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureDestinationDirectoryCreation() {
+	// Create a source file
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+	tarFile.Close()
+
+	// Create a destination path that will cause mkdir to fail
+	// Use a path that would require root permissions on Unix systems
+	destDir := "/root/nonexistent/extracted"
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create destination directory")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureSourceFileOpen() {
+	// Create a source file but make it unreadable
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+	tarFile.Close()
+
+	// Remove read permissions
+	err = os.Chmod(sourceFile, 0000)
+	suite.Require().NoError(err, "Setup: Failed to remove read permissions")
+
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to open source file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(sourceFile, 0644)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureTarHeaderReadError() {
+	// Create a corrupted tar file that will cause header read to fail
+	sourceFile := filepath.Join(suite.tempDir, "corrupted.tar")
+	err := os.WriteFile(sourceFile, []byte("not a tar file"), 0644)
+	suite.Require().NoError(err, "Setup: Failed to create corrupted tar file")
+
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to read tar header")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureTarTargetDirectoryCreation() {
+	// Create a valid tar file
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+
+	tarWriter := tar.NewWriter(tarFile)
+	content := "Test content"
+	header := &tar.Header{
+		Name: "subdir/test.txt", // This will require creating a subdirectory
+		Mode: 0644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err, "Setup: Failed to write tar header")
+
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write tar content")
+
+	tarWriter.Close()
+	tarFile.Close()
+
+	// Create a destination that will cause subdirectory creation to fail
+	destDir := "/root/nonexistent/extracted"
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create destination directory")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureTarTargetFileCreation() {
+	// Create a valid tar file
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+
+	tarWriter := tar.NewWriter(tarFile)
+	content := "Test content"
+	header := &tar.Header{
+		Name: "test.txt",
+		Mode: 0644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err, "Setup: Failed to write tar header")
+
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write tar content")
+
+	tarWriter.Close()
+	tarFile.Close()
+
+	// Create a destination directory that's read-only
+	destDir := filepath.Join(suite.tempDir, "readonly")
+	err = os.MkdirAll(destDir, 0444) // Read-only directory
+	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
+
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(destDir, 0755)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipFileRead() {
+	// Create a zip file that can't be read
+	sourceFile := filepath.Join(suite.tempDir, "test.zip")
+	zipFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create zip file")
+	zipFile.Close()
+
+	// Remove read permissions
+	err = os.Chmod(sourceFile, 0000)
+	suite.Require().NoError(err, "Setup: Failed to remove read permissions")
+
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to open source file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(sourceFile, 0644)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipReaderCreation() {
+	// Create an invalid zip file that will cause reader creation to fail
+	sourceFile := filepath.Join(suite.tempDir, "invalid.zip")
+	err := os.WriteFile(sourceFile, []byte("not a zip file"), 0644)
+	suite.Require().NoError(err, "Setup: Failed to create invalid zip file")
+
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create zip reader")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipTargetDirectoryCreation() {
+	// Create a valid zip file
+	sourceFile := filepath.Join(suite.tempDir, "test.zip")
+	zipFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create zip file")
+
+	zipWriter := zip.NewWriter(zipFile)
+	content := "Test content"
+	fileWriter, err := zipWriter.Create("subdir/test.txt")
+	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
+
+	_, err = fileWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write zip content")
+
+	zipWriter.Close()
+	zipFile.Close()
+
+	// Create a destination that will cause subdirectory creation to fail
+	destDir := "/root/nonexistent/extracted"
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create destination directory")
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipTargetFileCreation() {
+	// Create a valid zip file
+	sourceFile := filepath.Join(suite.tempDir, "test.zip")
+	zipFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create zip file")
+
+	zipWriter := zip.NewWriter(zipFile)
+	content := "Test content"
+	fileWriter, err := zipWriter.Create("test.txt")
+	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
+
+	_, err = fileWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write zip content")
+
+	zipWriter.Close()
+	zipFile.Close()
+
+	// Create a destination directory that's read-only
+	destDir := filepath.Join(suite.tempDir, "readonly")
+	err = os.MkdirAll(destDir, 0444) // Read-only directory
+	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
+
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(destDir, 0755)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipFileOpen() {
+	// Create a valid zip file
+	sourceFile := filepath.Join(suite.tempDir, "test.zip")
+	zipFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create zip file")
+
+	zipWriter := zip.NewWriter(zipFile)
+	content := "Test content"
+	fileWriter, err := zipWriter.Create("test.txt")
+	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
+
+	_, err = fileWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write zip content")
+
+	zipWriter.Close()
+	zipFile.Close()
+
+	// Create a destination directory
+	destDir := filepath.Join(suite.tempDir, "extracted")
+	err = os.MkdirAll(destDir, 0755)
+	suite.Require().NoError(err, "Setup: Failed to create destination directory")
+
+	// Make the destination directory read-only to prevent file creation
+	err = os.Chmod(destDir, 0444)
+	suite.Require().NoError(err, "Setup: Failed to make destination read-only")
+
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(destDir, 0755)
+}
+
+func (suite *ExtractFileTestSuite) TestDetectCompressionFileOpenFailure() {
+	// Test detectCompression with a file that doesn't exist
+	nonExistentFile := filepath.Join(suite.tempDir, "nonexistent.gz")
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: command_mock.NewDiscardLogger()},
+		SourcePath:      nonExistentFile,
+		DestinationPath: suite.tempDir,
+		ArchiveType:     file.TarGzArchive,
+	}
+
+	// Test the compression detection by triggering the Execute method
+	// which will call detectCompression internally
+	err := action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "does not exist")
+}
+
+func (suite *ExtractFileTestSuite) TestDetectCompressionFileSeekFailure() {
+	// Create a file that can't be seeked (simulate by using a pipe)
+	sourceFile := filepath.Join(suite.tempDir, "test.gz")
+	err := os.WriteFile(sourceFile, []byte{0x1f, 0x8b}, 0644) // gzip magic number
+	suite.Require().NoError(err, "Setup: Failed to create test file")
+
+	// Open the file and close it to make it unseekable in some contexts
+	fileHandle, err := os.Open(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to open test file")
+	fileHandle.Close()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: command_mock.NewDiscardLogger()},
+		SourcePath:      sourceFile,
+		DestinationPath: suite.tempDir,
+		ArchiveType:     file.TarGzArchive,
+	}
+
+	// Test the compression detection by triggering the Execute method
+	// which will call detectCompression internally
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "is compressed with gzip")
+}
+
+func (suite *ExtractFileTestSuite) TestDetectCompressionFileReadFailure() {
+	// Create a file that can't be read (no permissions)
+	sourceFile := filepath.Join(suite.tempDir, "test.gz")
+	err := os.WriteFile(sourceFile, []byte{0x1f, 0x8b}, 0000) // No permissions
+	suite.Require().NoError(err, "Setup: Failed to create test file")
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: command_mock.NewDiscardLogger()},
+		SourcePath:      sourceFile,
+		DestinationPath: suite.tempDir,
+		ArchiveType:     file.TarGzArchive,
+	}
+
+	// Test the compression detection by triggering the Execute method
+	// which will call detectCompression internally
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to open source file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(sourceFile, 0644)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureTarFileContentCopy() {
+	// Create a valid tar file
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+
+	tarWriter := tar.NewWriter(tarFile)
+	content := "Test content"
+	header := &tar.Header{
+		Name: "test.txt",
+		Mode: 0644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err, "Setup: Failed to write tar header")
+
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write tar content")
+
+	tarWriter.Close()
+	tarFile.Close()
+
+	// Create a destination directory that's read-only to prevent file writing
+	destDir := filepath.Join(suite.tempDir, "readonly")
+	err = os.MkdirAll(destDir, 0444) // Read-only directory
+	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
+
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.TarArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(destDir, 0755)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureZipFileContentCopy() {
+	// Create a valid zip file
+	sourceFile := filepath.Join(suite.tempDir, "test.zip")
+	zipFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create zip file")
+
+	zipWriter := zip.NewWriter(zipFile)
+	content := "Test content"
+	fileWriter, err := zipWriter.Create("test.txt")
+	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
+
+	_, err = fileWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write zip content")
+
+	zipWriter.Close()
+	zipFile.Close()
+
+	// Create a destination directory that's read-only to prevent file writing
+	destDir := filepath.Join(suite.tempDir, "readonly")
+	err = os.MkdirAll(destDir, 0444) // Read-only directory
+	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
+
+	logger := command_mock.NewDiscardLogger()
+
+	action := &file.ExtractFileAction{
+		BaseAction:      task_engine.BaseAction{Logger: logger},
+		SourcePath:      sourceFile,
+		DestinationPath: destDir,
+		ArchiveType:     file.ZipArchive,
+	}
+
+	err = action.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "failed to create file")
+
+	// Restore permissions for cleanup
+	_ = os.Chmod(destDir, 0755)
+}
+
 func TestExtractFileTestSuite(t *testing.T) {
 	suite.Run(t, new(ExtractFileTestSuite))
 }
