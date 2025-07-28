@@ -167,7 +167,17 @@ func (a *ExtractFileAction) extractTar(source io.Reader, destination string) err
 		}
 
 		// Create the full path for the file
-		targetPath := filepath.Join(destination, header.Name)
+		// Sanitize the header name to prevent path traversal
+		sanitizedName := filepath.Clean(header.Name)
+		if strings.Contains(sanitizedName, "..") {
+			return fmt.Errorf("illegal file path: %s", header.Name)
+		}
+		targetPath := filepath.Join(destination, sanitizedName)
+
+		// Check for zip slip vulnerability
+		if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path: %s", header.Name)
+		}
 
 		// Ensure the target directory exists
 		targetDir := filepath.Dir(targetPath)
@@ -181,16 +191,20 @@ func (a *ExtractFileAction) extractTar(source io.Reader, destination string) err
 			return fmt.Errorf("failed to create file %s: %w", targetPath, err)
 		}
 
-		// Copy the file content
-		if _, err := io.Copy(targetFile, tarReader); err != nil {
-			targetFile.Close()
+		// Copy the file content with size limit to prevent decompression bomb
+		limitedReader := io.LimitReader(tarReader, 100*1024*1024) // 100MB limit
+		if _, err := io.Copy(targetFile, limitedReader); err != nil {
+			_ = targetFile.Close()
 			return fmt.Errorf("failed to copy file content for %s: %w", header.Name, err)
 		}
 
-		targetFile.Close()
+		_ = targetFile.Close()
 
-		// Set file permissions
-		if err := os.Chmod(targetPath, os.FileMode(header.Mode)); err != nil {
+		// Set file permissions - use safe conversion to avoid integer overflow
+		mode := header.Mode & 0777 // Only use the permission bits, avoid overflow
+		// Use explicit type conversion to avoid gosec warning
+		fileMode := os.FileMode(uint32(mode & 0x1FF)) // Ensure only 9 bits are used
+		if err := os.Chmod(targetPath, fileMode); err != nil {
 			a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
 		}
 	}
@@ -225,7 +239,12 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 	// Extract each file in the zip
 	for _, file := range zipReader.File {
 		// Create the full path for the file
-		targetPath := filepath.Join(destination, file.Name)
+		// Sanitize the file name to prevent path traversal
+		sanitizedName := filepath.Clean(file.Name)
+		if strings.Contains(sanitizedName, "..") {
+			return fmt.Errorf("illegal file path: %s", file.Name)
+		}
+		targetPath := filepath.Join(destination, sanitizedName)
 
 		// Check for zip slip vulnerability
 		if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
@@ -255,22 +274,24 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 		// Open the zip file
 		zipFile, err := file.Open()
 		if err != nil {
-			targetFile.Close()
+			_ = targetFile.Close()
 			return fmt.Errorf("failed to open zip file %s: %w", file.Name, err)
 		}
 
-		// Copy the file content
-		if _, err := io.Copy(targetFile, zipFile); err != nil {
-			zipFile.Close()
-			targetFile.Close()
+		// Copy the file content with size limit to prevent decompression bomb
+		limitedReader := io.LimitReader(zipFile, 100*1024*1024) // 100MB limit
+		if _, err := io.Copy(targetFile, limitedReader); err != nil {
+			_ = zipFile.Close()
+			_ = targetFile.Close()
 			return fmt.Errorf("failed to copy file content for %s: %w", file.Name, err)
 		}
 
-		zipFile.Close()
-		targetFile.Close()
+		_ = zipFile.Close()
+		_ = targetFile.Close()
 
-		// Set file permissions
-		if err := os.Chmod(targetPath, file.Mode()); err != nil {
+		// Set file permissions - use safe conversion to avoid integer overflow
+		mode := file.Mode() & 0777 // Only use the permission bits, avoid overflow
+		if err := os.Chmod(targetPath, mode); err != nil {
 			a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
 		}
 	}
@@ -293,7 +314,7 @@ func (a *ExtractFileAction) detectCompression(filePath string) (bool, string) {
 	}
 
 	// Reset file position for other checks
-	file.Seek(0, 0)
+	_, _ = file.Seek(0, 0)
 
 	// Read first few bytes to check for gzip magic number
 	buffer := make([]byte, 2)

@@ -168,7 +168,7 @@ func (a CreateArchiveAction) BeforeExecute(ctx context.Context) error {
 		}
 
 		// Create test file
-		if err := os.WriteFile(file, []byte("Test content for "+file), 0640); err != nil {
+		if err := os.WriteFile(file, []byte("Test content for "+file), 0600); err != nil {
 			return err
 		}
 	}
@@ -335,7 +335,7 @@ func (a CreateComplexTarAction) BeforeExecute(ctx context.Context) error {
 			return err
 		}
 
-		if err := os.WriteFile(fullPath, []byte(content), 0640); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
 			return err
 		}
 	}
