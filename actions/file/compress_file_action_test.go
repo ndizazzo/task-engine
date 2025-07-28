@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// CompressFileTestSuite defines the test suite for CompressFileAction
 type CompressFileTestSuite struct {
 	suite.Suite
 	tempDir string
@@ -29,7 +28,6 @@ func (suite *CompressFileTestSuite) TearDownTest() {
 }
 
 func (suite *CompressFileTestSuite) TestExecuteSuccessGzip() {
-	// Create a test file with compressible content
 	sourceFile := filepath.Join(suite.tempDir, "source.txt")
 	content := "This is a test file with repeated content. " +
 		"This is a test file with repeated content. " +
@@ -44,26 +42,21 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessGzip() {
 	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the compressed file was created and is smaller
 	sourceInfo, err := os.Stat(sourceFile)
 	suite.NoError(err)
 	destInfo, err := os.Stat(destFile)
 	suite.NoError(err)
 
-	// Compressed file should be smaller than original
 	suite.Less(destInfo.Size(), sourceInfo.Size(), "Compressed file should be smaller than original")
 	suite.Greater(destInfo.Size(), int64(0), "Compressed file should not be empty")
 }
 
 func (suite *CompressFileTestSuite) TestExecuteSuccessGzipLargeFile() {
-	// Create a large test file with compressible content
 	sourceFile := filepath.Join(suite.tempDir, "large_source.txt")
 
-	// Create content with lots of repetition for good compression
 	baseContent := "This is repeated content that should compress well. "
 	content := ""
 	for i := 0; i < 1000; i++ {
@@ -78,17 +71,14 @@ func (suite *CompressFileTestSuite) TestExecuteSuccessGzipLargeFile() {
 	action, err := file.NewCompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the compressed file was created and is significantly smaller
 	sourceInfo, err := os.Stat(sourceFile)
 	suite.NoError(err)
 	destInfo, err := os.Stat(destFile)
 	suite.NoError(err)
 
-	// Large file should compress significantly
 	compressionRatio := float64(destInfo.Size()) / float64(sourceInfo.Size())
 	suite.Less(compressionRatio, 0.5, "Large file should compress to less than 50% of original size")
 }

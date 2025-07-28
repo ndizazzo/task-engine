@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// ExtractFileTestSuite defines the test suite for ExtractFileAction
 type ExtractFileTestSuite struct {
 	suite.Suite
 	tempDir string
@@ -31,17 +30,14 @@ func (suite *ExtractFileTestSuite) TearDownTest() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessTar() {
-	// Create a tar archive
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create tar archive with test files
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar file")
 
 	tarWriter := tar.NewWriter(tarFile)
 
-	// Add a test file to the tar
 	content := "This is test content for tar extraction"
 	header := &tar.Header{
 		Name: "test.txt",
@@ -57,7 +53,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTar() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Extract the tar archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarArchive, logger)
 	suite.Require().NoError(err)
@@ -65,7 +60,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTar() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -73,17 +67,14 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTar() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
-	// Create a tar.gz archive (uncompressed tar with .tar.gz extension)
 	sourceFile := filepath.Join(suite.tempDir, "test.tar.gz")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create uncompressed tar archive with .tar.gz extension
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar.gz file")
 
 	tarWriter := tar.NewWriter(tarFile)
 
-	// Add a test file to the tar
 	content := "This is test content for tar.gz extraction"
 	header := &tar.Header{
 		Name: "test.txt",
@@ -99,7 +90,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Extract the tar.gz archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarGzArchive, logger)
 	suite.Require().NoError(err)
@@ -107,7 +97,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -115,17 +104,14 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessZip() {
-	// Create a zip archive
 	sourceFile := filepath.Join(suite.tempDir, "test.zip")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create zip archive with test files
 	zipFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create zip file")
 
 	zipWriter := zip.NewWriter(zipFile)
 
-	// Add a test file to the zip
 	content := "This is test content for zip extraction"
 	fileWriter, err := zipWriter.Create("test.txt")
 	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
@@ -136,7 +122,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZip() {
 	zipWriter.Close()
 	zipFile.Close()
 
-	// Extract the zip archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.ZipArchive, logger)
 	suite.Require().NoError(err)
@@ -144,7 +129,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZip() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -152,17 +136,14 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZip() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessTarWithDirectories() {
-	// Create a tar archive with directories
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create tar archive with directories and files
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar file")
 
 	tarWriter := tar.NewWriter(tarFile)
 
-	// Add a directory
 	dirHeader := &tar.Header{
 		Name:     "testdir/",
 		Typeflag: tar.TypeDir,
@@ -171,7 +152,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarWithDirectories() {
 	err = tarWriter.WriteHeader(dirHeader)
 	suite.Require().NoError(err, "Setup: Failed to write tar directory header")
 
-	// Add a file in the directory
 	content := "This is test content in a subdirectory"
 	fileHeader := &tar.Header{
 		Name: "testdir/test.txt",
@@ -187,7 +167,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarWithDirectories() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Extract the tar archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarArchive, logger)
 	suite.Require().NoError(err)
@@ -195,13 +174,11 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarWithDirectories() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the directory and file were extracted
 	extractedFile := filepath.Join(destDir, "testdir", "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
 	suite.Equal(content, string(extractedContent))
 
-	// Verify the directory exists
 	extractedDir := filepath.Join(destDir, "testdir")
 	dirInfo, err := os.Stat(extractedDir)
 	suite.NoError(err)
@@ -209,17 +186,14 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarWithDirectories() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessZipWithDirectories() {
-	// Create a zip archive with directories
 	sourceFile := filepath.Join(suite.tempDir, "test.zip")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create zip archive with directories and files
 	zipFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create zip file")
 
 	zipWriter := zip.NewWriter(zipFile)
 
-	// Add a file in a subdirectory
 	content := "This is test content in a zip subdirectory"
 	fileWriter, err := zipWriter.Create("testdir/test.txt")
 	suite.Require().NoError(err, "Setup: Failed to create zip file entry")
@@ -230,7 +204,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZipWithDirectories() {
 	zipWriter.Close()
 	zipFile.Close()
 
-	// Extract the zip archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.ZipArchive, logger)
 	suite.Require().NoError(err)
@@ -238,13 +211,11 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZipWithDirectories() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "testdir", "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
 	suite.Equal(content, string(extractedContent))
 
-	// Verify the directory exists
 	extractedDir := filepath.Join(destDir, "testdir")
 	dirInfo, err := os.Stat(extractedDir)
 	suite.NoError(err)
@@ -252,11 +223,9 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessZipWithDirectories() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTar() {
-	// Create a tar archive with .tar extension
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create tar archive
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar file")
 
@@ -276,7 +245,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTar() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Extract with auto-detection (empty archive type)
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, "", logger)
 	suite.Require().NoError(err)
@@ -284,7 +252,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTar() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -292,11 +259,9 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTar() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
-	// Create a tar.gz archive with .tar.gz extension (uncompressed tar)
 	sourceFile := filepath.Join(suite.tempDir, "test.tar.gz")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create uncompressed tar archive with .tar.gz extension
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar.gz file")
 
@@ -316,7 +281,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Extract with auto-detection (empty archive type)
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, "", logger)
 	suite.Require().NoError(err)
@@ -324,7 +288,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -332,11 +295,9 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectZip() {
-	// Create a zip archive with .zip extension
 	sourceFile := filepath.Join(suite.tempDir, "test.zip")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create zip archive
 	zipFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create zip file")
 
@@ -351,7 +312,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectZip() {
 	zipWriter.Close()
 	zipFile.Close()
 
-	// Extract with auto-detection (empty archive type)
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, "", logger)
 	suite.Require().NoError(err)
@@ -359,7 +319,6 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectZip() {
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	extractedContent, err := os.ReadFile(extractedFile)
 	suite.NoError(err)
@@ -379,7 +338,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureSourceNotExists() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureSourceIsDirectory() {
-	// Create a directory
 	sourceDir := filepath.Join(suite.tempDir, "source_dir")
 	err := os.Mkdir(sourceDir, 0755)
 	suite.Require().NoError(err, "Setup: Failed to create source directory")
@@ -395,7 +353,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureSourceIsDirectory() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureInvalidTarFile() {
-	// Create a file that's not actually a tar archive
 	sourceFile := filepath.Join(suite.tempDir, "invalid.tar")
 	err := os.WriteFile(sourceFile, []byte("This is not a tar archive"), 0600)
 	suite.Require().NoError(err, "Setup: Failed to create invalid tar file")
@@ -411,7 +368,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureInvalidTarFile() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureInvalidZipFile() {
-	// Create a file that's not actually a zip archive
 	sourceFile := filepath.Join(suite.tempDir, "invalid.zip")
 	err := os.WriteFile(sourceFile, []byte("This is not a zip archive"), 0600)
 	suite.Require().NoError(err, "Setup: Failed to create invalid zip file")
@@ -427,17 +383,14 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureInvalidZipFile() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureZipSlipVulnerability() {
-	// Create a zip archive with a malicious path
 	sourceFile := filepath.Join(suite.tempDir, "malicious.zip")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Create zip archive with malicious path
 	zipFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create malicious zip file")
 
 	zipWriter := zip.NewWriter(zipFile)
 
-	// Add a file with a path that tries to escape the destination
 	content := "Malicious content"
 	fileWriter, err := zipWriter.Create("../../../malicious.txt")
 	suite.Require().NoError(err, "Setup: Failed to create malicious zip file entry")
@@ -448,7 +401,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureZipSlipVulnerability() {
 	zipWriter.Close()
 	zipFile.Close()
 
-	// Try to extract the zip archive
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.ZipArchive, logger)
 	suite.Require().NoError(err)
@@ -459,7 +411,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureZipSlipVulnerability() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureNoWritePermission() {
-	// Create a tar archive
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar file")
@@ -480,7 +431,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureNoWritePermission() {
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Create a read-only directory
 	readOnlyDir := filepath.Join(suite.tempDir, "read_only")
 	err = os.Mkdir(readOnlyDir, 0555)
 	suite.Require().NoError(err, "Setup: Failed to create read-only directory")
@@ -498,7 +448,6 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionNilLogger() {
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Should not panic and should allow nil logger
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarArchive, nil)
 	suite.NoError(err)
 	suite.NotNil(action)
@@ -509,7 +458,6 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionEmptySourcePath() {
 	destDir := filepath.Join(suite.tempDir, "extracted")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error for empty source path
 	action, err := file.NewExtractFileAction("", destDir, file.TarArchive, logger)
 	suite.Error(err)
 	suite.Nil(action)
@@ -519,7 +467,6 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionEmptyDestinationPath(
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error for empty destination path
 	action, err := file.NewExtractFileAction(sourceFile, "", file.TarArchive, logger)
 	suite.Error(err)
 	suite.Nil(action)
@@ -530,7 +477,6 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionInvalidArchiveType() 
 	destDir := filepath.Join(suite.tempDir, "extracted")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error for invalid archive type
 	action, err := file.NewExtractFileAction(sourceFile, destDir, "invalid", logger)
 	suite.Error(err)
 	suite.Nil(action)
@@ -541,7 +487,6 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionValidParameters() {
 	destDir := filepath.Join(suite.tempDir, "extracted")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return valid action for valid parameters
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarArchive, logger)
 	suite.NoError(err)
 	suite.NotNil(action)
@@ -553,19 +498,16 @@ func (suite *ExtractFileTestSuite) TestNewExtractFileActionValidParameters() {
 }
 
 func (suite *ExtractFileTestSuite) TestNewExtractFileActionAutoDetectFailure() {
-	// Create a file with unknown extension
 	sourceFile := filepath.Join(suite.tempDir, "unknown.xyz")
 	destDir := filepath.Join(suite.tempDir, "extracted")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error when auto-detection fails
 	action, err := file.NewExtractFileAction(sourceFile, destDir, "", logger)
 	suite.Error(err)
 	suite.Nil(action)
 }
 
 func (suite *ExtractFileTestSuite) TestDetectArchiveType() {
-	// Test auto-detection for different file extensions
 	testCases := []struct {
 		filePath string
 		expected file.ArchiveType
@@ -584,7 +526,6 @@ func (suite *ExtractFileTestSuite) TestDetectArchiveType() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureUnsupportedArchiveType() {
-	// Create a test file
 	sourceFile := filepath.Join(suite.tempDir, "test.txt")
 	err := os.WriteFile(sourceFile, []byte("test content"), 0600)
 	suite.Require().NoError(err, "Setup: Failed to create source file")
@@ -592,8 +533,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureUnsupportedArchiveType() {
 	destDir := filepath.Join(suite.tempDir, "extracted")
 	logger := command_mock.NewDiscardLogger()
 
-	// Create action with invalid archive type (this would normally be prevented by constructor)
-	// But we can test the Execute method directly
 	action := &file.ExtractFileAction{
 		BaseAction:      task_engine.BaseAction{Logger: logger},
 		SourcePath:      sourceFile,
@@ -601,22 +540,18 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureUnsupportedArchiveType() {
 		ArchiveType:     "invalid",
 	}
 
-	// Execute the action
 	err = action.Execute(context.Background())
 	suite.Error(err)
 	suite.ErrorContains(err, "unsupported archive type")
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
-	// Get current working directory and construct absolute path to fixture
 	cwd, err := os.Getwd()
 	suite.Require().NoError(err, "Failed to get current working directory")
-	// Go up to project root (from actions/file to project root)
 	projectRoot := filepath.Join(cwd, "..", "..")
 	fixturePath := filepath.Join(projectRoot, "testdata", "compressed.tar.gz")
 	sourceFile := filepath.Join(suite.tempDir, "compressed.tar.gz")
 
-	// Copy the fixture file to the test directory
 	data, err := os.ReadFile(fixturePath)
 	suite.Require().NoError(err, "Failed to read fixture file")
 	err = os.WriteFile(sourceFile, data, 0644)
@@ -624,7 +559,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
 
 	destDir := filepath.Join(suite.tempDir, "extracted")
 
-	// Try to extract the compressed tar.gz file
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarGzArchive, logger)
 	suite.Require().NoError(err)
@@ -636,7 +570,6 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessCreatesDestinationDirectory() {
-	// Create a tar archive
 	sourceFile := filepath.Join(suite.tempDir, "test.tar")
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar file")
@@ -657,21 +590,17 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessCreatesDestinationDirectory
 	tarWriter.Close()
 	tarFile.Close()
 
-	// Try to extract to a path with non-existent directory
 	destDir := filepath.Join(suite.tempDir, "new_dir", "subdir", "extracted")
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewExtractFileAction(sourceFile, destDir, file.TarArchive, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the destination directory was created
 	_, err = os.Stat(destDir)
 	suite.NoError(err, "Destination directory should have been created")
 
-	// Verify the file was extracted
 	extractedFile := filepath.Join(destDir, "test.txt")
 	_, err = os.Stat(extractedFile)
 	suite.NoError(err, "Extracted file should have been created")
