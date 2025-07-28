@@ -125,10 +125,8 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 
 	// Extract based on archive type
 	switch a.ArchiveType {
-	case TarArchive:
+	case TarArchive, TarGzArchive:
 		err = a.extractTar(sourceFile, a.DestinationPath)
-	case TarGzArchive:
-		err = a.extractTarGz(sourceFile, a.DestinationPath)
 	case ZipArchive:
 		err = a.extractZip(sourceFile, a.DestinationPath)
 	default:
@@ -146,6 +144,60 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 		"archiveType", a.ArchiveType)
 
 	return nil
+}
+
+// validateAndSanitizePath validates and sanitizes a file path to prevent path traversal attacks
+func (a *ExtractFileAction) validateAndSanitizePath(fileName, destination string) (string, error) {
+	// Sanitize the file name to prevent path traversal
+	sanitizedName := filepath.Clean(fileName)
+	if strings.Contains(sanitizedName, "..") {
+		return "", fmt.Errorf("illegal file path: %s", fileName)
+	}
+
+	targetPath := filepath.Join(destination, sanitizedName)
+
+	// Check for zip slip vulnerability
+	if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("illegal file path: %s", fileName)
+	}
+
+	return targetPath, nil
+}
+
+// createTargetFile creates a target file and ensures its directory exists
+func (a *ExtractFileAction) createTargetFile(targetPath string) (*os.File, error) {
+	// Ensure the target directory exists
+	targetDir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		return nil, fmt.Errorf("failed to create directory %s: %w", targetDir, err)
+	}
+
+	// Create the file
+	targetFile, err := os.Create(targetPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file %s: %w", targetPath, err)
+	}
+
+	return targetFile, nil
+}
+
+// copyWithLimit copies data from reader to file with a size limit to prevent decompression bombs
+func (a *ExtractFileAction) copyWithLimit(dst *os.File, src io.Reader, fileName string) error {
+	limitedReader := io.LimitReader(src, 100*1024*1024) // 100MB limit
+	if _, err := io.Copy(dst, limitedReader); err != nil {
+		return fmt.Errorf("failed to copy file content for %s: %w", fileName, err)
+	}
+	return nil
+}
+
+// setFilePermissions safely sets file permissions with overflow protection
+func (a *ExtractFileAction) setFilePermissions(targetPath string, mode int64) {
+	// Use safe conversion to avoid integer overflow
+	safeMode := mode & 0777                           // Only use the permission bits, avoid overflow
+	fileMode := os.FileMode(uint32(safeMode & 0x1FF)) // Ensure only 9 bits are used
+	if err := os.Chmod(targetPath, fileMode); err != nil {
+		a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
+	}
 }
 
 // extractTar extracts a tar archive
@@ -166,59 +218,31 @@ func (a *ExtractFileAction) extractTar(source io.Reader, destination string) err
 			continue
 		}
 
-		// Create the full path for the file
-		// Sanitize the header name to prevent path traversal
-		sanitizedName := filepath.Clean(header.Name)
-		if strings.Contains(sanitizedName, "..") {
-			return fmt.Errorf("illegal file path: %s", header.Name)
-		}
-		targetPath := filepath.Join(destination, sanitizedName)
-
-		// Check for zip slip vulnerability
-		if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path: %s", header.Name)
-		}
-
-		// Ensure the target directory exists
-		targetDir := filepath.Dir(targetPath)
-		if err := os.MkdirAll(targetDir, 0750); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", targetDir, err)
-		}
-
-		// Create the file
-		targetFile, err := os.Create(targetPath)
+		// Validate and sanitize path
+		targetPath, err := a.validateAndSanitizePath(header.Name, destination)
 		if err != nil {
-			return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			return err
 		}
 
-		// Copy the file content with size limit to prevent decompression bomb
-		limitedReader := io.LimitReader(tarReader, 100*1024*1024) // 100MB limit
-		if _, err := io.Copy(targetFile, limitedReader); err != nil {
+		// Create target file
+		targetFile, err := a.createTargetFile(targetPath)
+		if err != nil {
+			return err
+		}
+
+		// Copy file content with size limit
+		if err := a.copyWithLimit(targetFile, tarReader, header.Name); err != nil {
 			_ = targetFile.Close()
-			return fmt.Errorf("failed to copy file content for %s: %w", header.Name, err)
+			return err
 		}
 
 		_ = targetFile.Close()
 
-		// Set file permissions - use safe conversion to avoid integer overflow
-		mode := header.Mode & 0777 // Only use the permission bits, avoid overflow
-		// Use explicit type conversion to avoid gosec warning
-		fileMode := os.FileMode(uint32(mode & 0x1FF)) // Ensure only 9 bits are used
-		if err := os.Chmod(targetPath, fileMode); err != nil {
-			a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
-		}
+		// Set file permissions
+		a.setFilePermissions(targetPath, header.Mode)
 	}
 
 	return nil
-}
-
-// extractTarGz extracts a tar.gz archive
-// Note: This method expects the file to already be decompressed.
-// For compressed .tar.gz files, use DecompressFileAction first, then ExtractFileAction.
-func (a *ExtractFileAction) extractTarGz(source io.Reader, destination string) error {
-	// For .tar.gz files, we expect the file to already be decompressed
-	// The source should be a tar stream, not a compressed stream
-	return a.extractTar(source, destination)
 }
 
 // extractZip extracts a zip archive
@@ -238,17 +262,10 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 
 	// Extract each file in the zip
 	for _, file := range zipReader.File {
-		// Create the full path for the file
-		// Sanitize the file name to prevent path traversal
-		sanitizedName := filepath.Clean(file.Name)
-		if strings.Contains(sanitizedName, "..") {
-			return fmt.Errorf("illegal file path: %s", file.Name)
-		}
-		targetPath := filepath.Join(destination, sanitizedName)
-
-		// Check for zip slip vulnerability
-		if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path: %s", file.Name)
+		// Validate and sanitize path
+		targetPath, err := a.validateAndSanitizePath(file.Name, destination)
+		if err != nil {
+			return err
 		}
 
 		// If it's a directory, create it and continue
@@ -259,16 +276,10 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 			continue
 		}
 
-		// Ensure the target directory exists
-		targetDir := filepath.Dir(targetPath)
-		if err := os.MkdirAll(targetDir, 0750); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", targetDir, err)
-		}
-
-		// Create the file
-		targetFile, err := os.Create(targetPath)
+		// Create target file
+		targetFile, err := a.createTargetFile(targetPath)
 		if err != nil {
-			return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			return err
 		}
 
 		// Open the zip file
@@ -278,22 +289,18 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 			return fmt.Errorf("failed to open zip file %s: %w", file.Name, err)
 		}
 
-		// Copy the file content with size limit to prevent decompression bomb
-		limitedReader := io.LimitReader(zipFile, 100*1024*1024) // 100MB limit
-		if _, err := io.Copy(targetFile, limitedReader); err != nil {
+		// Copy file content with size limit
+		if err := a.copyWithLimit(targetFile, zipFile, file.Name); err != nil {
 			_ = zipFile.Close()
 			_ = targetFile.Close()
-			return fmt.Errorf("failed to copy file content for %s: %w", file.Name, err)
+			return err
 		}
 
 		_ = zipFile.Close()
 		_ = targetFile.Close()
 
-		// Set file permissions - use safe conversion to avoid integer overflow
-		mode := file.Mode() & 0777 // Only use the permission bits, avoid overflow
-		if err := os.Chmod(targetPath, mode); err != nil {
-			a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
-		}
+		// Set file permissions
+		a.setFilePermissions(targetPath, int64(file.Mode()))
 	}
 
 	return nil

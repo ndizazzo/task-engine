@@ -59,4 +59,5 @@ install-tools: ## Install development tools
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
+ci: tidy fmt-check vet lint security test-ci ## Run all CI checks and tests
 dev: tidy fmt vet lint security test ## Full development workflow 
