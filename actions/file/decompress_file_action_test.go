@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// DecompressFileTestSuite defines the test suite for DecompressFileAction
 type DecompressFileTestSuite struct {
 	suite.Suite
 	tempDir string
@@ -30,11 +29,9 @@ func (suite *DecompressFileTestSuite) TearDownTest() {
 }
 
 func (suite *DecompressFileTestSuite) TestExecuteSuccessGzip() {
-	// Create a compressed file
 	sourceFile := filepath.Join(suite.tempDir, "compressed.gz")
 	originalContent := "This is the original content that was compressed."
 
-	// Create gzip compressed file
 	compressedFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create compressed file")
 
@@ -49,22 +46,18 @@ func (suite *DecompressFileTestSuite) TestExecuteSuccessGzip() {
 	action, err := file.NewDecompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the decompressed file was created and contains the original content
 	decompressedContent, err := os.ReadFile(destFile)
 	suite.NoError(err)
 	suite.Equal(originalContent, string(decompressedContent))
 }
 
 func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipAutoDetect() {
-	// Create a compressed file with .gz extension
 	sourceFile := filepath.Join(suite.tempDir, "compressed.gz")
 	originalContent := "This is the original content that was compressed."
 
-	// Create gzip compressed file
 	compressedFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create compressed file")
 
@@ -76,29 +69,24 @@ func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipAutoDetect() {
 
 	destFile := filepath.Join(suite.tempDir, "decompressed.txt")
 	logger := command_mock.NewDiscardLogger()
-	// Don't specify compression type - should auto-detect from .gz extension
 	action, err := file.NewDecompressFileAction(sourceFile, destFile, "", logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the decompressed file was created and contains the original content
 	decompressedContent, err := os.ReadFile(destFile)
 	suite.NoError(err)
 	suite.Equal(originalContent, string(decompressedContent))
 }
 
 func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipLargeFile() {
-	// Create a large compressed file
 	sourceFile := filepath.Join(suite.tempDir, "large_compressed.gz")
 	originalContent := "This is repeated content for a large file. "
 	for i := 0; i < 1000; i++ {
 		originalContent += "This is repeated content for a large file. "
 	}
 
-	// Create gzip compressed file
 	compressedFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create large compressed file")
 
@@ -113,26 +101,21 @@ func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipLargeFile() {
 	action, err := file.NewDecompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the decompressed file was created and contains the original content
 	decompressedContent, err := os.ReadFile(destFile)
 	suite.NoError(err)
 	suite.Equal(originalContent, string(decompressedContent))
 }
 
 func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipEmptyFile() {
-	// Create an empty compressed file
 	sourceFile := filepath.Join(suite.tempDir, "empty_compressed.gz")
 
-	// Create gzip compressed file with empty content
 	compressedFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create empty compressed file")
 
 	gzipWriter := gzip.NewWriter(compressedFile)
-	// Write nothing - empty content
 	gzipWriter.Close()
 	compressedFile.Close()
 
@@ -141,11 +124,9 @@ func (suite *DecompressFileTestSuite) TestExecuteSuccessGzipEmptyFile() {
 	action, err := file.NewDecompressFileAction(sourceFile, destFile, file.GzipCompression, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the decompressed file was created and is empty
 	decompressedContent, err := os.ReadFile(destFile)
 	suite.NoError(err)
 	suite.Equal("", string(decompressedContent))

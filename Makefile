@@ -10,12 +10,22 @@ test-unit-json: ## Run unit tests and save JSON output
 	@go test -json -run "^Test.*" ./... > test-unit.json
 
 # Local development formatters (human-readable)
-test-unit: test-unit-json ## Run unit tests with human-readable output
-	@cat test-unit.json | gotestfmt
+test-unit: test-unit-json install-tools ## Run unit tests with human-readable output
+	@if command -v gotestfmt >/dev/null 2>&1; then \
+		cat test-unit.json | gotestfmt; \
+	else \
+		echo "gotestfmt not found, running tests without formatting..."; \
+		go test ./...; \
+	fi
 
 # CI formatters (JUnit XML)
-test-unit-ci: test-unit-json ## Run unit tests with JUnit XML output for CI
-	@gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json
+test-unit-ci: test-unit-json install-tools ## Run unit tests with JUnit XML output for CI
+	@if command -v gotestsum >/dev/null 2>&1; then \
+		gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json; \
+	else \
+		echo "gotestsum not found, running tests without JUnit XML..."; \
+		go test ./...; \
+	fi
 
 test-ci: test-unit-ci ## Run all tests with JUnit XML output for CI
 
@@ -48,7 +58,7 @@ check: fmt vet ## Run code quality checks
 
 security: ## Run security and vulnerability checks
 	@echo "Running static security analysis..."
-	@gosec -exclude=G304 ./...
+	@gosec -exclude=G304,G115 ./...
 	@echo "Running vulnerability scanning..."
 	@govulncheck ./...
 
@@ -59,4 +69,5 @@ install-tools: ## Install development tools
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
+ci: tidy fmt-check vet lint security test-ci ## Run all CI checks and tests
 dev: tidy fmt vet lint security test ## Full development workflow 

@@ -33,7 +33,6 @@ func (suite *DockerStatusActionTestSuite) TestGetSpecificContainerState() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ContainerStates, 1)
 	container := action.Wrapped.ContainerStates[0]
 	suite.Equal("abc123", container.ID)
@@ -57,7 +56,6 @@ func (suite *DockerStatusActionTestSuite) TestGetMultipleContainerStates() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed results
 	suite.Len(action.Wrapped.ContainerStates, 2)
 
 	container1 := action.Wrapped.ContainerStates[0]
@@ -88,7 +86,6 @@ func (suite *DockerStatusActionTestSuite) TestGetAllContainersState() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed results
 	suite.Len(action.Wrapped.ContainerStates, 3)
 
 	container1 := action.Wrapped.ContainerStates[0]
@@ -124,7 +121,6 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithMultipleNames() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed result with multiple names
 	suite.Len(action.Wrapped.ContainerStates, 1)
 	container := action.Wrapped.ContainerStates[0]
 	suite.Equal("abc123", container.ID)
@@ -177,7 +173,6 @@ func (suite *DockerStatusActionTestSuite) TestMalformedJSONLine() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Should parse the valid containers and skip the malformed one
 	suite.Len(action.Wrapped.ContainerStates, 3)
 
 	container1 := action.Wrapped.ContainerStates[0]
@@ -220,7 +215,6 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithEmptyNames() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed result with empty names
 	suite.Len(action.Wrapped.ContainerStates, 1)
 	container := action.Wrapped.ContainerStates[0]
 	suite.Equal("abc123", container.ID)
@@ -242,7 +236,6 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithWhitespaceInNames() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed result with whitespace trimmed
 	suite.Len(action.Wrapped.ContainerStates, 1)
 	container := action.Wrapped.ContainerStates[0]
 	suite.Equal("abc123", container.ID)
@@ -264,7 +257,6 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithCommasInNames() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify the parsed result with comma-separated names
 	suite.Len(action.Wrapped.ContainerStates, 1)
 	container := action.Wrapped.ContainerStates[0]
 	suite.Equal("abc123", container.ID)
@@ -293,14 +285,11 @@ func (suite *DockerStatusActionTestSuite) TestAllContainerStates() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify all container states are parsed correctly
 	suite.Len(action.Wrapped.ContainerStates, 7)
 
-	// Check running container
 	suite.Equal("running-container", action.Wrapped.ContainerStates[0].Names[0])
 	suite.Equal("Up 2 hours", action.Wrapped.ContainerStates[0].Status)
 
-	// Check exited container
 	suite.Equal("exited-container", action.Wrapped.ContainerStates[1].Names[0])
 	suite.Equal("Exited (0) 1 hour ago", action.Wrapped.ContainerStates[1].Status)
 
@@ -308,19 +297,15 @@ func (suite *DockerStatusActionTestSuite) TestAllContainerStates() {
 	suite.Equal("paused-container", action.Wrapped.ContainerStates[2].Names[0])
 	suite.Equal("Paused", action.Wrapped.ContainerStates[2].Status)
 
-	// Check created container
 	suite.Equal("created-container", action.Wrapped.ContainerStates[3].Names[0])
 	suite.Equal("Created", action.Wrapped.ContainerStates[3].Status)
 
-	// Check restarting container
 	suite.Equal("restarting-container", action.Wrapped.ContainerStates[4].Names[0])
 	suite.Equal("Restarting (1) 2 minutes ago", action.Wrapped.ContainerStates[4].Status)
 
-	// Check dead container
 	suite.Equal("dead-container", action.Wrapped.ContainerStates[5].Names[0])
 	suite.Equal("Dead", action.Wrapped.ContainerStates[5].Status)
 
-	// Check removing container
 	suite.Equal("removing-container", action.Wrapped.ContainerStates[6].Names[0])
 	suite.Equal("Removing", action.Wrapped.ContainerStates[6].Status)
 }
@@ -345,33 +330,26 @@ func (suite *DockerStatusActionTestSuite) TestRealisticDockerOutput() {
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 
-	// Verify realistic output is parsed correctly
 	suite.Len(action.Wrapped.ContainerStates, 6)
 
-	// Check web server
 	suite.Equal("/web-server", action.Wrapped.ContainerStates[0].Names[0])
 	suite.Equal("nginx:1.25-alpine", action.Wrapped.ContainerStates[0].Image)
 	suite.Equal("Up 3 days", action.Wrapped.ContainerStates[0].Status)
 
-	// Check database with multiple names
 	suite.Equal("/db-server", action.Wrapped.ContainerStates[1].Names[0])
 	suite.Equal("/postgres", action.Wrapped.ContainerStates[1].Names[1])
 	suite.Equal("postgres:15-alpine", action.Wrapped.ContainerStates[1].Image)
 	suite.Equal("Up 1 week", action.Wrapped.ContainerStates[1].Status)
 
-	// Check crashed container
 	suite.Equal("/redis-cache", action.Wrapped.ContainerStates[2].Names[0])
 	suite.Equal("Exited (139) 2 hours ago", action.Wrapped.ContainerStates[2].Status)
 
-	// Check restarting container
 	suite.Equal("/app-server", action.Wrapped.ContainerStates[3].Names[0])
 	suite.Equal("Restarting (2) 5 minutes ago", action.Wrapped.ContainerStates[3].Status)
 
-	// Check created container
 	suite.Equal("/test-container", action.Wrapped.ContainerStates[4].Names[0])
 	suite.Equal("Created", action.Wrapped.ContainerStates[4].Status)
 
-	// Check dead container
 	suite.Equal("/temp-container", action.Wrapped.ContainerStates[5].Names[0])
 	suite.Equal("Dead", action.Wrapped.ContainerStates[5].Status)
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// Existing suite definition (ensure only one)
 type WriteFileTestSuite struct {
 	suite.Suite
 	tempDir string

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// ReadFileTestSuite defines the test suite for ReadFileAction
 type ReadFileTestSuite struct {
 	suite.Suite
 	tempDir string
@@ -28,49 +27,40 @@ func (suite *ReadFileTestSuite) TearDownTest() {
 }
 
 func (suite *ReadFileTestSuite) TestExecuteSuccess() {
-	// Create a test file
 	testFile := filepath.Join(suite.tempDir, "test.txt")
 	expectedContent := []byte("Hello, World!")
 	err := os.WriteFile(testFile, expectedContent, 0600)
 	suite.Require().NoError(err, "Setup: Failed to create test file")
 
-	// Create output buffer
 	var outputBuffer []byte
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was read correctly
 	suite.Equal(expectedContent, outputBuffer)
 }
 
 func (suite *ReadFileTestSuite) TestExecuteSuccessEmptyFile() {
-	// Create an empty test file
 	testFile := filepath.Join(suite.tempDir, "empty.txt")
 	err := os.WriteFile(testFile, []byte{}, 0600)
 	suite.Require().NoError(err, "Setup: Failed to create empty test file")
 
-	// Create output buffer
 	var outputBuffer []byte
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was read correctly (should be empty)
 	suite.Equal([]byte{}, outputBuffer)
 	suite.Equal(0, len(outputBuffer))
 }
 
 func (suite *ReadFileTestSuite) TestExecuteSuccessLargeFile() {
-	// Create a test file with larger content
 	testFile := filepath.Join(suite.tempDir, "large.txt")
 	expectedContent := make([]byte, 1024*1024) // 1MB file
 	for i := range expectedContent {
@@ -79,17 +69,14 @@ func (suite *ReadFileTestSuite) TestExecuteSuccessLargeFile() {
 	err := os.WriteFile(testFile, expectedContent, 0600)
 	suite.Require().NoError(err, "Setup: Failed to create large test file")
 
-	// Create output buffer
 	var outputBuffer []byte
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was read correctly
 	suite.Equal(expectedContent, outputBuffer)
 	suite.Equal(1024*1024, len(outputBuffer))
 }
@@ -108,7 +95,6 @@ func (suite *ReadFileTestSuite) TestExecuteFailureFileNotExists() {
 }
 
 func (suite *ReadFileTestSuite) TestExecuteFailurePathIsDirectory() {
-	// Create a directory
 	testDir := filepath.Join(suite.tempDir, "testdir")
 	err := os.Mkdir(testDir, 0755)
 	suite.Require().NoError(err, "Setup: Failed to create test directory")
@@ -118,20 +104,17 @@ func (suite *ReadFileTestSuite) TestExecuteFailurePathIsDirectory() {
 	action, err := file.NewReadFileAction(testDir, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
 	suite.ErrorContains(err, "is a directory, not a file")
 }
 
 func (suite *ReadFileTestSuite) TestExecuteFailureNoReadPermission() {
-	// Create a test file
 	testFile := filepath.Join(suite.tempDir, "no_read.txt")
 	content := []byte("some content")
 	err := os.WriteFile(testFile, content, 0600)
 	suite.Require().NoError(err, "Setup: Failed to create test file")
 
-	// Remove read permissions
 	err = os.Chmod(testFile, 0200) // Write-only
 	suite.Require().NoError(err, "Setup: Failed to change file permissions")
 
@@ -140,7 +123,6 @@ func (suite *ReadFileTestSuite) TestExecuteFailureNoReadPermission() {
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
 	suite.ErrorContains(err, "failed to read file")
@@ -150,7 +132,6 @@ func (suite *ReadFileTestSuite) TestNewReadFileActionNilLogger() {
 	testFile := filepath.Join(suite.tempDir, "test.txt")
 	var outputBuffer []byte
 
-	// Should not panic and should allow nil logger
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, nil)
 	suite.NoError(err)
 	suite.NotNil(action)
@@ -161,7 +142,6 @@ func (suite *ReadFileTestSuite) TestNewReadFileActionEmptyFilePath() {
 	var outputBuffer []byte
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error for empty file path
 	action, err := file.NewReadFileAction("", &outputBuffer, logger)
 	suite.Error(err)
 	suite.Nil(action)
@@ -171,14 +151,12 @@ func (suite *ReadFileTestSuite) TestNewReadFileActionNilOutputBuffer() {
 	testFile := filepath.Join(suite.tempDir, "test.txt")
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return error for nil output buffer
 	action, err := file.NewReadFileAction(testFile, nil, logger)
 	suite.Error(err)
 	suite.Nil(action)
 }
 
 func (suite *ReadFileTestSuite) TestExecuteWithSpecialCharacters() {
-	// Create a test file with special characters in content
 	testFile := filepath.Join(suite.tempDir, "special.txt")
 	expectedContent := []byte("Hello\n\tWorld\r\nSpecial chars: !@#$%^&*()_+-=[]{}|;':\",./<>?")
 	err := os.WriteFile(testFile, expectedContent, 0600)
@@ -189,16 +167,13 @@ func (suite *ReadFileTestSuite) TestExecuteWithSpecialCharacters() {
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was read correctly
 	suite.Equal(expectedContent, outputBuffer)
 }
 
 func (suite *ReadFileTestSuite) TestExecuteWithUnicodeContent() {
-	// Create a test file with unicode content
 	testFile := filepath.Join(suite.tempDir, "unicode.txt")
 	expectedContent := []byte("Hello 世界! 🌍 Привет мир! こんにちは世界!")
 	err := os.WriteFile(testFile, expectedContent, 0600)
@@ -209,32 +184,26 @@ func (suite *ReadFileTestSuite) TestExecuteWithUnicodeContent() {
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was read correctly
 	suite.Equal(expectedContent, outputBuffer)
 }
 
 func (suite *ReadFileTestSuite) TestExecuteOverwritesExistingBuffer() {
-	// Create a test file
 	testFile := filepath.Join(suite.tempDir, "overwrite.txt")
 	expectedContent := []byte("New content")
 	err := os.WriteFile(testFile, expectedContent, 0600)
 	suite.Require().NoError(err, "Setup: Failed to create test file")
 
-	// Create output buffer with existing content
 	outputBuffer := []byte("Old content that should be overwritten")
 	logger := command_mock.NewDiscardLogger()
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
-	// Verify the content was overwritten correctly
 	suite.Equal(expectedContent, outputBuffer)
 }
 
@@ -243,7 +212,6 @@ func (suite *ReadFileTestSuite) TestNewReadFileActionValidParameters() {
 	var outputBuffer []byte
 	logger := command_mock.NewDiscardLogger()
 
-	// Should return valid action for valid parameters
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.NoError(err)
 	suite.NotNil(action)
@@ -254,12 +222,10 @@ func (suite *ReadFileTestSuite) TestNewReadFileActionValidParameters() {
 }
 
 func (suite *ReadFileTestSuite) TestExecuteFailureStatError() {
-	// Create a test file
 	testFile := filepath.Join(suite.tempDir, "test.txt")
 	err := os.WriteFile(testFile, []byte("content"), 0600)
 	suite.Require().NoError(err, "Setup: Failed to create test file")
 
-	// Remove read permissions to cause a stat error
 	err = os.Chmod(testFile, 0000)
 	suite.Require().NoError(err, "Setup: Failed to change file permissions")
 
@@ -268,12 +234,10 @@ func (suite *ReadFileTestSuite) TestExecuteFailureStatError() {
 	action, err := file.NewReadFileAction(testFile, &outputBuffer, logger)
 	suite.Require().NoError(err)
 
-	// Execute the action
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
 	suite.ErrorContains(err, "failed to read file")
 
-	// Restore permissions
 	os.Chmod(testFile, 0600)
 }
 
