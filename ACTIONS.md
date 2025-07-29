@@ -4,7 +4,7 @@ This document provides a comprehensive inventory of all built-in actions availab
 
 ## Action Categories Summary
 
-- **File Operations**: 13 actions for comprehensive file/directory management
+- **File Operations**: 12 actions for comprehensive file/directory management
 - **Docker Operations**: 14 actions for container orchestration and management
 - **System Management**: 4 actions for system-level operations
 - **Utilities**: 4 actions for workflow control and system information
@@ -133,47 +133,6 @@ Copies files and directories with optional recursive copying and directory creat
 - `logger`: Logger instance
 
 **See Example:** `tasks.NewFileOperationsTask()` - Shows file copying as part of backup and workflow operations.
-
-### CreateSymlinkAction
-
-Creates symbolic links with comprehensive validation and verification.
-
-**Constructor:** `NewCreateSymlinkAction(target string, linkPath string, overwrite bool, createDirs bool, logger *slog.Logger)`
-
-**Parameters:**
-
-- `target`: Target file or directory path for the symlink
-- `linkPath`: Path where the symlink will be created
-- `overwrite`: Whether to overwrite existing symlinks
-- `createDirs`: Whether to create parent directories for the symlink
-- `logger`: Logger instance
-
-**Features:**
-
-- **Path Validation**: Validates both target and link paths to prevent path traversal attacks
-- **Overwrite Control**: Optionally overwrites existing symlinks with proper cleanup
-- **Directory Creation**: Automatically creates parent directories when requested
-- **Comprehensive Verification**: Verifies symlink creation with target validation
-- **Relative Path Support**: Handles both absolute and relative target paths
-- **Error Handling**: Detailed error messages for various failure scenarios
-- **Security**: Path sanitization to prevent malicious path traversal
-
-**Verification Process:**
-
-The action includes a three-step verification process:
-1. **Existence Check**: Verifies the symlink exists and is actually a symlink
-2. **Target Reading**: Reads the symlink target to ensure it's accessible
-3. **Target Comparison**: Compares the actual target with the expected target, handling both absolute and relative paths
-
-**Error Scenarios:**
-
-- Invalid target or link paths (empty, path traversal attempts)
-- Target and link path being the same
-- Permission errors when creating symlinks or directories
-- Existing symlinks when overwrite is disabled
-- Verification failures (not a symlink, target mismatch, broken symlinks)
-
-**See Example:** `tasks.NewSymlinkOperationsTask()` - Demonstrates various symlink creation scenarios including relative paths, overwrite operations, and directory creation.
 
 ### DeletePathAction
 
@@ -962,6 +921,5 @@ For practical examples and complete workflows, see the following task functions 
 - **Docker Pull**: `tasks.NewDockerPullTask()` - Docker image pulling operations
 - **Docker Pull Multi-Arch**: `tasks.NewDockerPullMultiArchTask()` - Multi-architecture image pulling
 - **Extract Operations**: `tasks.NewExtractOperationsTask()` - Archive extraction with security features
-- **Symlink Operations**: `tasks.NewSymlinkOperationsTask()` - Symbolic link creation and management
 
 Each example task demonstrates real-world usage patterns and can be used as a starting point for your own workflows.

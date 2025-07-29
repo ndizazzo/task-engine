@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -60,7 +61,7 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 		if !a.Overwrite {
 			errMsg := fmt.Sprintf("symlink %s already exists and overwrite is set to false", sanitizedLinkPath)
 			a.Logger.Error(errMsg)
-			return fmt.Errorf(errMsg)
+			return errors.New(errMsg)
 		}
 		// Remove existing symlink if overwrite is enabled
 		if err := os.Remove(sanitizedLinkPath); err != nil {
