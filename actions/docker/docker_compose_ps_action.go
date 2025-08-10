@@ -182,8 +182,26 @@ func (a *DockerComposePsAction) parseServiceLine(line string) *ComposeService {
 	// Format: NAME IMAGE COMMAND SERVICE CREATED STATUS PORTS
 	// Example: myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp
 	// Example: myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Up 2 hours         5432/tcp
+	// Quiet format: just the service name
+	// Example: myapp_web_1
 
 	parts := strings.Fields(line)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	// If quiet mode, we only have the service name
+	if a.Quiet {
+		return &ComposeService{
+			Name:        parts[0],
+			Image:       "",
+			ServiceName: "",
+			Status:      "",
+			Ports:       "",
+		}
+	}
+
+	// Regular mode requires at least 6 fields
 	if len(parts) < 6 {
 		return nil
 	}

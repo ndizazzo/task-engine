@@ -162,18 +162,27 @@ if err := task.Run(ctx); err != nil {
 
 ## Testing
 
-The module provides comprehensive mocking support:
+The module provides comprehensive testing support:
+
+### Testing Support
+
+The module provides comprehensive testing utilities:
 
 ```go
-import "github.com/ndizazzo/task-engine/mocks"
+import "github.com/ndizazzo/task-engine/testing"
+import "github.com/ndizazzo/task-engine/testing/mocks"
 
-// Create mock command runner for testing
+// Performance testing
+tester := testing.NewPerformanceTester(taskManager, logger)
+metrics := tester.BenchmarkTaskExecution(ctx, task, 100, 10)
+
+// Mock implementations
+mockManager := mocks.NewEnhancedTaskManagerMock()
 mockRunner := &mocks.MockCommandRunner{}
-mockRunner.On("RunCommand", "echo", "hello").Return("hello", nil)
-
-// Use discard logger for tests
 logger := mocks.NewDiscardLogger()
 ```
+
+See [testing/README.md](testing/README.md) for comprehensive testing documentation.
 
 ## License
 

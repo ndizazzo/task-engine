@@ -10,7 +10,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
-	command_mock "github.com/ndizazzo/task-engine/mocks"
+	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -549,7 +549,7 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
 	cwd, err := os.Getwd()
 	suite.Require().NoError(err, "Failed to get current working directory")
 	projectRoot := filepath.Join(cwd, "..", "..")
-	fixturePath := filepath.Join(projectRoot, "testdata", "compressed.tar.gz")
+	fixturePath := filepath.Join(projectRoot, "testing", "testdata", "compressed.tar.gz")
 	sourceFile := filepath.Join(suite.tempDir, "compressed.tar.gz")
 
 	data, err := os.ReadFile(fixturePath)

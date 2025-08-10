@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 )
 
+var _ TaskManagerInterface = (*TaskManager)(nil)
+
+// TaskManager implements TaskManagerInterface for managing task execution
 type TaskManager struct {
 	Tasks        map[string]*Task
 	runningTasks map[string]context.CancelFunc
@@ -120,4 +124,26 @@ func (tm *TaskManager) IsTaskRunning(taskID string) bool {
 
 	_, exists := tm.runningTasks[taskID]
 	return exists
+}
+
+// WaitForAllTasksToComplete waits for all running tasks to complete
+func (tm *TaskManager) WaitForAllTasksToComplete(timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		tm.mu.Lock()
+		runningCount := len(tm.runningTasks)
+		tm.mu.Unlock()
+
+		if runningCount == 0 {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for %d tasks to complete", runningCount)
+		}
+
+		// Log the current state for debugging
+		tm.Logger.Debug("Waiting for tasks to complete", "runningCount", runningCount, "timeout", timeout)
+		time.Sleep(10 * time.Millisecond)
+	}
 }

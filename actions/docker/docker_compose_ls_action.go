@@ -172,8 +172,24 @@ func (a *DockerComposeLsAction) parseStackLine(line string) *ComposeStack {
 	// Format: NAME STATUS CONFIG FILES
 	// Example: myapp running /path/to/docker-compose.yml
 	// Example: testapp stopped /path/to/compose.yml,/path/to/override.yml
+	// Quiet format: just the stack name
+	// Example: myapp
 
 	parts := strings.Fields(line)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	// If quiet mode, we only have the stack name
+	if a.Quiet {
+		return &ComposeStack{
+			Name:        parts[0],
+			Status:      "",
+			ConfigFiles: "",
+		}
+	}
+
+	// Regular mode requires at least 3 fields
 	if len(parts) < 3 {
 		return nil
 	}

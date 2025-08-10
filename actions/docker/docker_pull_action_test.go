@@ -5,11 +5,22 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/ndizazzo/task-engine/mocks"
+	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestNewDockerPullAction(t *testing.T) {
+// DockerPullActionTestSuite tests the DockerPullAction functionality
+type DockerPullActionTestSuite struct {
+	suite.Suite
+}
+
+// TestDockerPullActionTestSuite runs the DockerPullAction test suite
+func TestDockerPullActionTestSuite(t *testing.T) {
+	suite.Run(t, new(DockerPullActionTestSuite))
+}
+
+func (suite *DockerPullActionTestSuite) TestNewDockerPullAction() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -20,12 +31,12 @@ func TestNewDockerPullAction(t *testing.T) {
 	}
 
 	action := NewDockerPullAction(logger, images)
-	assert.NotNil(t, action)
-	assert.Equal(t, "docker-pull-action", action.ID)
-	assert.NotNil(t, action.Wrapped)
+	assert.NotNil(suite.T(), action)
+	assert.Equal(suite.T(), "docker-pull-action", action.ID)
+	assert.NotNil(suite.T(), action.Wrapped)
 }
 
-func TestNewDockerPullActionWithOptions(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestNewDockerPullActionWithOptions() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"alpine": {
@@ -36,12 +47,12 @@ func TestNewDockerPullActionWithOptions(t *testing.T) {
 	}
 
 	action := NewDockerPullAction(logger, images, WithPullQuietOutput(), WithPullPlatform("linux/amd64"))
-	assert.NotNil(t, action)
-	assert.True(t, action.Wrapped.Quiet)
-	assert.Equal(t, "linux/amd64", action.Wrapped.Platform)
+	assert.NotNil(suite.T(), action)
+	assert.True(suite.T(), action.Wrapped.Quiet)
+	assert.Equal(suite.T(), "linux/amd64", action.Wrapped.Platform)
 }
 
-func TestNewDockerPullMultiArchAction(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestNewDockerPullMultiArchAction() {
 	logger := slog.Default()
 	multiArchImages := map[string]MultiArchImageSpec{
 		"nginx": {
@@ -52,13 +63,13 @@ func TestNewDockerPullMultiArchAction(t *testing.T) {
 	}
 
 	action := NewDockerPullMultiArchAction(logger, multiArchImages)
-	assert.NotNil(t, action)
-	assert.Equal(t, "docker-pull-multiarch-action", action.ID)
-	assert.NotNil(t, action.Wrapped)
-	assert.Len(t, action.Wrapped.MultiArchImages, 1)
+	assert.NotNil(suite.T(), action)
+	assert.Equal(suite.T(), "docker-pull-multiarch-action", action.ID)
+	assert.NotNil(suite.T(), action.Wrapped)
+	assert.Len(suite.T(), action.Wrapped.MultiArchImages, 1)
 }
 
-func TestDockerPullAction_Execute_Success(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_Success() {
 	logger := slog.Default()
 	expectedOutput := "nginx:latest: Pulling from library/nginx\nDigest: sha256:...\nStatus: Downloaded newer image for nginx:latest"
 
@@ -78,16 +89,16 @@ func TestDockerPullAction_Execute_Success(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 1)
-	assert.Equal(t, "nginx", action.Wrapped.PulledImages[0])
-	assert.Len(t, action.Wrapped.FailedImages, 0)
-	assert.Contains(t, action.Wrapped.Output, "Pulled 1 images, failed 0 images")
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	assert.Equal(suite.T(), "nginx", action.Wrapped.PulledImages[0])
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 0)
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 1 images, failed 0 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_SuccessMultipleImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_SuccessMultipleImages() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -119,15 +130,18 @@ func TestDockerPullAction_Execute_SuccessMultipleImages(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 3)
-	assert.Len(t, action.Wrapped.FailedImages, 0)
-	assert.Contains(t, action.Wrapped.Output, "Pulled 3 images, failed 0 images")
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 3)
+	assert.Contains(suite.T(), action.Wrapped.PulledImages, "nginx")
+	assert.Contains(suite.T(), action.Wrapped.PulledImages, "alpine")
+	assert.Contains(suite.T(), action.Wrapped.PulledImages, "redis")
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 0)
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 3 images, failed 0 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_MultiArchSuccess(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchSuccess() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -148,16 +162,16 @@ func TestDockerPullAction_Execute_MultiArchSuccess(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 1)
-	assert.Equal(t, "nginx", action.Wrapped.PulledImages[0])
-	assert.Len(t, action.Wrapped.FailedImages, 0)
-	assert.Contains(t, action.Wrapped.Output, "Pulled 1 images, failed 0 images")
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	assert.Equal(suite.T(), "nginx", action.Wrapped.PulledImages[0])
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 0)
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 1 images, failed 0 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_MultiArchPartialFailure(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchPartialFailure() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -178,15 +192,15 @@ func TestDockerPullAction_Execute_MultiArchPartialFailure(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err) // Should succeed because at least one architecture was pulled
-	assert.Len(t, action.Wrapped.PulledImages, 1)
-	assert.Equal(t, "nginx", action.Wrapped.PulledImages[0])
-	assert.Len(t, action.Wrapped.FailedImages, 0)
+	assert.NoError(suite.T(), err) // Should succeed because at least one architecture was pulled
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	assert.Equal(suite.T(), "nginx", action.Wrapped.PulledImages[0])
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 0)
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_MultiArchCompleteFailure(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchCompleteFailure() {
 	logger := slog.Default()
 
 	mockRunner := &mocks.MockCommandRunner{}
@@ -206,15 +220,15 @@ func TestDockerPullAction_Execute_MultiArchCompleteFailure(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.Error(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 0)
-	assert.Len(t, action.Wrapped.FailedImages, 1)
-	assert.Equal(t, "nginx", action.Wrapped.FailedImages[0])
+	assert.Error(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 0)
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 1)
+	assert.Equal(suite.T(), "nginx", action.Wrapped.FailedImages[0])
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_MixedImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MixedImages() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -245,15 +259,15 @@ func TestDockerPullAction_Execute_MixedImages(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 2)
-	assert.Len(t, action.Wrapped.FailedImages, 0)
-	assert.Contains(t, action.Wrapped.Output, "Pulled 2 images, failed 0 images")
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 2)
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 0)
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 2 images, failed 0 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_Failure(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_Failure() {
 	logger := slog.Default()
 	expectedError := "Error response from daemon: manifest for nonexistent:latest not found"
 
@@ -273,16 +287,16 @@ func TestDockerPullAction_Execute_Failure(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.Error(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 0)
-	assert.Len(t, action.Wrapped.FailedImages, 1)
-	assert.Equal(t, "nonexistent", action.Wrapped.FailedImages[0])
-	assert.Contains(t, action.Wrapped.Output, "Pulled 0 images, failed 1 images")
+	assert.Error(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 0)
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 1)
+	assert.Equal(suite.T(), "nonexistent", action.Wrapped.FailedImages[0])
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 0 images, failed 1 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_PartialFailure(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_PartialFailure() {
 	logger := slog.Default()
 	successOutput := "nginx:latest: Pulling from library/nginx\nStatus: Downloaded newer image for nginx:latest"
 	errorOutput := "Error response from daemon: manifest for nonexistent:latest not found"
@@ -309,39 +323,39 @@ func TestDockerPullAction_Execute_PartialFailure(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.Error(t, err)
-	assert.Len(t, action.Wrapped.PulledImages, 1)
-	assert.Len(t, action.Wrapped.FailedImages, 1)
-	assert.Equal(t, "nginx", action.Wrapped.PulledImages[0])
-	assert.Equal(t, "nonexistent", action.Wrapped.FailedImages[0])
-	assert.Contains(t, action.Wrapped.Output, "Pulled 1 images, failed 1 images")
+	assert.Error(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 1)
+	assert.Equal(suite.T(), "nginx", action.Wrapped.PulledImages[0])
+	assert.Equal(suite.T(), "nonexistent", action.Wrapped.FailedImages[0])
+	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 1 images, failed 1 images")
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_EmptyImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_EmptyImages() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{}
 
 	action := NewDockerPullAction(logger, images)
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no images specified for pulling")
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "no images specified for pulling")
 }
 
-func TestDockerPullAction_Execute_EmptyMultiArchImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_EmptyMultiArchImages() {
 	logger := slog.Default()
 	multiArchImages := map[string]MultiArchImageSpec{}
 
 	action := NewDockerPullMultiArchAction(logger, multiArchImages)
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no images specified for pulling")
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "no images specified for pulling")
 }
 
-func TestDockerPullAction_Execute_WithQuietOption(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithQuietOption() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -361,11 +375,11 @@ func TestDockerPullAction_Execute_WithQuietOption(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	mockRunner.AssertExpectations(t)
+	assert.NoError(suite.T(), err)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_WithPlatformOption(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithPlatformOption() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -385,11 +399,11 @@ func TestDockerPullAction_Execute_WithPlatformOption(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	mockRunner.AssertExpectations(t)
+	assert.NoError(suite.T(), err)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_Execute_WithArchitectureOverride(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithArchitectureOverride() {
 	logger := slog.Default()
 	expectedOutput := "Image pulled successfully"
 
@@ -409,11 +423,11 @@ func TestDockerPullAction_Execute_WithArchitectureOverride(t *testing.T) {
 
 	err := action.Wrapped.Execute(context.Background())
 
-	assert.NoError(t, err)
-	mockRunner.AssertExpectations(t)
+	assert.NoError(suite.T(), err)
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func TestDockerPullAction_BuildImageReference(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_BuildImageReference() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -431,13 +445,13 @@ func TestDockerPullAction_BuildImageReference(t *testing.T) {
 	action := NewDockerPullAction(logger, images)
 
 	ref1 := action.Wrapped.buildImageReference(images["nginx"])
-	assert.Equal(t, "nginx:latest", ref1)
+	assert.Equal(suite.T(), "nginx:latest", ref1)
 
 	ref2 := action.Wrapped.buildImageReference(images["alpine"])
-	assert.Equal(t, "alpine", ref2)
+	assert.Equal(suite.T(), "alpine", ref2)
 }
 
-func TestDockerPullAction_GetPulledImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_GetPulledImages() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -451,10 +465,10 @@ func TestDockerPullAction_GetPulledImages(t *testing.T) {
 	action.Wrapped.PulledImages = []string{"nginx", "alpine"}
 
 	result := action.Wrapped.GetPulledImages()
-	assert.Equal(t, []string{"nginx", "alpine"}, result)
+	assert.Equal(suite.T(), []string{"nginx", "alpine"}, result)
 }
 
-func TestDockerPullAction_GetFailedImages(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_GetFailedImages() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -468,10 +482,10 @@ func TestDockerPullAction_GetFailedImages(t *testing.T) {
 	action.Wrapped.FailedImages = []string{"nonexistent"}
 
 	result := action.Wrapped.GetFailedImages()
-	assert.Equal(t, []string{"nonexistent"}, result)
+	assert.Equal(suite.T(), []string{"nonexistent"}, result)
 }
 
-func TestDockerPullAction_GetOutput(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_GetOutput() {
 	logger := slog.Default()
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -485,10 +499,10 @@ func TestDockerPullAction_GetOutput(t *testing.T) {
 	action.Wrapped.Output = "Test output"
 
 	result := action.Wrapped.GetOutput()
-	assert.Equal(t, "Test output", result)
+	assert.Equal(suite.T(), "Test output", result)
 }
 
-func TestDockerPullAction_Execute_ContextCancellation(t *testing.T) {
+func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_ContextCancellation() {
 	logger := slog.Default()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -510,8 +524,8 @@ func TestDockerPullAction_Execute_ContextCancellation(t *testing.T) {
 
 	err := action.Wrapped.Execute(ctx)
 
-	assert.Error(t, err)
-	assert.Len(t, action.Wrapped.FailedImages, 1)
+	assert.Error(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.FailedImages, 1)
 
-	mockRunner.AssertExpectations(t)
+	mockRunner.AssertExpectations(suite.T())
 }

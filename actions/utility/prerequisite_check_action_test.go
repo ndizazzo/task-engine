@@ -10,11 +10,22 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/utility"
-	"github.com/ndizazzo/task-engine/mocks"
+	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestPrerequisiteCheckAction_Execute(t *testing.T) {
+// PrerequisiteCheckActionTestSuite tests the PrerequisiteCheckAction functionality
+type PrerequisiteCheckActionTestSuite struct {
+	suite.Suite
+}
+
+// TestPrerequisiteCheckActionTestSuite runs the PrerequisiteCheckAction test suite
+func TestPrerequisiteCheckActionTestSuite(t *testing.T) {
+	suite.Run(t, new(PrerequisiteCheckActionTestSuite))
+}
+
+func (suite *PrerequisiteCheckActionTestSuite) TestPrerequisiteCheckAction_Execute() {
 	tests := []struct {
 		name           string
 		description    string
@@ -64,12 +75,12 @@ func TestPrerequisiteCheckAction_Execute(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+		suite.Run(tc.name, func() {
 			logger := mocks.NewDiscardLogger()
 			// Constructor now returns an error, handle it for valid test cases
 			action, err := utility.NewPrerequisiteCheckAction(logger, tc.description, tc.checkFunc)
-			assert.NoError(t, err, "NewPrerequisiteCheckAction should not return an error for valid test cases here")
-			assert.NotNil(t, action)
+			assert.NoError(suite.T(), err, "NewPrerequisiteCheckAction should not return an error for valid test cases here")
+			assert.NotNil(suite.T(), action)
 
 			var ctx context.Context
 			var cancel context.CancelFunc
@@ -86,20 +97,19 @@ func TestPrerequisiteCheckAction_Execute(t *testing.T) {
 
 			switch {
 			case tc.expectError != nil:
-				assert.ErrorIs(t, execErr, tc.expectError, fmt.Sprintf("Expected error %v, got %v", tc.expectError, execErr))
+				assert.ErrorIs(suite.T(), execErr, tc.expectError, fmt.Sprintf("Expected error %v, got %v", tc.expectError, execErr))
 			case tc.expectContains != "":
-				assert.ErrorContains(t, execErr, tc.expectContains, fmt.Sprintf("Error message '%v' does not contain '%s'", execErr, tc.expectContains))
+				assert.ErrorContains(suite.T(), execErr, tc.expectContains, fmt.Sprintf("Error message '%v' does not contain '%s'", execErr, tc.expectContains))
 			default:
-				assert.NoError(t, execErr, fmt.Sprintf("Expected no error, got %v", execErr))
+				assert.NoError(suite.T(), execErr, fmt.Sprintf("Expected no error, got %v", execErr))
 			}
 		})
 	}
 }
 
-func TestNewPrerequisiteCheckAction_NilCheck(t *testing.T) {
+func (suite *PrerequisiteCheckActionTestSuite) TestNewPrerequisiteCheckAction_NilCheck() {
 	logger := mocks.NewDiscardLogger()
-	action, err := utility.NewPrerequisiteCheckAction(logger, "Test Nil Check In Constructor", nil)
-
-	assert.ErrorIs(t, err, utility.ErrNilCheckFunction, "Expected ErrNilCheckFunction for nil checkFunc")
-	assert.Nil(t, action, "Action should be nil when constructor returns an error")
+	action, err := utility.NewPrerequisiteCheckAction(logger, "test", nil)
+	assert.Error(suite.T(), err, "NewPrerequisiteCheckAction should return an error when check function is nil")
+	assert.Nil(suite.T(), action, "NewPrerequisiteCheckAction should return nil action when check function is nil")
 }

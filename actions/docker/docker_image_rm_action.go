@@ -100,7 +100,7 @@ func (a *DockerImageRmAction) Execute(execCtx context.Context) error {
 
 	// Add force flag if specified
 	if a.Force {
-		args = append(args, "-f")
+		args = append(args, "--force")
 	}
 
 	// Add no-prune flag if specified
@@ -122,11 +122,11 @@ func (a *DockerImageRmAction) Execute(execCtx context.Context) error {
 
 	a.Logger.Info("Executing docker image rm", "identifier", identifier, "force", a.Force, "noPrune", a.NoPrune)
 	output, err := a.CommandProcessor.RunCommand("docker", args...)
-	a.Output = strings.TrimSpace(output)
+	a.Output = output
 
 	if err != nil {
 		a.Logger.Error("Failed to remove Docker image", "error", err, "output", output)
-		return fmt.Errorf("failed to remove Docker image %s: %w. Output: %s", identifier, err, output)
+		return err
 	}
 
 	// Parse removed image IDs from output
