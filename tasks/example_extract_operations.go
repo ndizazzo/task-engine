@@ -328,7 +328,7 @@ func (a CreateComplexTarAction) BeforeExecute(ctx context.Context) error {
 	}
 
 	for path, content := range testStructure {
-		fullPath := filepath.Join("testdata", path)
+		fullPath := filepath.Join("testing", "testdata", path)
 		dir := filepath.Dir(fullPath)
 
 		if err := os.MkdirAll(dir, 0750); err != nil {
@@ -357,13 +357,13 @@ func (a CreateComplexTarAction) Execute(ctx context.Context) error {
 	defer tarWriter.Close()
 
 	// Walk through the testdata directory
-	return filepath.Walk("testdata", func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk("testing/testdata", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// Get relative path
-		relPath, err := filepath.Rel("testdata", path)
+		relPath, err := filepath.Rel("testing/testdata", path)
 		if err != nil {
 			return err
 		}

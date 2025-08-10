@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ndizazzo/task-engine/actions/utility"
-	command_mock "github.com/ndizazzo/task-engine/mocks"
+	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
 

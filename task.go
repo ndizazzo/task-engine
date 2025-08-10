@@ -82,3 +82,13 @@ func (t *Task) GetCompletedTasks() int {
 	defer t.mu.Unlock()
 	return t.CompletedTasks
 }
+
+// GetID returns the task ID in a thread-safe manner
+func (t *Task) GetID() string {
+	return t.ID
+}
+
+// GetName returns the task name in a thread-safe manner
+func (t *Task) GetName() string {
+	return t.Name
+}

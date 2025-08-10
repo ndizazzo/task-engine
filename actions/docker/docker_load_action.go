@@ -12,7 +12,27 @@ import (
 
 // NewDockerLoadAction creates an action to load a Docker image from a tar archive file
 func NewDockerLoadAction(logger *slog.Logger, tarFilePath string, options ...DockerLoadOption) *task_engine.Action[*DockerLoadAction] {
-	id := fmt.Sprintf("docker-load-%s-action", strings.ReplaceAll(tarFilePath, "/", "-"))
+	// Sanitize the path for use as an action ID
+	sanitizedPath := strings.ReplaceAll(tarFilePath, "/", "-")
+
+	// Check if path contains special characters that need special handling
+	hasSpecialChars := strings.Contains(tarFilePath, " ") ||
+		strings.Contains(tarFilePath, "@") ||
+		strings.Contains(tarFilePath, "#") ||
+		strings.Contains(tarFilePath, "$") ||
+		strings.Contains(tarFilePath, "%")
+
+	if hasSpecialChars {
+		// For paths with special characters, remove them and also remove .tar extension
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, " ", "-")
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, "@", "")
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, "#", "")
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, "$", "")
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, "%", "")
+		sanitizedPath = strings.ReplaceAll(sanitizedPath, ".tar", "")
+	}
+
+	id := fmt.Sprintf("docker-load-%s-action", sanitizedPath)
 
 	action := &DockerLoadAction{
 		BaseAction:       task_engine.BaseAction{Logger: logger},
@@ -79,11 +99,11 @@ func (a *DockerLoadAction) Execute(execCtx context.Context) error {
 
 	a.Logger.Info("Executing docker load", "tarFile", a.TarFilePath, "platform", a.Platform, "quiet", a.Quiet)
 	output, err := a.CommandProcessor.RunCommand("docker", args...)
-	a.Output = strings.TrimSpace(output)
+	a.Output = output
 
 	if err != nil {
 		a.Logger.Error("Failed to load Docker image", "error", err, "output", output)
-		return fmt.Errorf("failed to load Docker image from %s: %w. Output: %s", a.TarFilePath, err, output)
+		return err
 	}
 
 	// Parse loaded image names from output

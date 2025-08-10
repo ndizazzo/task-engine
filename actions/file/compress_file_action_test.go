@@ -8,7 +8,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
-	command_mock "github.com/ndizazzo/task-engine/mocks"
+	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
 

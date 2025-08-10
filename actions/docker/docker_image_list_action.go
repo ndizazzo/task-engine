@@ -198,9 +198,6 @@ func (a *DockerImageListAction) parseImageLine(line string) *DockerImage {
 		return nil
 	}
 
-	// The format is: REPOSITORY TAG IMAGE_ID CREATED SIZE
-	// But repository and tag can have variable spacing, so we need to be more careful
-
 	// Find the image ID (starts with sha256:)
 	imageIDIndex := -1
 	for i, part := range parts {
@@ -216,15 +213,6 @@ func (a *DockerImageListAction) parseImageLine(line string) *DockerImage {
 
 	imageID := parts[imageIDIndex]
 
-	// The parts after image ID should be: CREATED SIZE
-	if imageIDIndex+3 >= len(parts) {
-		return nil
-	}
-
-	// Created is typically "2 weeks ago" or "1 month ago"
-	created := parts[imageIDIndex+1] + " " + parts[imageIDIndex+2] + " " + parts[imageIDIndex+3] // "2 weeks ago"
-	size := parts[imageIDIndex+4]
-
 	// Everything before the image ID is repository and tag
 	repoTagParts := parts[:imageIDIndex]
 	if len(repoTagParts) < 2 {
@@ -235,13 +223,20 @@ func (a *DockerImageListAction) parseImageLine(line string) *DockerImage {
 	tag := repoTagParts[len(repoTagParts)-1]
 	repository := strings.Join(repoTagParts[:len(repoTagParts)-1], " ")
 
-	// Handle <none> cases
-	if repository == "<none>" {
-		repository = ""
+	// Note: <none> values are preserved as literal strings, not converted to empty strings
+
+	// The parts after image ID should be: CREATED SIZE
+	// Created time can be "2 weeks ago" or "1 month ago" etc.
+	remainingParts := parts[imageIDIndex+1:]
+	if len(remainingParts) < 2 {
+		return nil
 	}
-	if tag == "<none>" {
-		tag = ""
-	}
+
+	// Find the size (last part)
+	size := remainingParts[len(remainingParts)-1]
+
+	// Everything between image ID and size is the created time
+	created := strings.Join(remainingParts[:len(remainingParts)-1], " ")
 
 	return &DockerImage{
 		Repository: repository,

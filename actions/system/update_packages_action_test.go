@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	task_engine "github.com/ndizazzo/task-engine"
-	command_mock "github.com/ndizazzo/task-engine/mocks"
+	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 )
 
 // MockCommandRunner is a mock implementation of CommandRunner for testing

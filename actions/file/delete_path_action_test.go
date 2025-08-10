@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ndizazzo/task-engine/actions/file"
-	"github.com/ndizazzo/task-engine/mocks"
+	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
 

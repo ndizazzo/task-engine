@@ -20,6 +20,12 @@ func testContext() context.Context {
 	return context.Background()
 }
 
+// NewDiscardLogger creates a new logger that discards all output
+// This is useful for tests to prevent log output from cluttering test results
+func NewDiscardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
 type TestAction struct {
 	task_engine.BaseAction
 	Called     bool
@@ -83,7 +89,11 @@ func (a *AfterExecuteFailingAction) AfterExecute(ctx context.Context) error {
 }
 
 var (
-	noOpLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	// DiscardLogger is a logger that discards all log output, useful for tests
+	DiscardLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// noOpLogger is kept for backward compatibility
+	noOpLogger = DiscardLogger
 
 	PassingTestAction = &task_engine.Action[*TestAction]{
 		ID: "passing-action-1",

@@ -33,7 +33,7 @@ test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
 
 clean: ## Clean build artifacts
-	@rm -f coverage.out junit-unit.xml test-unit.json test-e2e.json
+	@rm -f *coverage.out junit-unit.xml test-unit.json test-e2e.json
 	@go clean
 
 fmt: ## Format code

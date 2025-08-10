@@ -217,7 +217,7 @@ func (a *DockerPsAction) parseContainers(output string) {
 func (a *DockerPsAction) parseContainerLine(line string) *Container {
 	// Format: CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
 	// Example: abc123def456 nginx:latest "nginx -g 'daemon off" 2 hours ago Up 2 hours 0.0.0.0:8080->80/tcp myapp_web_1
-	// Example: def456ghi789 postgres:13 "docker-entrypoint.s" 2 hours ago Up 2 hours 5432/tcp myapp_db_1
+	// Example: def456ghi789 postgres:13 "docker-entrypoint.s" 2 hours ago Exited (0) 1 hour ago 6379/tcp myapp_db_1
 
 	parts := strings.Fields(line)
 	if len(parts) < 7 {
@@ -256,7 +256,7 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 
 	// Parse the remaining fields more carefully
 	// The pattern is: CREATED STATUS PORTS NAMES
-	// Where CREATED can be "2 hours ago", STATUS can be "Up 2 hours", etc.
+	// Where CREATED can be "2 hours ago", STATUS can be "Up 2 hours" or "Exited (0) 1 hour ago", etc.
 
 	// Find where CREATED ends (it contains "ago")
 	createdEnd := -1
@@ -273,18 +273,20 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 
 	created := strings.Join(remainingParts[:createdEnd+1], " ")
 
-	// Find where STATUS ends (it's typically "Up X hours" or similar)
+	// Find where STATUS ends
 	statusStart := createdEnd + 1
 	if statusStart >= len(remainingParts) {
 		return nil
 	}
 
-	// STATUS is typically 2-3 words like "Up 2 hours" or "Exited (0) 2 hours ago"
+	// STATUS parsing - handle different patterns
 	statusEnd := statusStart
+	status := ""
+
 	if statusStart < len(remainingParts) {
-		// Use switch statement to handle different status patterns
+		statusPart := remainingParts[statusStart]
 		switch {
-		case strings.HasPrefix(remainingParts[statusStart], "Up"):
+		case strings.HasPrefix(statusPart, "Up"):
 			// "Up X hours" pattern - look for the next field that contains "/" (ports) or doesn't contain time units
 			for i := statusStart + 1; i < len(remainingParts); i++ {
 				part := remainingParts[i]
@@ -304,31 +306,25 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 			if statusEnd == statusStart && statusStart+1 < len(remainingParts) {
 				statusEnd = statusStart + 1
 			}
-		case strings.HasPrefix(remainingParts[statusStart], "Exited"):
-			// "Exited (X) Y ago" pattern
-			if statusStart+3 < len(remainingParts) && strings.Contains(remainingParts[statusStart+3], "ago") {
-				statusEnd = statusStart + 3
-			} else {
-				statusEnd = statusStart
+		case strings.HasPrefix(statusPart, "Exited"):
+			// "Exited (X) Y ago" pattern - look for the "ago" to find the end
+			for i := statusStart; i < len(remainingParts); i++ {
+				if strings.Contains(remainingParts[i], "ago") {
+					statusEnd = i
+					break
+				}
 			}
-		case strings.HasPrefix(remainingParts[statusStart], "Created"):
-			// "Created" pattern - typically just one word
-			statusEnd = statusStart
-		case strings.HasPrefix(remainingParts[statusStart], "Restarting"):
-			// "Restarting (X) Y ago" pattern
-			if statusStart+3 < len(remainingParts) && strings.Contains(remainingParts[statusStart+3], "ago") {
-				statusEnd = statusStart + 3
-			} else {
-				statusEnd = statusStart
+		case strings.HasPrefix(statusPart, "Restarting"):
+			// "Restarting (X) Y ago" pattern - look for the "ago" to find the end
+			for i := statusStart; i < len(remainingParts); i++ {
+				if strings.Contains(remainingParts[i], "ago") {
+					statusEnd = i
+					break
+				}
 			}
-		case strings.HasPrefix(remainingParts[statusStart], "Paused"):
-			// "Paused" pattern - typically just one word
-			statusEnd = statusStart
-		case strings.HasPrefix(remainingParts[statusStart], "Dead"):
-			// "Dead" pattern - typically just one word
-			statusEnd = statusStart
-		case strings.HasPrefix(remainingParts[statusStart], "Removing"):
-			// "Removing" pattern - typically just one word
+		case strings.HasPrefix(statusPart, "Created"), strings.HasPrefix(statusPart, "Paused"),
+			strings.HasPrefix(statusPart, "Dead"), strings.HasPrefix(statusPart, "Removing"):
+			// Single word statuses
 			statusEnd = statusStart
 		default:
 			// Default case for unknown status patterns
@@ -336,7 +332,7 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 		}
 	}
 
-	status := strings.Join(remainingParts[statusStart:statusEnd+1], " ")
+	status = strings.Join(remainingParts[statusStart:statusEnd+1], " ")
 
 	// The next field is PORTS
 	portsStart := statusEnd + 1
@@ -358,9 +354,24 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 	if portsStart < len(remainingParts) {
 		potentialPorts := remainingParts[portsStart]
 		if strings.Contains(potentialPorts, "/") || strings.Contains(potentialPorts, "->") {
-			// This is a port mapping
-			ports = potentialPorts
+			// This is a port mapping - collect all consecutive port-related fields
+			portParts := []string{potentialPorts}
 			namesStart = portsStart + 1
+
+			// Look for more port mappings (they might be comma-separated or in separate fields)
+			for i := portsStart + 1; i < len(remainingParts); i++ {
+				part := remainingParts[i]
+				// If this part contains port indicators, it's part of the ports
+				if strings.Contains(part, "/") || strings.Contains(part, "->") ||
+					strings.Contains(part, ",") || strings.HasPrefix(part, "0.0.0.0:") {
+					portParts = append(portParts, part)
+					namesStart = i + 1
+				} else {
+					// This is likely the start of names
+					break
+				}
+			}
+			ports = strings.Join(portParts, " ")
 		} else {
 			// This is likely the start of names (no ports)
 			ports = ""
