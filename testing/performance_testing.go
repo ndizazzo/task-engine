@@ -116,7 +116,12 @@ func (pt *PerformanceTester) executeSingleTask(ctx context.Context, task *task_e
 	// Wait for task completion or context cancellation
 	select {
 	case <-ctx.Done():
-		pt.taskManager.StopTask(taskCopy.ID)
+		// Stop the task when context is cancelled
+		if stopErr := pt.taskManager.StopTask(taskCopy.ID); stopErr != nil {
+			pt.logger.Warn("Failed to stop task during context cancellation",
+				"taskID", taskCopy.ID,
+				"error", stopErr)
+		}
 		return time.Since(startTime), ctx.Err()
 	default:
 		// Simple wait - in a real implementation, you might want to poll the task status
