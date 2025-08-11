@@ -33,13 +33,9 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 
 		err := mockTM.AddTask(task)
 		require.NoError(t, err)
-
-		// Verify state tracking
 		addedTasks := mockTM.GetAddedTasks()
 		assert.Len(t, addedTasks, 1)
 		assert.Equal(t, "test-task", addedTasks[0].ID)
-
-		// Verify mock expectations
 		mockTM.AssertExpectations(t)
 	})
 
@@ -52,13 +48,9 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 
 		err := mockTM.RunTask("test-task")
 		require.NoError(t, err)
-
-		// Verify state tracking
 		runCalls := mockTM.GetRunTaskCalls()
 		assert.Len(t, runCalls, 1)
 		assert.Equal(t, "test-task", runCalls[0])
-
-		// Verify running state
 		assert.True(t, mockTM.IsTaskRunning("test-task"))
 
 		mockTM.AssertExpectations(t)
@@ -79,13 +71,9 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Stop task
 		err = mockTM.StopTask("test-task")
 		require.NoError(t, err)
-
-		// Verify state tracking
 		stopCalls := mockTM.GetStopTaskCalls()
 		assert.Len(t, stopCalls, 1)
 		assert.Equal(t, "test-task", stopCalls[0])
-
-		// Verify running state
 		assert.False(t, mockTM.IsTaskRunning("test-task"))
 
 		mockTM.AssertExpectations(t)
@@ -107,12 +95,8 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 
 		// Stop all tasks
 		mockTM.StopAllTasks()
-
-		// Verify call tracking
 		stopAllCalls := mockTM.GetStopAllCalls()
 		assert.Equal(t, 1, stopAllCalls)
-
-		// Verify running state
 		mockTM.On("IsTaskRunning", "task1").Return(false)
 		mockTM.On("IsTaskRunning", "task2").Return(false)
 		assert.False(t, mockTM.IsTaskRunning("task1"))
@@ -136,8 +120,6 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		running := mockTM.GetRunningTasks()
 		assert.Len(t, running, 1)
 		assert.Equal(t, "task1", running[0])
-
-		// Verify call tracking
 		getRunningCalls := mockTM.GetGetRunningCalls()
 		assert.Equal(t, 1, getRunningCalls)
 
@@ -154,12 +136,8 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Start task
 		err := mockTM.RunTask("task1")
 		require.NoError(t, err)
-
-		// Check if running
 		isRunning := mockTM.IsTaskRunning("task1")
 		assert.True(t, isRunning)
-
-		// Verify call tracking
 		isRunningCalls := mockTM.GetIsRunningCalls("task1")
 		assert.Equal(t, 1, isRunningCalls)
 
@@ -176,8 +154,6 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Get task result
 		result := mockTM.GetTaskResult("task1")
 		assert.Equal(t, expectedResult, result)
-
-		// Test non-existent result
 		result = mockTM.GetTaskResult("nonexistent")
 		assert.Nil(t, result)
 	})
@@ -192,8 +168,6 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Get task error
 		err := mockTM.GetTaskError("task1")
 		assert.Equal(t, expectedError, err)
-
-		// Test non-existent error
 		err = mockTM.GetTaskError("nonexistent")
 		assert.Nil(t, err)
 	})
@@ -209,8 +183,6 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		duration, exists := mockTM.GetTaskTiming("task1")
 		assert.True(t, exists)
 		assert.Equal(t, expectedDuration, duration)
-
-		// Test non-existent timing
 		_, exists = mockTM.GetTaskTiming("nonexistent")
 		assert.False(t, exists)
 	})
@@ -249,14 +221,10 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Start task
 		err := mockTM.RunTask("task1")
 		require.NoError(t, err)
-
-		// Verify task is running
 		assert.True(t, mockTM.IsTaskRunning("task1"))
 
 		// Simulate completion
 		mockTM.SimulateTaskCompletion("task1")
-
-		// Verify task is no longer running
 		assert.False(t, mockTM.IsTaskRunning("task1"))
 
 		mockTM.AssertExpectations(t)
@@ -276,11 +244,7 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Simulate failure
 		expectedError := errors.New("task failed")
 		mockTM.SimulateTaskFailure("task1", expectedError)
-
-		// Verify task is no longer running
 		assert.False(t, mockTM.IsTaskRunning("task1"))
-
-		// Verify error is set
 		err = mockTM.GetTaskError("task1")
 		assert.Equal(t, expectedError, err)
 
@@ -292,8 +256,6 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 
 		// Set expected behavior
 		mockTM.SetExpectedBehavior()
-
-		// Test that expectations are set
 		task := &task_engine.Task{ID: "test-task", Name: "Test"}
 
 		err := mockTM.AddTask(task)
@@ -322,19 +284,13 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 
 		// Set up expectations
 		mockTM.On("AddTask", mock.Anything).Return(nil).Once()
-
-		// Verify expectations are not met yet
 		assert.Len(t, mockTM.ExpectedCalls, 1)
 
 		// Fulfill expectations
 		task := &task_engine.Task{ID: "test-task", Name: "Test"}
 		err := mockTM.AddTask(task)
 		require.NoError(t, err)
-
-		// Verify expectations are now met using standard testify/mock
 		mockTM.AssertExpectations(t)
-
-		// Verify our custom method also works
 		results := mockTM.VerifyAllExpectations()
 		assert.True(t, results["expectations_met"]) // Now met
 		assert.True(t, results["state_consistent"])
@@ -346,14 +302,10 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Set up some history
 		mockTM.SetTaskResult("task1", "result1")
 		mockTM.SetTaskError("task2", errors.New("error2"))
-
-		// Verify history exists
 		assert.Len(t, mockTM.GetAddedTasks(), 0)
 
 		// Clear history
 		mockTM.ClearHistory()
-
-		// Verify history is cleared
 		assert.Len(t, mockTM.GetAddedTasks(), 0)
 		assert.Len(t, mockTM.GetRunTaskCalls(), 0)
 		assert.Len(t, mockTM.GetStopTaskCalls(), 0)
@@ -368,15 +320,11 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM.SetTaskResult("task1", "result1")
 		mockTM.SetTaskError("task2", errors.New("error2"))
 		mockTM.SetTaskTiming("task3", 3*time.Second)
-
-		// Verify state exists
 		result := mockTM.GetTaskResult("task1")
 		assert.Equal(t, "result1", result)
 
 		// Clear state
 		mockTM.ClearState()
-
-		// Verify state is cleared
 		result = mockTM.GetTaskResult("task1")
 		assert.Nil(t, result)
 
@@ -393,15 +341,11 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		// Set up some state and history
 		mockTM.SetTaskResult("task1", "result1")
 		mockTM.SetExpectedBehavior()
-
-		// Verify state exists
 		result := mockTM.GetTaskResult("task1")
 		assert.Equal(t, "result1", result)
 
 		// Reset to clean state
 		mockTM.ResetToCleanState()
-
-		// Verify everything is reset
 		result = mockTM.GetTaskResult("task1")
 		assert.Nil(t, result)
 

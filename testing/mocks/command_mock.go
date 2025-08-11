@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 
+	engine "github.com/ndizazzo/task-engine"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -63,6 +64,19 @@ func (m *MockCommandRunner) RunCommandInDirWithContext(ctx context.Context, work
 
 	ret := m.Called(arguments...)
 	return ret.String(0), ret.Error(1)
+}
+
+// MockActionParameter is a mock implementation of ActionParameter for testing
+type MockActionParameter struct {
+	ResolveFunc func(ctx context.Context, gc *engine.GlobalContext) (interface{}, error)
+}
+
+// Resolve implements the ActionParameter interface
+func (m *MockActionParameter) Resolve(ctx context.Context, gc *engine.GlobalContext) (interface{}, error) {
+	if m.ResolveFunc != nil {
+		return m.ResolveFunc(ctx, gc)
+	}
+	return nil, nil
 }
 
 // NewDiscardLogger creates a logger that discards all output for testing

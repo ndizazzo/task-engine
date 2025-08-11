@@ -25,7 +25,6 @@ func NewExampleTaskProcessor(taskManager task_engine.TaskManagerInterface) *Exam
 
 // ProcessTask demonstrates a simple task processing workflow
 func (p *ExampleTaskProcessor) ProcessTask(taskID string) error {
-	// Check if task is already running
 	if p.taskManager.IsTaskRunning(taskID) {
 		return nil // Task already running
 	}
@@ -87,7 +86,7 @@ func (suite *MockUsageExampleTestSuite) TestExampleTaskProcessor_AlreadyRunning(
 	err := processor.ProcessTask("running-task")
 
 	// Assertions
-	suite.NoError(err) // Should return early without error
+	suite.NoError(err)
 	taskManagerMock.AssertExpectations(suite.T())
 }
 

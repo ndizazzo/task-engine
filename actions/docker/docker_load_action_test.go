@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,11 +25,12 @@ func (suite *DockerLoadActionTestSuite) TestNewDockerLoadAction() {
 	logger := slog.Default()
 	tarFilePath := "/path/to/image.tar"
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 
 	suite.NotNil(action)
 	suite.Equal("docker-load--path-to-image.tar-action", action.ID)
-	suite.Equal(tarFilePath, action.Wrapped.TarFilePath)
+	// TarFilePath is resolved at runtime, not at construction
+	suite.Equal("", action.Wrapped.TarFilePath)
 	suite.Equal("", action.Wrapped.Platform)
 	suite.False(action.Wrapped.Quiet)
 }
@@ -37,13 +39,11 @@ func (suite *DockerLoadActionTestSuite) TestNewDockerLoadActionWithOptions() {
 	logger := slog.Default()
 	tarFilePath := "/path/to/image.tar"
 
-	action := NewDockerLoadAction(logger, tarFilePath,
-		WithPlatform("linux/amd64"),
-		WithQuiet(),
-	)
+	action := NewDockerLoadAction(logger).WithOptions(WithPlatform("linux/amd64"), WithQuiet()).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 
 	suite.NotNil(action)
-	suite.Equal("linux/amd64", action.Wrapped.Platform)
+	suite.NotNil(action.Wrapped.TarFilePathParam)
+	suite.True(action.Wrapped.Platform == "linux/amd64")
 	suite.True(action.Wrapped.Quiet)
 }
 
@@ -55,7 +55,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_Success() {
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath).Return(expectedOutput, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -75,7 +75,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_WithPlatfor
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath, "--platform", platform).Return(expectedOutput, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath, WithPlatform(platform))
+	action := NewDockerLoadAction(logger).WithOptions(WithPlatform(platform)).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -94,7 +94,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_WithQuiet()
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath, "-q").Return(expectedOutput, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath, WithQuiet())
+	action := NewDockerLoadAction(logger).WithOptions(WithQuiet()).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -114,7 +114,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_WithPlatfor
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath, "--platform", platform, "-q").Return(expectedOutput, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath, WithPlatform(platform), WithQuiet())
+	action := NewDockerLoadAction(logger).WithOptions(WithPlatform(platform), WithQuiet()).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -133,7 +133,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_CommandErro
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath).Return("", errors.New(expectedError))
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -152,7 +152,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_ContextCanc
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath).Return("", context.Canceled)
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -174,7 +174,7 @@ Loaded image: postgres:13`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath).Return(output, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -189,7 +189,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_EmptyTarFil
 	logger := slog.Default()
 	tarFilePath := ""
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 
 	suite.NotNil(action)
 	suite.Equal("docker-load--action", action.ID)
@@ -200,11 +200,12 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_SpecialChar
 	logger := slog.Default()
 	tarFilePath := "/path/with spaces/and-special-chars@#$%.tar"
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 
 	suite.NotNil(action)
-	suite.Equal("docker-load--path-with-spaces-and-special-chars-action", action.ID)
-	suite.Equal(tarFilePath, action.Wrapped.TarFilePath)
+	suite.Equal("docker-load--path-with-spaces-and-special-chars.tar-action", action.ID)
+	// TarFilePath is resolved at runtime, not at construction
+	suite.Equal("", action.Wrapped.TarFilePath)
 }
 
 func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_OutputWithTrailingWhitespace() {
@@ -215,7 +216,7 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_OutputWithT
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "load", "-i", tarFilePath).Return(output, nil)
 
-	action := NewDockerLoadAction(logger, tarFilePath)
+	action := NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: tarFilePath})
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err := action.Wrapped.Execute(context.Background())
@@ -224,4 +225,21 @@ func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_Execute_OutputWithT
 	suite.Equal(output, action.Wrapped.Output)
 	suite.Equal([]string{"nginx:latest", "redis:alpine"}, action.Wrapped.LoadedImages)
 	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerLoadActionTestSuite) TestDockerLoadAction_GetOutput() {
+	action := &DockerLoadAction{
+		TarFilePath:  "/path/to/image.tar",
+		Output:       "Loaded image: nginx:latest\nLoaded image: redis:alpine",
+		LoadedImages: []string{"nginx:latest", "redis:alpine"},
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal(2, m["count"])
+	suite.Equal("/path/to/image.tar", m["tarFile"])
+	suite.Equal("Loaded image: nginx:latest\nLoaded image: redis:alpine", m["output"])
+	suite.Equal(true, m["success"])
+	suite.Len(m["loadedImages"], 2)
 }

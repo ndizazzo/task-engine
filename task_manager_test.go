@@ -142,7 +142,6 @@ func (suite *TaskManagerTestSuite) TestRunTaskWithFailure() {
 	time.Sleep(50 * time.Millisecond)
 
 	// The task might complete quickly due to the failing action
-	// Check if it's still running or has completed
 	isRunning := taskManager.IsTaskRunning("test-fail-task")
 
 	// If the task is still running, stop it

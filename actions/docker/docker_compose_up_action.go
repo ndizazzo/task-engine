@@ -2,51 +2,26 @@ package docker
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/command"
 )
 
-func NewDockerComposeUpAction(logger *slog.Logger, workingDir string, services ...string) *task_engine.Action[*DockerComposeUpAction] {
-	var id string
-	if len(services) == 0 {
-		id = "docker-compose-up-all-action"
-	} else {
-		// Sort services for deterministic ID
-		sortedServices := make([]string, len(services))
-		copy(sortedServices, services)
-		sort.Strings(sortedServices)
-
-		// Create a canonical representation
-		canonicalString := strings.Join(sortedServices, "\x00")
-		hashBytes := sha256.Sum256([]byte(canonicalString))
-		hexHash := hex.EncodeToString(hashBytes[:])
-
-		id = fmt.Sprintf("docker-compose-up-%s-action", hexHash)
-	}
-
-	return &task_engine.Action[*DockerComposeUpAction]{
-		ID: id,
-		Wrapped: &DockerComposeUpAction{
-			BaseAction:    task_engine.BaseAction{Logger: logger},
-			Services:      services,
-			WorkingDir:    workingDir,
-			commandRunner: command.NewDefaultCommandRunner(),
-		},
-	}
-}
-
 type DockerComposeUpAction struct {
 	task_engine.BaseAction
-	Services      []string
-	WorkingDir    string
+	// Parameter-only inputs
+	WorkingDirParam task_engine.ActionParameter
+	ServicesParam   task_engine.ActionParameter
+
+	// Execution dependency
 	commandRunner command.CommandRunner
+
+	// Resolved/output fields
+	ResolvedWorkingDir string
+	ResolvedServices   []string
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
@@ -54,24 +29,89 @@ func (a *DockerComposeUpAction) SetCommandRunner(runner command.CommandRunner) {
 	a.commandRunner = runner
 }
 
-func (a *DockerComposeUpAction) Execute(execCtx context.Context) error {
-	args := []string{"compose", "up", "-d"}
-	args = append(args, a.Services...)
+// NewDockerComposeUpAction creates the action instance (modern constructor)
+func NewDockerComposeUpAction(logger *slog.Logger) *DockerComposeUpAction {
+	return &DockerComposeUpAction{
+		BaseAction:    task_engine.BaseAction{Logger: logger},
+		commandRunner: command.NewDefaultCommandRunner(),
+	}
+}
 
-	a.Logger.Info("Executing docker compose up", "services", a.Services, "workingDir", a.WorkingDir)
+// WithParameters sets inputs and returns the wrapped action
+func (a *DockerComposeUpAction) WithParameters(workingDirParam, servicesParam task_engine.ActionParameter) (*task_engine.Action[*DockerComposeUpAction], error) {
+	if workingDirParam == nil || servicesParam == nil {
+		return nil, fmt.Errorf("parameters cannot be nil")
+	}
+	a.WorkingDirParam = workingDirParam
+	a.ServicesParam = servicesParam
+
+	return &task_engine.Action[*DockerComposeUpAction]{
+		ID:      "docker-compose-up-action",
+		Name:    "Docker Compose Up",
+		Wrapped: a,
+	}, nil
+}
+
+func (a *DockerComposeUpAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve working directory parameter
+	workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+	}
+	if workingDirStr, ok := workingDirValue.(string); ok {
+		a.ResolvedWorkingDir = workingDirStr
+	} else {
+		return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
+	}
+
+	// Resolve services parameter
+	servicesValue, err := a.ServicesParam.Resolve(execCtx, globalContext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve services parameter: %w", err)
+	}
+	if servicesSlice, ok := servicesValue.([]string); ok {
+		a.ResolvedServices = servicesSlice
+	} else if servicesStr, ok := servicesValue.(string); ok {
+		if strings.Contains(servicesStr, ",") {
+			a.ResolvedServices = strings.Split(servicesStr, ",")
+		} else {
+			a.ResolvedServices = strings.Fields(servicesStr)
+		}
+	} else {
+		return fmt.Errorf("services parameter is not a string slice or string, got %T", servicesValue)
+	}
+
+	args := []string{"compose", "up", "-d"}
+	args = append(args, a.ResolvedServices...)
+
+	a.Logger.Info("Executing docker compose up", "services", a.ResolvedServices, "workingDir", a.ResolvedWorkingDir)
 
 	var output string
-	var err error
-	if a.WorkingDir != "" {
-		output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.WorkingDir, "docker", args...)
+	if a.ResolvedWorkingDir != "" {
+		output, err = a.commandRunner.RunCommandInDirWithContext(execCtx, a.ResolvedWorkingDir, "docker", args...)
 	} else {
 		output, err = a.commandRunner.RunCommandWithContext(execCtx, "docker", args...)
 	}
 
 	if err != nil {
 		a.Logger.Error("Failed to run docker compose up", "error", err, "output", output)
-		return fmt.Errorf("failed to run docker compose up for services %v in dir %s: %w. Output: %s", a.Services, a.WorkingDir, err, output)
+		return fmt.Errorf("failed to run docker compose up for services %v in dir %s: %w. Output: %s", a.ResolvedServices, a.ResolvedWorkingDir, err, output)
 	}
 	a.Logger.Info("Docker compose up finished successfully", "output", output)
 	return nil
+}
+
+// GetOutput returns details about the compose up execution
+func (a *DockerComposeUpAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"services":   a.ResolvedServices,
+		"workingDir": a.ResolvedWorkingDir,
+		"success":    true,
+	}
 }

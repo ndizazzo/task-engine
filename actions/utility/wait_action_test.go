@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/utility"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
@@ -21,20 +22,24 @@ func (suite *WaitActionTestSuite) SetupTest() {
 }
 
 func (suite *WaitActionTestSuite) TestExecuteSuccess() {
-	duration := 10 * time.Millisecond
-	action := utility.NewWaitAction(suite.logger, duration)
+	durationStr := "10ms"
+	duration, _ := time.ParseDuration(durationStr)
+	action, err := utility.NewWaitAction(suite.logger).WithParameters(task_engine.StaticParameter{Value: durationStr})
+	suite.Require().NoError(err)
 
 	start := time.Now()
-	err := action.Wrapped.Execute(context.Background())
+	execErr := action.Wrapped.Execute(context.Background())
 	elapsed := time.Since(start)
 
-	suite.NoError(err)
+	suite.NoError(execErr)
 	suite.GreaterOrEqual(elapsed, duration)
 }
 
 func (suite *WaitActionTestSuite) TestExecuteContextCancellation() {
-	duration := 100 * time.Millisecond
-	action := utility.NewWaitAction(suite.logger, duration)
+	durationStr := "100ms"
+	duration, _ := time.ParseDuration(durationStr)
+	action, err := utility.NewWaitAction(suite.logger).WithParameters(task_engine.StaticParameter{Value: durationStr})
+	suite.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -43,24 +48,32 @@ func (suite *WaitActionTestSuite) TestExecuteContextCancellation() {
 	}()
 
 	start := time.Now()
-	err := action.Wrapped.Execute(ctx)
+	execErr := action.Wrapped.Execute(ctx)
 	elapsed := time.Since(start)
 
-	suite.Error(err)
-	suite.ErrorIs(err, context.Canceled)
+	suite.Error(execErr)
+	suite.ErrorIs(execErr, context.Canceled)
 	suite.Less(elapsed, duration)
 }
 
 func (suite *WaitActionTestSuite) TestExecuteZeroDuration() {
-	duration := 0 * time.Second
-	action := utility.NewWaitAction(suite.logger, duration)
+	duration := "0s"
+	action, err := utility.NewWaitAction(suite.logger).WithParameters(task_engine.StaticParameter{Value: duration})
+	suite.Require().NoError(err)
 
-	start := time.Now()
-	err := action.Wrapped.Execute(context.Background())
-	elapsed := time.Since(start)
+	execErr := action.Wrapped.Execute(context.Background())
 
-	suite.NoError(err)
-	suite.Less(elapsed, 10*time.Millisecond)
+	suite.Error(execErr)
+	suite.Contains(execErr.Error(), "invalid duration: must be positive")
+}
+
+func (suite *WaitActionTestSuite) TestWaitAction_GetOutput() {
+	action := &utility.WaitAction{}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal(true, m["success"])
 }
 
 func TestWaitActionTestSuite(t *testing.T) {

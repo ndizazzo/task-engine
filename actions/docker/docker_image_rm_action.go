@@ -10,84 +10,47 @@ import (
 	"github.com/ndizazzo/task-engine/command"
 )
 
-// NewDockerImageRmByNameAction creates an action to remove a Docker image by name and tag
-func NewDockerImageRmByNameAction(logger *slog.Logger, imageName string, options ...DockerImageRmOption) *task_engine.Action[*DockerImageRmAction] {
-	id := fmt.Sprintf("docker-image-rm-%s-action", strings.ReplaceAll(imageName, "/", "-"))
-
-	action := &DockerImageRmAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		ImageName:        imageName,
-		ImageID:          "",
-		RemoveByID:       false,
-		Force:            false,
-		NoPrune:          false,
+// NewDockerImageRmAction creates a DockerImageRmAction instance
+func NewDockerImageRmAction(logger *slog.Logger) *DockerImageRmAction {
+	return &DockerImageRmAction{
+		BaseAction:       task_engine.NewBaseAction(logger),
 		CommandProcessor: command.NewDefaultCommandRunner(),
-	}
-
-	// Apply options
-	for _, option := range options {
-		option(action)
-	}
-
-	return &task_engine.Action[*DockerImageRmAction]{
-		ID:      id,
-		Wrapped: action,
-	}
-}
-
-// NewDockerImageRmByIDAction creates an action to remove a Docker image by ID
-func NewDockerImageRmByIDAction(logger *slog.Logger, imageID string, options ...DockerImageRmOption) *task_engine.Action[*DockerImageRmAction] {
-	id := fmt.Sprintf("docker-image-rm-id-%s-action", imageID)
-
-	action := &DockerImageRmAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		ImageName:        "",
-		ImageID:          imageID,
-		RemoveByID:       true,
-		Force:            false,
-		NoPrune:          false,
-		CommandProcessor: command.NewDefaultCommandRunner(),
-	}
-
-	// Apply options
-	for _, option := range options {
-		option(action)
-	}
-
-	return &task_engine.Action[*DockerImageRmAction]{
-		ID:      id,
-		Wrapped: action,
-	}
-}
-
-// DockerImageRmOption is a function type for configuring DockerImageRmAction
-type DockerImageRmOption func(*DockerImageRmAction)
-
-// WithForce forces the removal of the image
-func WithForce() DockerImageRmOption {
-	return func(a *DockerImageRmAction) {
-		a.Force = true
-	}
-}
-
-// WithNoPrune prevents removal of untagged parent images
-func WithNoPrune() DockerImageRmOption {
-	return func(a *DockerImageRmAction) {
-		a.NoPrune = true
+		RemovedImages:    []string{},
 	}
 }
 
 // DockerImageRmAction removes Docker images by name/tag or ID
 type DockerImageRmAction struct {
 	task_engine.BaseAction
-	ImageName        string
-	ImageID          string
-	RemoveByID       bool
-	Force            bool
-	NoPrune          bool
 	CommandProcessor command.CommandRunner
-	Output           string
-	RemovedImages    []string // Stores the IDs of removed images
+	RemovedImages    []string // Stores the IDs of removed images for GetOutput
+	Output           string   // Stores the command output for GetOutput
+
+	// Parameter-only fields
+	ImageNameParam  task_engine.ActionParameter
+	ImageIDParam    task_engine.ActionParameter
+	RemoveByIDParam task_engine.ActionParameter
+	ForceParam      task_engine.ActionParameter
+	NoPruneParam    task_engine.ActionParameter
+}
+
+// WithParameters sets the parameters and returns a wrapped Action
+func (a *DockerImageRmAction) WithParameters(imageNameParam, imageIDParam, removeByIDParam, forceParam, noPruneParam task_engine.ActionParameter) (*task_engine.Action[*DockerImageRmAction], error) {
+	if imageNameParam == nil || imageIDParam == nil || removeByIDParam == nil {
+		return nil, fmt.Errorf("imageNameParam, imageIDParam, and removeByIDParam cannot be nil")
+	}
+
+	a.ImageNameParam = imageNameParam
+	a.ImageIDParam = imageIDParam
+	a.RemoveByIDParam = removeByIDParam
+	a.ForceParam = forceParam
+	a.NoPruneParam = noPruneParam
+
+	return &task_engine.Action[*DockerImageRmAction]{
+		ID:      "docker-image-rm-action",
+		Name:    "Docker Image Remove",
+		Wrapped: a,
+	}, nil
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
@@ -96,31 +59,105 @@ func (a *DockerImageRmAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerImageRmAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve image name parameter
+	var imageName string
+	if a.ImageNameParam != nil {
+		imageNameValue, err := a.ImageNameParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image name parameter: %w", err)
+		}
+		if v, ok := imageNameValue.(string); ok {
+			imageName = v
+		} else {
+			return fmt.Errorf("image name parameter is not a string, got %T", imageNameValue)
+		}
+	}
+
+	// Resolve image ID parameter
+	var imageID string
+	if a.ImageIDParam != nil {
+		imageIDValue, err := a.ImageIDParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image ID parameter: %w", err)
+		}
+		if v, ok := imageIDValue.(string); ok {
+			imageID = v
+		} else {
+			return fmt.Errorf("image ID parameter is not a string, got %T", imageIDValue)
+		}
+	}
+
+	// Resolve removeByID parameter
+	var removeByID bool
+	if a.RemoveByIDParam != nil {
+		removeByIDValue, err := a.RemoveByIDParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve removeByID parameter: %w", err)
+		}
+		if v, ok := removeByIDValue.(bool); ok {
+			removeByID = v
+		} else {
+			return fmt.Errorf("removeByID parameter is not a bool, got %T", removeByIDValue)
+		}
+	}
+
+	// Resolve force parameter
+	var force bool
+	if a.ForceParam != nil {
+		forceValue, err := a.ForceParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve force parameter: %w", err)
+		}
+		if v, ok := forceValue.(bool); ok {
+			force = v
+		} else {
+			return fmt.Errorf("force parameter is not a bool, got %T", forceValue)
+		}
+	}
+
+	// Resolve noPrune parameter
+	var noPrune bool
+	if a.NoPruneParam != nil {
+		noPruneValue, err := a.NoPruneParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve noPrune parameter: %w", err)
+		}
+		if v, ok := noPruneValue.(bool); ok {
+			noPrune = v
+		} else {
+			return fmt.Errorf("noPrune parameter is not a bool, got %T", noPruneValue)
+		}
+	}
+
 	args := []string{"image", "rm"}
 
 	// Add force flag if specified
-	if a.Force {
+	if force {
 		args = append(args, "--force")
 	}
 
 	// Add no-prune flag if specified
-	if a.NoPrune {
+	if noPrune {
 		args = append(args, "--no-prune")
 	}
 
 	// Add the image identifier (name/tag or ID)
-	if a.RemoveByID {
-		args = append(args, a.ImageID)
+	var identifier string
+	if removeByID {
+		args = append(args, imageID)
+		identifier = imageID
 	} else {
-		args = append(args, a.ImageName)
+		args = append(args, imageName)
+		identifier = imageName
 	}
 
-	identifier := a.ImageName
-	if a.RemoveByID {
-		identifier = a.ImageID
-	}
-
-	a.Logger.Info("Executing docker image rm", "identifier", identifier, "force", a.Force, "noPrune", a.NoPrune)
+	a.Logger.Info("Executing docker image rm", "identifier", identifier, "force", force, "noPrune", noPrune)
 	output, err := a.CommandProcessor.RunCommand("docker", args...)
 	a.Output = output
 
@@ -134,6 +171,16 @@ func (a *DockerImageRmAction) Execute(execCtx context.Context) error {
 
 	a.Logger.Info("Docker image rm finished successfully", "removedImages", a.RemovedImages, "output", a.Output)
 	return nil
+}
+
+// GetOutput returns information about removed images and raw output
+func (a *DockerImageRmAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"removed": a.RemovedImages,
+		"count":   len(a.RemovedImages),
+		"output":  a.Output,
+		"success": len(a.RemovedImages) > 0,
+	}
 }
 
 // parseRemovedImages extracts image IDs from the docker image rm output

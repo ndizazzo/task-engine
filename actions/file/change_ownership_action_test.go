@@ -3,9 +3,9 @@ package file_test
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
@@ -33,28 +33,65 @@ func (suite *ChangeOwnershipTestSuite) TearDownTest() {
 
 func (suite *ChangeOwnershipTestSuite) TestNewChangeOwnershipAction_ValidInputs() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "user", "group", false, logger)
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: "user"},
+		task_engine.StaticParameter{Value: "group"},
+		false,
+	)
 
+	suite.Require().NoError(err)
 	suite.NotNil(action)
-	expectedID := "change-ownership-" + strings.ReplaceAll(suite.tempFile, "/", "-")
-	suite.Equal(expectedID, action.ID)
+	suite.Equal("change-ownership-action", action.ID)
 }
 
 func (suite *ChangeOwnershipTestSuite) TestNewChangeOwnershipAction_InvalidInputs() {
 	logger := command_mock.NewDiscardLogger()
 
-	suite.Nil(file.NewChangeOwnershipAction("", "user", "group", false, logger))
-	suite.Nil(file.NewChangeOwnershipAction(suite.tempFile, "", "", false, logger))
+	// Empty path should error on Execute
+	ownershipAction1 := file.NewChangeOwnershipAction(logger)
+	action1, err := ownershipAction1.WithParameters(
+		task_engine.StaticParameter{Value: ""},
+		task_engine.StaticParameter{Value: "user"},
+		task_engine.StaticParameter{Value: "group"},
+		false,
+	)
+	suite.Require().NoError(err)
+	execErr := action1.Execute(context.Background())
+	suite.Error(execErr)
+	suite.Contains(execErr.Error(), "path cannot be empty")
+
+	// Empty owner and group should error on Execute
+	ownershipAction2 := file.NewChangeOwnershipAction(logger)
+	action2, err := ownershipAction2.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: ""},
+		task_engine.StaticParameter{Value: ""},
+		false,
+	)
+	suite.Require().NoError(err)
+	execErr = action2.Execute(context.Background())
+	suite.Error(execErr)
+	suite.Contains(execErr.Error(), "at least one of owner or group must be specified")
 }
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerAndGroup() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "testuser", "testgroup", false, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: "testuser"},
+		task_engine.StaticParameter{Value: "testgroup"},
+		false,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "chown", "testuser:testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser:testgroup", suite.tempFile).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -62,12 +99,20 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerAndGroup() {
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerOnly() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "testuser", "", false, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: "testuser"},
+		task_engine.StaticParameter{Value: ""},
+		false,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "chown", "testuser", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser", suite.tempFile).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -75,12 +120,20 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerOnly() {
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_GroupOnly() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "", "testgroup", false, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: ""},
+		task_engine.StaticParameter{Value: "testgroup"},
+		false,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "chown", ":testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", ":testgroup", suite.tempFile).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -88,12 +141,20 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_GroupOnly() {
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_Recursive() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "testuser", "testgroup", true, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: "testuser"},
+		task_engine.StaticParameter{Value: "testgroup"},
+		true,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "chown", "-R", "testuser:testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "-R", "testuser:testgroup", suite.tempFile).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -101,10 +162,18 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_Recursive() {
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_NonExistentPath() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction("/nonexistent/path", "testuser", "testgroup", false, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: "/nonexistent/path"},
+		task_engine.StaticParameter{Value: "testuser"},
+		task_engine.StaticParameter{Value: "testgroup"},
+		false,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "path does not exist")
@@ -112,16 +181,42 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_NonExistentPath() {
 
 func (suite *ChangeOwnershipTestSuite) TestExecute_CommandFailure() {
 	logger := command_mock.NewDiscardLogger()
-	action := file.NewChangeOwnershipAction(suite.tempFile, "testuser", "testgroup", false, logger)
+	ctx := context.WithValue(context.Background(), task_engine.GlobalContextKey, &task_engine.GlobalContext{})
+	ownershipAction := file.NewChangeOwnershipAction(logger)
+	action, err := ownershipAction.WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: "testuser"},
+		task_engine.StaticParameter{Value: "testgroup"},
+		false,
+	)
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "chown", "testuser:testgroup", suite.tempFile).Return("permission denied", assert.AnError)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser:testgroup", suite.tempFile).Return("permission denied", assert.AnError)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(ctx)
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to change ownership")
 	suite.mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *ChangeOwnershipTestSuite) TestChangeOwnershipAction_GetOutput() {
+	action := &file.ChangeOwnershipAction{
+		Path:      "/tmp/testfile",
+		Owner:     "testuser",
+		Group:     "testgroup",
+		Recursive: true,
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal("/tmp/testfile", m["path"])
+	suite.Equal("testuser", m["owner"])
+	suite.Equal("testgroup", m["group"])
+	suite.Equal(true, m["recursive"])
+	suite.Equal(true, m["success"])
 }
 
 func TestChangeOwnershipTestSuite(t *testing.T) {

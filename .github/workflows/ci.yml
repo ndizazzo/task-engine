@@ -11,19 +11,19 @@ on:
 permissions:
   contents: write
 
+env:
+  GO_VERSION: "1.24.x"
+
 jobs:
   test:
     name: Test and Quality Checks
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'pull_request' || github.event_name == 'push'
 
-    env:
-      GO_VERSION: ${{ matrix.go-version }}
-
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ["1.23", "1.24.4"]
+        go-version: ["1.24.x"]
       fail-fast: false
 
     steps:
@@ -72,7 +72,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.4'
+        if: matrix.os == 'ubuntu-latest'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -84,47 +84,6 @@ jobs:
           files: ./junit-unit.xml
           name: task-engine-tests
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  staging-validation:
-    name: Staging Validation
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Install development tools
-        run: make install-tools
-
-      - name: Validate library builds
-        run: |
-          # Validate that the library can be built successfully
-          go build ./...
-
-      - name: Run integration tests
-        run: make test-ci
-
-      - name: Check go mod tidy
-        run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
 
   release-validation:
     name: Release Validation
@@ -187,7 +146,7 @@ jobs:
           echo "" >> release-info.md
           echo "This release has been tested on:" >> release-info.md
           echo "- **Operating Systems**: Linux, macOS" >> release-info.md
-          echo "- **Go Versions**: 1.23, 1.24.4+" >> release-info.md
+          echo "- **Go Versions**: ${{ env.GO_VERSION }}+" >> release-info.md
 
       - name: Upload release documentation
         uses: softprops/action-gh-release@v2

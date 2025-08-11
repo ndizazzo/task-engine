@@ -15,13 +15,16 @@ func NewServiceStatusTask(logger *slog.Logger) *task_engine.Task {
 		ID:   "service-status-example",
 		Name: "Service Status Operations Example",
 		Actions: []task_engine.ActionWrapper{
-			// Check status of specific services
-			system.NewGetServiceStatusAction(
-				logger,
-				"sshd.service",
-				"docker.service",
-				"nginx.service",
-			),
+			func() task_engine.ActionWrapper {
+				action, err := system.NewServiceStatusAction(logger).WithParameters(
+					task_engine.StaticParameter{Value: []string{"sshd.service", "docker.service", "nginx.service"}},
+				)
+				if err != nil {
+					logger.Error("Failed to create service status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -56,13 +59,16 @@ func NewServiceHealthCheckTask(logger *slog.Logger) *task_engine.Task {
 		ID:   "service-health-check-example",
 		Name: "Service Health Check Example",
 		Actions: []task_engine.ActionWrapper{
-			// Check status of critical services
-			system.NewGetServiceStatusAction(
-				logger,
-				"sshd.service",
-				"systemd-networkd.service",
-				"systemd-resolved.service",
-			),
+			func() task_engine.ActionWrapper {
+				action, err := system.NewServiceStatusAction(logger).WithParameters(
+					task_engine.StaticParameter{Value: []string{"sshd.service", "systemd-networkd.service", "systemd-resolved.service"}},
+				)
+				if err != nil {
+					logger.Error("Failed to create service status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -94,13 +100,16 @@ func NewServiceMonitoringTask(logger *slog.Logger) *task_engine.Task {
 		ID:   "service-monitoring-example",
 		Name: "Service Monitoring Example",
 		Actions: []task_engine.ActionWrapper{
-			// Check status of monitored services
-			system.NewGetServiceStatusAction(
-				logger,
-				"docker.service",
-				"kubelet.service",
-				"etcd.service",
-			),
+			func() task_engine.ActionWrapper {
+				action, err := system.NewServiceStatusAction(logger).WithParameters(
+					task_engine.StaticParameter{Value: []string{"docker.service", "kubelet.service", "etcd.service"}},
+				)
+				if err != nil {
+					logger.Error("Failed to create service status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}

@@ -32,7 +32,7 @@ func NewCompressionOperationsTask(logger *slog.Logger, workingDir string) *engin
 		Actions: []engine.ActionWrapper{
 			// Step 1: Create the test file
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+				action, err := file.NewWriteFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: []byte(content)}, true, nil)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
 					return nil
@@ -42,7 +42,7 @@ func NewCompressionOperationsTask(logger *slog.Logger, workingDir string) *engin
 
 			// Step 2: Compress the file using gzip
 			func() engine.ActionWrapper {
-				action, err := file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger)
+				action, err := file.NewCompressFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: compressedFile}, file.GzipCompression)
 				if err != nil {
 					logger.Error("Failed to create compress file action", "error", err)
 					return nil
@@ -52,7 +52,7 @@ func NewCompressionOperationsTask(logger *slog.Logger, workingDir string) *engin
 
 			// Step 3: Decompress the file back to a new location
 			func() engine.ActionWrapper {
-				action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, file.GzipCompression, logger)
+				action, err := file.NewDecompressFileAction(logger).WithParameters(engine.StaticParameter{Value: compressedFile}, engine.StaticParameter{Value: decompressedFile}, file.GzipCompression)
 				if err != nil {
 					logger.Error("Failed to create decompress file action", "error", err)
 					return nil
@@ -66,7 +66,6 @@ func NewCompressionOperationsTask(logger *slog.Logger, workingDir string) *engin
 
 // NewCompressionWithAutoDetectTask creates an example task that demonstrates auto-detection
 func NewCompressionWithAutoDetectTask(logger *slog.Logger, workingDir string) *engine.Task {
-	// Create a test file
 	sourceFile := workingDir + "/auto_detect_test.txt"
 	content := "Test content for auto-detection example"
 
@@ -80,9 +79,8 @@ func NewCompressionWithAutoDetectTask(logger *slog.Logger, workingDir string) *e
 		ID:   "compression-auto-detect",
 		Name: "Compression Auto-Detection Example",
 		Actions: []engine.ActionWrapper{
-			// Create the test file
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+				action, err := file.NewWriteFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: []byte(content)}, true, nil)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
 					return nil
@@ -92,7 +90,7 @@ func NewCompressionWithAutoDetectTask(logger *slog.Logger, workingDir string) *e
 
 			// Compress with .gz extension
 			func() engine.ActionWrapper {
-				action, err := file.NewCompressFileAction(sourceFile, compressedFile, file.GzipCompression, logger)
+				action, err := file.NewCompressFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: compressedFile}, file.GzipCompression)
 				if err != nil {
 					logger.Error("Failed to create compress file action", "error", err)
 					return nil
@@ -102,7 +100,7 @@ func NewCompressionWithAutoDetectTask(logger *slog.Logger, workingDir string) *e
 
 			// Decompress using auto-detection (empty compression type)
 			func() engine.ActionWrapper {
-				action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger)
+				action, err := file.NewDecompressFileAction(logger).WithParameters(engine.StaticParameter{Value: compressedFile}, engine.StaticParameter{Value: decompressedFile}, "")
 				if err != nil {
 					logger.Error("Failed to create decompress file action", "error", err)
 					return nil
@@ -145,7 +143,7 @@ func NewCompressionWorkflowTask(logger *slog.Logger, workingDir string) *engine.
 	// Step 1: Create source files
 	for i, sourceFile := range sourceFiles {
 		content := contents[i] + " " + contents[i] + " " + contents[i] // Repeat for better compression
-		action, err := file.NewWriteFileAction(sourceFile, []byte(content), true, nil, logger)
+		action, err := file.NewWriteFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: []byte(content)}, true, nil)
 		if err != nil {
 			logger.Error("Failed to create write file action", "error", err)
 			continue
@@ -155,7 +153,7 @@ func NewCompressionWorkflowTask(logger *slog.Logger, workingDir string) *engine.
 
 	// Step 2: Compress each file
 	for i, sourceFile := range sourceFiles {
-		action, err := file.NewCompressFileAction(sourceFile, compressedFiles[i], file.GzipCompression, logger)
+		action, err := file.NewCompressFileAction(logger).WithParameters(engine.StaticParameter{Value: sourceFile}, engine.StaticParameter{Value: compressedFiles[i]}, file.GzipCompression)
 		if err != nil {
 			logger.Error("Failed to create compress file action", "error", err)
 			continue
@@ -166,7 +164,7 @@ func NewCompressionWorkflowTask(logger *slog.Logger, workingDir string) *engine.
 	// Step 3: Decompress all files to a backup directory
 	for i, compressedFile := range compressedFiles {
 		decompressedFile := backupDir + "/restored" + string(rune('1'+i)) + ".txt"
-		action, err := file.NewDecompressFileAction(compressedFile, decompressedFile, "", logger)
+		action, err := file.NewDecompressFileAction(logger).WithParameters(engine.StaticParameter{Value: compressedFile}, engine.StaticParameter{Value: decompressedFile}, "")
 		if err != nil {
 			logger.Error("Failed to create decompress file action", "error", err)
 			continue

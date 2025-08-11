@@ -24,14 +24,15 @@ const (
 	// Lz4Compression  CompressionType = "lz4"
 )
 
-// NewCompressFileAction creates an action that compresses a file using the specified compression type.
-func NewCompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) (*engine.Action[*CompressFileAction], error) {
-	if sourcePath == "" {
-		return nil, fmt.Errorf("invalid parameter: sourcePath cannot be empty")
+// NewCompressFileAction creates a new CompressFileAction with the given logger
+func NewCompressFileAction(logger *slog.Logger) *CompressFileAction {
+	return &CompressFileAction{
+		BaseAction: engine.NewBaseAction(logger),
 	}
-	if destinationPath == "" {
-		return nil, fmt.Errorf("invalid parameter: destinationPath cannot be empty")
-	}
+}
+
+// WithParameters sets the parameters for source path, destination path, and compression type
+func (a *CompressFileAction) WithParameters(sourcePathParam, destinationPathParam engine.ActionParameter, compressionType CompressionType) (*engine.Action[*CompressFileAction], error) {
 	if compressionType == "" {
 		return nil, fmt.Errorf("invalid parameter: compressionType cannot be empty")
 	}
@@ -44,15 +45,14 @@ func NewCompressFileAction(sourcePath string, destinationPath string, compressio
 		return nil, fmt.Errorf("invalid compression type: %s", compressionType)
 	}
 
-	id := fmt.Sprintf("compress-file-%s-%s", compressionType, filepath.Base(sourcePath))
+	a.SourcePathParam = sourcePathParam
+	a.DestinationPathParam = destinationPathParam
+	a.CompressionType = compressionType
+
 	return &engine.Action[*CompressFileAction]{
-		ID: id,
-		Wrapped: &CompressFileAction{
-			BaseAction:      engine.BaseAction{Logger: logger},
-			SourcePath:      sourcePath,
-			DestinationPath: destinationPath,
-			CompressionType: compressionType,
-		},
+		ID:      "compress-file-action",
+		Name:    "Compress File",
+		Wrapped: a,
 	}, nil
 }
 
@@ -62,15 +62,48 @@ type CompressFileAction struct {
 	SourcePath      string
 	DestinationPath string
 	CompressionType CompressionType
+
+	// Parameter-aware fields
+	SourcePathParam      engine.ActionParameter
+	DestinationPathParam engine.ActionParameter
 }
 
 func (a *CompressFileAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *engine.GlobalContext
+	if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.SourcePathParam != nil {
+		sourceValue, err := a.SourcePathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve source path parameter: %w", err)
+		}
+		if sourceStr, ok := sourceValue.(string); ok {
+			a.SourcePath = sourceStr
+		} else {
+			return fmt.Errorf("source path parameter is not a string, got %T", sourceValue)
+		}
+	}
+
+	if a.DestinationPathParam != nil {
+		destValue, err := a.DestinationPathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve destination path parameter: %w", err)
+		}
+		if destStr, ok := destValue.(string); ok {
+			a.DestinationPath = destStr
+		} else {
+			return fmt.Errorf("destination path parameter is not a string, got %T", destValue)
+		}
+	}
+
 	a.Logger.Info("Attempting to compress file",
 		"source", a.SourcePath,
 		"destination", a.DestinationPath,
 		"compressionType", a.CompressionType)
-
-	// Check if source file exists
 	sourceInfo, err := os.Stat(a.SourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -81,8 +114,6 @@ func (a *CompressFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to stat source file", "path", a.SourcePath, "error", err)
 		return fmt.Errorf("failed to stat source file %s: %w", a.SourcePath, err)
 	}
-
-	// Check if it's a regular file
 	if sourceInfo.IsDir() {
 		errMsg := fmt.Sprintf("source path %s is a directory, not a file", a.SourcePath)
 		a.Logger.Error(errMsg)
@@ -91,7 +122,7 @@ func (a *CompressFileAction) Execute(execCtx context.Context) error {
 
 	// Create destination directory if needed
 	destDir := filepath.Dir(a.DestinationPath)
-	if err := os.MkdirAll(destDir, 0750); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		a.Logger.Error("Failed to create destination directory", "path", destDir, "error", err)
 		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
 	}
@@ -103,8 +134,6 @@ func (a *CompressFileAction) Execute(execCtx context.Context) error {
 		return fmt.Errorf("failed to open source file %s: %w", a.SourcePath, err)
 	}
 	defer sourceFile.Close()
-
-	// Create destination file
 	destFile, err := os.Create(a.DestinationPath)
 	if err != nil {
 		a.Logger.Error("Failed to create destination file", "path", a.DestinationPath, "error", err)
@@ -153,4 +182,14 @@ func (a *CompressFileAction) compressGzip(source io.Reader, destination io.Write
 	}
 
 	return nil
+}
+
+// GetOutput returns metadata about the compression operation
+func (a *CompressFileAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"source":          a.SourcePath,
+		"destination":     a.DestinationPath,
+		"compressionType": string(a.CompressionType),
+		"success":         true,
+	}
 }

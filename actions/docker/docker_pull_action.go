@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/command"
@@ -21,9 +22,53 @@ type MultiArchImageSpec struct {
 	Architectures []string
 }
 
-func NewDockerPullAction(logger *slog.Logger, images map[string]ImageSpec, options ...DockerPullOption) *task_engine.Action[*DockerPullAction] {
+// DockerPullActionConstructor provides the new constructor pattern
+type DockerPullActionConstructor struct {
+	logger *slog.Logger
+}
+
+// NewDockerPullAction creates a new DockerPullAction constructor
+func NewDockerPullAction(logger *slog.Logger) *DockerPullActionConstructor {
+	return &DockerPullActionConstructor{
+		logger: logger,
+	}
+}
+
+// WithParameters creates a DockerPullAction with the specified parameters
+func (c *DockerPullActionConstructor) WithParameters(
+	imagesParam task_engine.ActionParameter,
+	multiArchImagesParam task_engine.ActionParameter,
+	allTagsParam task_engine.ActionParameter,
+	quietParam task_engine.ActionParameter,
+	platformParam task_engine.ActionParameter,
+) (*task_engine.Action[*DockerPullAction], error) {
 	action := &DockerPullAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
+		BaseAction:           task_engine.NewBaseAction(c.logger),
+		Images:               make(map[string]ImageSpec),
+		MultiArchImages:      make(map[string]MultiArchImageSpec),
+		AllTags:              false,
+		Quiet:                false,
+		Platform:             "",
+		CommandProcessor:     command.NewDefaultCommandRunner(),
+		ImagesParam:          imagesParam,
+		MultiArchImagesParam: multiArchImagesParam,
+		AllTagsParam:         allTagsParam,
+		QuietParam:           quietParam,
+		PlatformParam:        platformParam,
+	}
+
+	id := "docker-pull-action"
+	return &task_engine.Action[*DockerPullAction]{
+		ID:      id,
+		Name:    "Docker Pull",
+		Wrapped: action,
+	}, nil
+}
+
+// Backward compatibility functions
+func NewDockerPullActionLegacy(logger *slog.Logger, images map[string]ImageSpec, options ...DockerPullOption) *task_engine.Action[*DockerPullAction] {
+	action := &DockerPullAction{
+		BaseAction:       task_engine.NewBaseAction(logger),
 		Images:           images,
 		MultiArchImages:  make(map[string]MultiArchImageSpec),
 		AllTags:          false,
@@ -38,13 +83,14 @@ func NewDockerPullAction(logger *slog.Logger, images map[string]ImageSpec, optio
 
 	return &task_engine.Action[*DockerPullAction]{
 		ID:      "docker-pull-action",
+		Name:    "Docker Pull",
 		Wrapped: action,
 	}
 }
 
-func NewDockerPullMultiArchAction(logger *slog.Logger, multiArchImages map[string]MultiArchImageSpec, options ...DockerPullOption) *task_engine.Action[*DockerPullAction] {
+func NewDockerPullMultiArchActionLegacy(logger *slog.Logger, multiArchImages map[string]MultiArchImageSpec, options ...DockerPullOption) *task_engine.Action[*DockerPullAction] {
 	action := &DockerPullAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
+		BaseAction:       task_engine.NewBaseAction(logger),
 		Images:           make(map[string]ImageSpec),
 		MultiArchImages:  multiArchImages,
 		AllTags:          false,
@@ -59,6 +105,7 @@ func NewDockerPullMultiArchAction(logger *slog.Logger, multiArchImages map[strin
 
 	return &task_engine.Action[*DockerPullAction]{
 		ID:      "docker-pull-multiarch-action",
+		Name:    "Docker Pull (Multi-Arch)",
 		Wrapped: action,
 	}
 }
@@ -94,6 +141,13 @@ type DockerPullAction struct {
 	Output           string
 	PulledImages     []string
 	FailedImages     []string
+
+	// Parameter-aware fields
+	ImagesParam          task_engine.ActionParameter
+	MultiArchImagesParam task_engine.ActionParameter
+	AllTagsParam         task_engine.ActionParameter
+	QuietParam           task_engine.ActionParameter
+	PlatformParam        task_engine.ActionParameter
 }
 
 func (a *DockerPullAction) SetCommandRunner(runner command.CommandRunner) {
@@ -101,6 +155,128 @@ func (a *DockerPullAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerPullAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve images via parameter if provided
+	if a.ImagesParam != nil {
+		v, err := a.ImagesParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve images parameter: %w", err)
+		}
+		switch typed := v.(type) {
+		case map[string]ImageSpec:
+			a.Images = typed
+		case map[string]interface{}:
+			// Attempt to coerce map[string]interface{} into map[string]ImageSpec when fields match
+			converted := make(map[string]ImageSpec, len(typed))
+			for k, vi := range typed {
+				if ms, ok := vi.(map[string]interface{}); ok {
+					spec := ImageSpec{}
+					if img, ok := ms["Image"].(string); ok {
+						spec.Image = img
+					}
+					if tag, ok := ms["Tag"].(string); ok {
+						spec.Tag = tag
+					}
+					if arch, ok := ms["Architecture"].(string); ok {
+						spec.Architecture = arch
+					}
+					converted[k] = spec
+				}
+			}
+			a.Images = converted
+		default:
+			return fmt.Errorf("unsupported images parameter type: %T", v)
+		}
+	}
+
+	// Resolve multiarch images via parameter if provided
+	if a.MultiArchImagesParam != nil {
+		v, err := a.MultiArchImagesParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve multiarch images parameter: %w", err)
+		}
+		switch typed := v.(type) {
+		case map[string]MultiArchImageSpec:
+			a.MultiArchImages = typed
+		case map[string]interface{}:
+			// Attempt to coerce map[string]interface{} into map[string]MultiArchImageSpec
+			converted := make(map[string]MultiArchImageSpec, len(typed))
+			for k, vi := range typed {
+				if ms, ok := vi.(map[string]interface{}); ok {
+					spec := MultiArchImageSpec{}
+					if img, ok := ms["Image"].(string); ok {
+						spec.Image = img
+					}
+					if tag, ok := ms["Tag"].(string); ok {
+						spec.Tag = tag
+					}
+					if archs, ok := ms["Architectures"].([]string); ok {
+						spec.Architectures = archs
+					} else if archsI, ok := ms["Architectures"].([]interface{}); ok {
+						// Convert []interface{} to []string
+						archStrs := make([]string, len(archsI))
+						for i, arch := range archsI {
+							if archStr, ok := arch.(string); ok {
+								archStrs[i] = archStr
+							}
+						}
+						spec.Architectures = archStrs
+					}
+					converted[k] = spec
+				}
+			}
+			a.MultiArchImages = converted
+		default:
+			return fmt.Errorf("unsupported multiarch images parameter type: %T", v)
+		}
+	}
+
+	// Resolve AllTags parameter if provided
+	if a.AllTagsParam != nil {
+		v, err := a.AllTagsParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve allTags parameter: %w", err)
+		}
+		if allTagsBool, ok := v.(bool); ok {
+			a.AllTags = allTagsBool
+		} else {
+			return fmt.Errorf("allTags parameter is not a bool, got %T", v)
+		}
+	}
+
+	// Resolve Quiet parameter if provided
+	if a.QuietParam != nil {
+		v, err := a.QuietParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+		}
+		if quietBool, ok := v.(bool); ok {
+			a.Quiet = quietBool
+		} else {
+			return fmt.Errorf("quiet parameter is not a bool, got %T", v)
+		}
+	}
+
+	// Resolve Platform parameter if provided
+	if a.PlatformParam != nil {
+		v, err := a.PlatformParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve platform parameter: %w", err)
+		}
+		if platformStr, ok := v.(string); ok {
+			if strings.TrimSpace(platformStr) != "" {
+				a.Platform = platformStr
+			}
+		} else {
+			return fmt.Errorf("platform parameter is not a string, got %T", v)
+		}
+	}
+
 	totalImages := len(a.Images) + len(a.MultiArchImages)
 	if totalImages == 0 {
 		return fmt.Errorf("no images specified for pulling")
@@ -236,6 +412,12 @@ func (a *DockerPullAction) GetFailedImages() []string {
 	return a.FailedImages
 }
 
-func (a *DockerPullAction) GetOutput() string {
-	return a.Output
+func (a *DockerPullAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"output":       a.Output,
+		"pulledImages": a.PulledImages,
+		"failedImages": a.FailedImages,
+		"totalImages":  len(a.Images) + len(a.MultiArchImages),
+		"success":      len(a.FailedImages) == 0,
+	}
 }

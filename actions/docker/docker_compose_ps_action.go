@@ -19,28 +19,54 @@ type ComposeService struct {
 	Ports       string
 }
 
-// NewDockerComposePsAction creates an action to list Docker Compose services
-func NewDockerComposePsAction(logger *slog.Logger, services []string, options ...DockerComposePsOption) *task_engine.Action[*DockerComposePsAction] {
+// DockerComposePsActionWrapper provides a consistent interface for DockerComposePsAction
+type DockerComposePsActionWrapper struct {
+	ID      string
+	Wrapped *DockerComposePsAction
+}
+
+// DockerComposePsActionConstructor provides the modern constructor pattern
+type DockerComposePsActionConstructor struct {
+	logger *slog.Logger
+}
+
+// NewDockerComposePsAction creates a new DockerComposePsAction constructor
+func NewDockerComposePsAction(logger *slog.Logger) *DockerComposePsActionConstructor {
+	return &DockerComposePsActionConstructor{
+		logger: logger,
+	}
+}
+
+// WithParameters creates a DockerComposePsAction with the given parameters
+func (c *DockerComposePsActionConstructor) WithParameters(
+	servicesParam task_engine.ActionParameter,
+	allParam task_engine.ActionParameter,
+	filterParam task_engine.ActionParameter,
+	formatParam task_engine.ActionParameter,
+	quietParam task_engine.ActionParameter,
+	workingDirParam task_engine.ActionParameter,
+) (*DockerComposePsActionWrapper, error) {
 	action := &DockerComposePsAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		Services:         services,
+		BaseAction:       task_engine.BaseAction{Logger: c.logger},
+		Services:         []string{},
 		All:              false,
 		Filter:           "",
 		Format:           "",
 		Quiet:            false,
 		WorkingDir:       "",
 		CommandProcessor: command.NewDefaultCommandRunner(),
+		ServicesParam:    servicesParam,
+		AllParam:         allParam,
+		FilterParam:      filterParam,
+		FormatParam:      formatParam,
+		QuietParam:       quietParam,
+		WorkingDirParam:  workingDirParam,
 	}
 
-	// Apply options
-	for _, option := range options {
-		option(action)
-	}
-
-	return &task_engine.Action[*DockerComposePsAction]{
+	return &DockerComposePsActionWrapper{
 		ID:      "docker-compose-ps-action",
 		Wrapped: action,
-	}
+	}, nil
 }
 
 // DockerComposePsOption is a function type for configuring DockerComposePsAction
@@ -93,6 +119,14 @@ type DockerComposePsAction struct {
 	CommandProcessor command.CommandRunner
 	Output           string
 	ServicesList     []ComposeService // Stores the parsed services
+
+	// Parameter-aware fields
+	ServicesParam   task_engine.ActionParameter
+	AllParam        task_engine.ActionParameter
+	FilterParam     task_engine.ActionParameter
+	FormatParam     task_engine.ActionParameter
+	QuietParam      task_engine.ActionParameter
+	WorkingDirParam task_engine.ActionParameter
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
@@ -101,6 +135,97 @@ func (a *DockerComposePsAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerComposePsAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve services parameter if it exists
+	if a.ServicesParam != nil {
+		servicesValue, err := a.ServicesParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve services parameter: %w", err)
+		}
+		if servicesSlice, ok := servicesValue.([]string); ok {
+			a.Services = servicesSlice
+		} else if servicesStr, ok := servicesValue.(string); ok {
+			// If it's a single string, split by comma or space
+			if strings.Contains(servicesStr, ",") {
+				a.Services = strings.Split(servicesStr, ",")
+			} else {
+				a.Services = strings.Fields(servicesStr)
+			}
+		} else {
+			return fmt.Errorf("services parameter is not a string slice or string, got %T", servicesValue)
+		}
+	}
+
+	// Resolve all parameter if it exists
+	if a.AllParam != nil {
+		allValue, err := a.AllParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve all parameter: %w", err)
+		}
+		if allBool, ok := allValue.(bool); ok {
+			a.All = allBool
+		} else {
+			return fmt.Errorf("all parameter is not a bool, got %T", allValue)
+		}
+	}
+
+	// Resolve filter parameter if it exists
+	if a.FilterParam != nil {
+		filterValue, err := a.FilterParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve filter parameter: %w", err)
+		}
+		if filterStr, ok := filterValue.(string); ok {
+			a.Filter = filterStr
+		} else {
+			return fmt.Errorf("filter parameter is not a string, got %T", filterValue)
+		}
+	}
+
+	// Resolve format parameter if it exists
+	if a.FormatParam != nil {
+		formatValue, err := a.FormatParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve format parameter: %w", err)
+		}
+		if formatStr, ok := formatValue.(string); ok {
+			a.Format = formatStr
+		} else {
+			return fmt.Errorf("format parameter is not a string, got %T", formatValue)
+		}
+	}
+
+	// Resolve quiet parameter if it exists
+	if a.QuietParam != nil {
+		quietValue, err := a.QuietParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+		}
+		if quietBool, ok := quietValue.(bool); ok {
+			a.Quiet = quietBool
+		} else {
+			return fmt.Errorf("quiet parameter is not a bool, got %T", quietValue)
+		}
+	}
+
+	// Resolve working directory parameter if it exists
+	if a.WorkingDirParam != nil {
+		workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+		}
+		if workingDirStr, ok := workingDirValue.(string); ok {
+			a.WorkingDir = workingDirStr
+		} else {
+			return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
+		}
+	}
+
 	args := []string{"compose", "ps"}
 
 	if a.All {
@@ -145,6 +270,16 @@ func (a *DockerComposePsAction) Execute(execCtx context.Context) error {
 	)
 
 	return nil
+}
+
+// GetOutput returns parsed services information and raw output metadata
+func (a *DockerComposePsAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"services": a.ServicesList,
+		"count":    len(a.ServicesList),
+		"output":   a.Output,
+		"success":  true,
+	}
 }
 
 // parseServices parses the docker compose ps output and populates the ServicesList slice

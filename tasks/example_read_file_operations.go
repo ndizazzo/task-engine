@@ -15,20 +15,17 @@ func ExampleReadFileOperations() {
 
 	// Create a task manager
 	taskManager := task_engine.NewTaskManager(logger)
-
-	// Create a task that reads a file
 	task := &task_engine.Task{
 		ID:   "read-file-example",
 		Name: "Read File Example",
 		Actions: []task_engine.ActionWrapper{
 			// Create a test file first
 			func() task_engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					"/tmp/test_read_file.txt",
-					[]byte("Hello, this is test content for reading!\nLine 2 with some data.\nLine 3 with more content."),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					task_engine.StaticParameter{Value: "/tmp/test_read_file.txt"},
+					task_engine.StaticParameter{Value: []byte("Hello, this is test content for reading!\nLine 2 with some data.\nLine 3 with more content.")},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -68,7 +65,7 @@ func ExampleReadFileWithErrorHandling() {
 		Name: "Read File Error Handling",
 		Actions: []task_engine.ActionWrapper{
 			func() task_engine.ActionWrapper {
-				action, err := file.NewReadFileAction("/nonexistent/file.txt", &content, logger)
+				action, err := file.NewReadFileAction(logger).WithParameters(task_engine.StaticParameter{Value: "/nonexistent/file.txt"}, &content)
 				if err != nil {
 					logger.Error("Failed to create read file action", "error", err)
 					return nil
@@ -116,7 +113,7 @@ func ExampleReadFileInWorkflow() {
 		Actions: []task_engine.ActionWrapper{
 			// Step 1: Create a source file
 			func() task_engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(sourceFile, sourceContent, true, nil, logger)
+				action, err := file.NewWriteFileAction(logger).WithParameters(task_engine.StaticParameter{Value: sourceFile}, task_engine.StaticParameter{Value: sourceContent}, true, nil)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
 					return nil
@@ -126,7 +123,7 @@ func ExampleReadFileInWorkflow() {
 
 			// Step 2: Read the source file
 			func() task_engine.ActionWrapper {
-				action, err := file.NewReadFileAction(sourceFile, &sourceData, logger)
+				action, err := file.NewReadFileAction(logger).WithParameters(task_engine.StaticParameter{Value: sourceFile}, &sourceData)
 				if err != nil {
 					logger.Error("Failed to create read file action", "error", err)
 					return nil
@@ -136,7 +133,7 @@ func ExampleReadFileInWorkflow() {
 
 			// Step 3: Process the data (in this case, just copy to a new file)
 			func() task_engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(processedFile, sourceData, true, nil, logger)
+				action, err := file.NewWriteFileAction(logger).WithParameters(task_engine.StaticParameter{Value: processedFile}, task_engine.StaticParameter{Value: sourceData}, true, nil)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
 					return nil
@@ -146,7 +143,7 @@ func ExampleReadFileInWorkflow() {
 
 			// Step 4: Read the processed file to verify
 			func() task_engine.ActionWrapper {
-				action, err := file.NewReadFileAction(processedFile, &processedData, logger)
+				action, err := file.NewReadFileAction(logger).WithParameters(task_engine.StaticParameter{Value: processedFile}, &processedData)
 				if err != nil {
 					logger.Error("Failed to create read file action", "error", err)
 					return nil

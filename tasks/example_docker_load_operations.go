@@ -16,20 +16,31 @@ func NewDockerLoadTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Load Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Example 1: Basic image load from tar file
-			docker.NewDockerLoadAction(logger, "/path/to/nginx.tar"),
+			func() task_engine.ActionWrapper {
+				action := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/path/to/nginx.tar"})
+				return action
+			}(),
 
 			// Example 2: Load with platform specification
-			docker.NewDockerLoadAction(logger, "/path/to/multi-platform.tar",
-				docker.WithPlatform("linux/amd64")),
+			func() task_engine.ActionWrapper {
+				action := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/path/to/multi-platform.tar"})
+				return action
+			}(),
 
 			// Example 3: Load with quiet mode
-			docker.NewDockerLoadAction(logger, "/path/to/redis.tar",
-				docker.WithQuiet()),
+			func() task_engine.ActionWrapper {
+				action := docker.NewDockerLoadAction(logger).WithOptions(docker.WithQuiet()).WithParameters(task_engine.StaticParameter{Value: "/path/to/redis.tar"})
+				return action
+			}(),
 
 			// Example 4: Load with both platform and quiet options
-			docker.NewDockerLoadAction(logger, "/path/to/postgres.tar",
-				docker.WithPlatform("linux/arm64"),
-				docker.WithQuiet()),
+			func() task_engine.ActionWrapper {
+				action := docker.NewDockerLoadAction(logger).WithOptions(
+					docker.WithPlatform("linux/arm64"),
+					docker.WithQuiet(),
+				).WithParameters(task_engine.StaticParameter{Value: "/path/to/postgres.tar"})
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -62,10 +73,10 @@ func NewDockerLoadBatchTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Load Batch Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Load multiple images in sequence
-			docker.NewDockerLoadAction(logger, "/images/nginx.tar"),
-			docker.NewDockerLoadAction(logger, "/images/redis.tar"),
-			docker.NewDockerLoadAction(logger, "/images/postgres.tar"),
-			docker.NewDockerLoadAction(logger, "/images/node.tar"),
+			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/nginx.tar"}),
+			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/redis.tar"}),
+			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/postgres.tar"}),
+			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/node.tar"}),
 		},
 		Logger: logger,
 	}
@@ -98,16 +109,12 @@ func NewDockerLoadPlatformSpecificTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Load Platform-Specific Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Load AMD64 images
-			docker.NewDockerLoadAction(logger, "/images/amd64/nginx.tar",
-				docker.WithPlatform("linux/amd64")),
-			docker.NewDockerLoadAction(logger, "/images/amd64/redis.tar",
-				docker.WithPlatform("linux/amd64")),
+			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/nginx.tar"}),
+			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/redis.tar"}),
 
 			// Load ARM64 images
-			docker.NewDockerLoadAction(logger, "/images/arm64/nginx.tar",
-				docker.WithPlatform("linux/arm64")),
-			docker.NewDockerLoadAction(logger, "/images/arm64/redis.tar",
-				docker.WithPlatform("linux/arm64")),
+			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/nginx.tar"}),
+			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/redis.tar"}),
 		},
 		Logger: logger,
 	}

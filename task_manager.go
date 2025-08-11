@@ -16,13 +16,17 @@ type TaskManager struct {
 	runningTasks map[string]context.CancelFunc
 	Logger       *slog.Logger
 	mu           sync.Mutex
+	// Global context for cross-task parameter passing. This enables actions
+	// in different tasks to reference outputs from other tasks.
+	globalContext *GlobalContext
 }
 
 func NewTaskManager(logger *slog.Logger) *TaskManager {
 	return &TaskManager{
-		Tasks:        make(map[string]*Task),
-		runningTasks: make(map[string]context.CancelFunc),
-		Logger:       logger,
+		Tasks:         make(map[string]*Task),
+		runningTasks:  make(map[string]context.CancelFunc),
+		Logger:        logger,
+		globalContext: NewGlobalContext(),
 	}
 }
 
@@ -63,7 +67,8 @@ func (tm *TaskManager) RunTask(taskID string) error {
 			tm.mu.Unlock()
 		}()
 
-		err := task.Run(ctx)
+		// Run task with the global context for parameter resolution
+		err := task.RunWithContext(ctx, tm.globalContext)
 		if err != nil {
 			if ctx.Err() != nil {
 				tm.Logger.Info("Task canceled", "taskID", taskID, "error", err)
@@ -146,4 +151,23 @@ func (tm *TaskManager) WaitForAllTasksToComplete(timeout time.Duration) error {
 		tm.Logger.Debug("Waiting for tasks to complete", "runningCount", runningCount, "timeout", timeout)
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// GetGlobalContext returns the global context for parameter resolution.
+// Use this to access the shared context that stores outputs from all tasks
+// and actions, enabling cross-entity parameter references.
+func (tm *TaskManager) GetGlobalContext() *GlobalContext {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	return tm.globalContext
+}
+
+// ResetGlobalContext resets the global context, clearing all stored outputs and results.
+// Use this when you want to start fresh with parameter passing, such as between
+// different workflow executions or test runs.
+func (tm *TaskManager) ResetGlobalContext() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.globalContext = NewGlobalContext()
+	tm.Logger.Info("Global context reset")
 }

@@ -273,8 +273,6 @@ func (pt *PerformanceTester) StressTest(
 
 		stepTime := time.Since(stepStart)
 		totalTime += stepTime
-
-		// Check if system is still responsive
 		if stepMetrics.ErrorRate > 50 || stepMetrics.AverageExecutionTime > 10*time.Second {
 			pt.logger.Warn("System showing signs of stress",
 				"concurrency", concurrency,

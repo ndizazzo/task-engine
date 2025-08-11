@@ -1,39 +1,45 @@
-.PHONY: help test test-unit test-coverage clean fmt fmt-check vet lint tidy deps check install-tools security dev
+.PHONY: help test test-unit test-unit-ci test-integration test-integration-ci test-coverage clean fmt fmt-check vet lint tidy deps check install-tools security dev test-coverage-ci
 
 help: ## Show available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 test: test-unit ## Run all tests
 
-# Base test execution - generates JSON output
-test-unit-json: ## Run unit tests and save JSON output
-	@go test -json -run "^Test.*" ./... > test-unit.json
+# Unit tests with live progress and JSON capture
+test-unit: ## Run unit tests with live progress
+	@go test -json -run "^Test.*" ./... | tee test-unit.json | gotestfmt
 
-# Local development formatters (human-readable)
-test-unit: test-unit-json install-tools ## Run unit tests with human-readable output
-	@if command -v gotestfmt >/dev/null 2>&1; then \
-		cat test-unit.json | gotestfmt; \
-	else \
-		echo "gotestfmt not found, running tests without formatting..."; \
-		go test ./...; \
-	fi
+# Unit tests with JUnit XML output and live progress for CI
+test-unit-ci: ## Run unit tests with JUnit XML output and live progress for CI
+	@go test -json -run "^Test.*" ./... | tee test-unit.json | gotestfmt
+	@gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json
 
-# CI formatters (JUnit XML)
-test-unit-ci: test-unit-json install-tools ## Run unit tests with JUnit XML output for CI
-	@if command -v gotestsum >/dev/null 2>&1; then \
-		gotestsum --junitfile=junit-unit.xml --format=testname --raw-command -- cat test-unit.json; \
-	else \
-		echo "gotestsum not found, running tests without JUnit XML..."; \
-		go test ./...; \
-	fi
+# Integration tests with live progress and JSON capture
+test-integration: ## Run integration tests with live progress
+	@go test -json -race ./... | tee test-integration.json | gotestfmt
+
+# Integration tests with JUnit XML output and live progress for CI
+test-integration-ci: ## Run integration tests with JUnit XML output and live progress for CI
+	@go test -json -race ./... | tee test-integration.json | gotestfmt
+	@gotestsum --junitfile=junit-integration.xml --format=testname --raw-command -- cat test-integration.json
 
 test-ci: test-unit-ci ## Run all tests with JUnit XML output for CI
 
 test-coverage: ## Run tests with coverage
 	@go test -v -race -coverprofile=coverage.out ./...
 
+# Coverage tests with live progress and JSON capture
+test-coverage-ci: ## Run tests with coverage and live progress for CI
+	@go test -json -race -coverprofile=coverage.out ./... | tee test-coverage.json | gotestfmt
+
 clean: ## Clean build artifacts
-	@rm -f *coverage.out junit-unit.xml test-unit.json test-e2e.json
+	@rm -f *coverage.out junit-unit.xml junit-integration.xml test-unit.json test-integration.json test-e2e.json test-coverage.log test-coverage.json security-scan.log vulnerability-scan.log
+	@rm -f coverage.out coverage.html coverage.txt
+	@rm -f test-*.json test-*.log test-*.xml
+	@rm -f *-scan.log *-coverage.log *-test.log
+	@rm -f junit-*.xml
+	@rm -f coverage-*.out security-*.log
+	@rm -f *.log *.json *.xml *.out
 	@go clean
 
 fmt: ## Format code
@@ -58,9 +64,9 @@ check: fmt vet ## Run code quality checks
 
 security: ## Run security and vulnerability checks
 	@echo "Running static security analysis..."
-	@gosec -exclude=G304,G115 ./...
+	@gosec -exclude=G304,G115 ./... | tee security-scan.log
 	@echo "Running vulnerability scanning..."
-	@govulncheck ./...
+	@govulncheck ./... | tee vulnerability-scan.log
 
 install-tools: ## Install development tools
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.1

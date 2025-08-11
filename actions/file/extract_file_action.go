@@ -28,42 +28,33 @@ const (
 	ZipArchive ArchiveType = "zip"
 )
 
-// NewExtractFileAction creates an action that extracts an archive to the specified destination.
-// If archiveType is empty, it will be auto-detected from the file extension.
-// Note: For compressed archives like .tar.gz, use DecompressFileAction first, then ExtractFileAction.
-func NewExtractFileAction(sourcePath string, destinationPath string, archiveType ArchiveType, logger *slog.Logger) (*engine.Action[*ExtractFileAction], error) {
-	if sourcePath == "" {
-		return nil, fmt.Errorf("invalid parameter: sourcePath cannot be empty")
+// NewExtractFileAction creates a new ExtractFileAction with the given logger
+func NewExtractFileAction(logger *slog.Logger) *ExtractFileAction {
+	return &ExtractFileAction{
+		BaseAction: engine.NewBaseAction(logger),
 	}
-	if destinationPath == "" {
-		return nil, fmt.Errorf("invalid parameter: destinationPath cannot be empty")
-	}
+}
 
-	// Auto-detect archive type if not specified
-	if archiveType == "" {
-		archiveType = DetectArchiveType(sourcePath)
-		if archiveType == "" {
-			return nil, fmt.Errorf("could not auto-detect archive type from file extension: %s", sourcePath)
+// WithParameters sets the parameters for source and destination paths and archive type
+func (a *ExtractFileAction) WithParameters(sourcePathParam, destinationPathParam engine.ActionParameter, archiveType ArchiveType) (*engine.Action[*ExtractFileAction], error) {
+	// Validate archive type if specified
+	if archiveType != "" {
+		switch archiveType {
+		case TarArchive, ZipArchive, TarGzArchive:
+			// Valid archive type
+		default:
+			return nil, fmt.Errorf("invalid archive type: %s", archiveType)
 		}
 	}
 
-	// Validate archive type
-	switch archiveType {
-	case TarArchive, TarGzArchive, ZipArchive:
-		// Valid archive type
-	default:
-		return nil, fmt.Errorf("invalid archive type: %s", archiveType)
-	}
+	a.SourcePathParam = sourcePathParam
+	a.DestinationPathParam = destinationPathParam
+	a.ArchiveType = archiveType
 
-	id := fmt.Sprintf("extract-file-%s-%s", archiveType, filepath.Base(sourcePath))
 	return &engine.Action[*ExtractFileAction]{
-		ID: id,
-		Wrapped: &ExtractFileAction{
-			BaseAction:      engine.BaseAction{Logger: logger},
-			SourcePath:      sourcePath,
-			DestinationPath: destinationPath,
-			ArchiveType:     archiveType,
-		},
+		ID:      "extract-file-action",
+		Name:    "Extract File",
+		Wrapped: a,
 	}, nil
 }
 
@@ -73,15 +64,64 @@ type ExtractFileAction struct {
 	SourcePath      string
 	DestinationPath string
 	ArchiveType     ArchiveType
+
+	// Parameter-aware fields
+	SourcePathParam      engine.ActionParameter
+	DestinationPathParam engine.ActionParameter
 }
 
 func (a *ExtractFileAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *engine.GlobalContext
+	if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.SourcePathParam != nil {
+		sourceValue, err := a.SourcePathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve source path parameter: %w", err)
+		}
+		if sourceStr, ok := sourceValue.(string); ok {
+			a.SourcePath = sourceStr
+		} else {
+			return fmt.Errorf("source path parameter is not a string, got %T", sourceValue)
+		}
+	}
+
+	if a.DestinationPathParam != nil {
+		destValue, err := a.DestinationPathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve destination path parameter: %w", err)
+		}
+		if destStr, ok := destValue.(string); ok {
+			a.DestinationPath = destStr
+		} else {
+			return fmt.Errorf("destination path parameter is not a string, got %T", destValue)
+		}
+	}
+
+	if a.SourcePath == "" {
+		return fmt.Errorf("source path cannot be empty")
+	}
+
+	if a.DestinationPath == "" {
+		return fmt.Errorf("destination path cannot be empty")
+	}
+
+	// Auto-detect archive type if not specified
+	if a.ArchiveType == "" {
+		a.ArchiveType = DetectArchiveType(a.SourcePath)
+		if a.ArchiveType == "" {
+			return fmt.Errorf("could not auto-detect archive type from file extension: %s", a.SourcePath)
+		}
+	}
+
 	a.Logger.Info("Attempting to extract archive",
 		"source", a.SourcePath,
 		"destination", a.DestinationPath,
 		"archiveType", a.ArchiveType)
-
-	// Check if source file exists
 	sourceInfo, err := os.Stat(a.SourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -92,8 +132,6 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to stat source file", "path", a.SourcePath, "error", err)
 		return fmt.Errorf("failed to stat source file %s: %w", a.SourcePath, err)
 	}
-
-	// Check if it's a regular file
 	if sourceInfo.IsDir() {
 		errMsg := fmt.Sprintf("source path %s is a directory, not a file", a.SourcePath)
 		a.Logger.Error(errMsg)
@@ -101,12 +139,10 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 	}
 
 	// Create destination directory if needed
-	if err := os.MkdirAll(a.DestinationPath, 0750); err != nil {
+	if err := os.MkdirAll(a.DestinationPath, 0o750); err != nil {
 		a.Logger.Error("Failed to create destination directory", "path", a.DestinationPath, "error", err)
 		return fmt.Errorf("failed to create destination directory %s: %w", a.DestinationPath, err)
 	}
-
-	// Check if the file is compressed and provide helpful error
 	if a.ArchiveType == TarGzArchive {
 		if isCompressed, compressionType := a.detectCompression(a.SourcePath); isCompressed {
 			errMsg := fmt.Sprintf("file %s is compressed with %s. Please decompress it first using DecompressFileAction, then extract using ExtractFileAction", a.SourcePath, compressionType)
@@ -155,8 +191,6 @@ func (a *ExtractFileAction) validateAndSanitizePath(fileName, destination string
 	}
 
 	targetPath := filepath.Join(destination, sanitizedName)
-
-	// Check for zip slip vulnerability
 	if !strings.HasPrefix(targetPath, filepath.Clean(destination)+string(os.PathSeparator)) {
 		return "", fmt.Errorf("illegal file path: %s", fileName)
 	}
@@ -168,11 +202,9 @@ func (a *ExtractFileAction) validateAndSanitizePath(fileName, destination string
 func (a *ExtractFileAction) createTargetFile(targetPath string) (*os.File, error) {
 	// Ensure the target directory exists
 	targetDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(targetDir, 0750); err != nil {
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", targetDir, err)
 	}
-
-	// Create the file
 	targetFile, err := os.Create(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file %s: %w", targetPath, err)
@@ -193,7 +225,7 @@ func (a *ExtractFileAction) copyWithLimit(dst *os.File, src io.Reader, fileName 
 // setFilePermissions safely sets file permissions with overflow protection
 func (a *ExtractFileAction) setFilePermissions(targetPath string, mode int64) {
 	// Use safe conversion to avoid integer overflow
-	safeMode := mode & 0777                           // Only use the permission bits, avoid overflow
+	safeMode := mode & 0o777                          // Only use the permission bits, avoid overflow
 	fileMode := os.FileMode(uint32(safeMode & 0x1FF)) // Ensure only 9 bits are used
 	if err := os.Chmod(targetPath, fileMode); err != nil {
 		a.Logger.Warn("Failed to set file permissions", "file", targetPath, "error", err)
@@ -223,8 +255,6 @@ func (a *ExtractFileAction) extractTar(source io.Reader, destination string) err
 		if err != nil {
 			return err
 		}
-
-		// Create target file
 		targetFile, err := a.createTargetFile(targetPath)
 		if err != nil {
 			return err
@@ -270,13 +300,11 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 
 		// If it's a directory, create it and continue
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, 0750); err != nil {
+			if err := os.MkdirAll(targetPath, 0o750); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
 			}
 			continue
 		}
-
-		// Create target file
 		targetFile, err := a.createTargetFile(targetPath)
 		if err != nil {
 			return err
@@ -306,6 +334,16 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 	return nil
 }
 
+// GetOutput returns metadata about the extraction operation
+func (a *ExtractFileAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"source":      a.SourcePath,
+		"destination": a.DestinationPath,
+		"archiveType": string(a.ArchiveType),
+		"success":     true,
+	}
+}
+
 // detectCompression checks if a file is compressed and returns the compression type
 func (a *ExtractFileAction) detectCompression(filePath string) (bool, string) {
 	file, err := os.Open(filePath)
@@ -329,8 +367,6 @@ func (a *ExtractFileAction) detectCompression(filePath string) (bool, string) {
 	if err != nil {
 		return false, ""
 	}
-
-	// Check for gzip magic number (0x1f 0x8b)
 	if buffer[0] == 0x1f && buffer[1] == 0x8b {
 		return true, "gzip"
 	}

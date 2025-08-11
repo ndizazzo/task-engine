@@ -6,29 +6,30 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	engine "github.com/ndizazzo/task-engine"
 )
 
-// NewReadFileAction creates an action that reads content from a file.
-// The file contents will be stored in the provided buffer.
-func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logger) (*engine.Action[*ReadFileAction], error) {
-	if err := ValidateSourcePath(filePath); err != nil {
-		return nil, fmt.Errorf("invalid file path: %w", err)
+// NewReadFileAction creates a new ReadFileAction with the given logger
+func NewReadFileAction(logger *slog.Logger) *ReadFileAction {
+	return &ReadFileAction{
+		BaseAction: engine.NewBaseAction(logger),
 	}
+}
+
+// WithParameters sets the parameters for file path and output buffer
+func (a *ReadFileAction) WithParameters(pathParam engine.ActionParameter, outputBuffer *[]byte) (*engine.Action[*ReadFileAction], error) {
 	if outputBuffer == nil {
 		return nil, fmt.Errorf("invalid parameter: outputBuffer cannot be nil")
 	}
 
-	id := fmt.Sprintf("read-file-%s", filepath.Base(filePath))
+	a.PathParam = pathParam
+	a.OutputBuffer = outputBuffer
+
 	return &engine.Action[*ReadFileAction]{
-		ID: id,
-		Wrapped: &ReadFileAction{
-			BaseAction:   engine.BaseAction{Logger: logger},
-			FilePath:     filePath,
-			OutputBuffer: outputBuffer,
-		},
+		ID:      "read-file-action",
+		Name:    "Read File",
+		Wrapped: a,
 	}, nil
 }
 
@@ -36,19 +37,44 @@ func NewReadFileAction(filePath string, outputBuffer *[]byte, logger *slog.Logge
 type ReadFileAction struct {
 	engine.BaseAction
 	FilePath     string
-	OutputBuffer *[]byte // Pointer to buffer where file contents will be stored
+	OutputBuffer *[]byte                // Pointer to buffer where file contents will be stored
+	PathParam    engine.ActionParameter // optional parameter to resolve path
 }
 
 func (a *ReadFileAction) Execute(execCtx context.Context) error {
+	// Resolve path parameter if provided
+	effectivePath := a.FilePath
+	if a.PathParam != nil {
+		if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
+			v, err := a.PathParam.Resolve(execCtx, gc)
+			if err != nil {
+				return fmt.Errorf("failed to resolve path parameter: %w", err)
+			}
+			if s, ok := v.(string); ok {
+				effectivePath = s
+			} else {
+				return fmt.Errorf("resolved path parameter is not a string: %T", v)
+			}
+		} else {
+			if sp, ok := a.PathParam.(engine.StaticParameter); ok {
+				if s, ok2 := sp.Value.(string); ok2 {
+					effectivePath = s
+				} else {
+					return fmt.Errorf("static path parameter is not a string: %T", sp.Value)
+				}
+			} else {
+				return fmt.Errorf("global context not available for dynamic path resolution")
+			}
+		}
+	}
+
 	// Sanitize path to prevent path traversal attacks
-	sanitizedPath, err := SanitizePath(a.FilePath)
+	sanitizedPath, err := SanitizePath(effectivePath)
 	if err != nil {
 		return fmt.Errorf("invalid file path: %w", err)
 	}
 
 	a.Logger.Info("Attempting to read file", "path", sanitizedPath)
-
-	// Check if file exists
 	fileInfo, err := os.Stat(sanitizedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -59,8 +85,6 @@ func (a *ReadFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to stat file", "path", sanitizedPath, "error", err)
 		return fmt.Errorf("failed to stat file %s: %w", sanitizedPath, err)
 	}
-
-	// Check if it's a regular file
 	if fileInfo.IsDir() {
 		errMsg := fmt.Sprintf("path %s is a directory, not a file", sanitizedPath)
 		a.Logger.Error(errMsg)
@@ -80,4 +104,23 @@ func (a *ReadFileAction) Execute(execCtx context.Context) error {
 
 	a.Logger.Info("Successfully read file", "path", sanitizedPath, "size", len(content))
 	return nil
+}
+
+// GetOutput returns the file content and metadata
+func (a *ReadFileAction) GetOutput() interface{} {
+	if a.OutputBuffer == nil {
+		return map[string]interface{}{
+			"content":  nil,
+			"fileSize": 0,
+			"filePath": a.FilePath,
+			"success":  false,
+		}
+	}
+
+	return map[string]interface{}{
+		"content":  *a.OutputBuffer,
+		"fileSize": len(*a.OutputBuffer),
+		"filePath": a.FilePath,
+		"success":  true,
+	}
 }

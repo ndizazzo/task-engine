@@ -77,9 +77,11 @@ func (suite *PrerequisiteCheckActionTestSuite) TestPrerequisiteCheckAction_Execu
 	for _, tc := range tests {
 		suite.Run(tc.name, func() {
 			logger := mocks.NewDiscardLogger()
-			// Constructor now returns an error, handle it for valid test cases
-			action, err := utility.NewPrerequisiteCheckAction(logger, tc.description, tc.checkFunc)
-			assert.NoError(suite.T(), err, "NewPrerequisiteCheckAction should not return an error for valid test cases here")
+			action, err := utility.NewPrerequisiteCheckAction(logger).WithParameters(
+				task_engine.StaticParameter{Value: tc.description},
+				task_engine.StaticParameter{Value: tc.checkFunc},
+			)
+			suite.Require().NoError(err)
 			assert.NotNil(suite.T(), action)
 
 			var ctx context.Context
@@ -107,9 +109,24 @@ func (suite *PrerequisiteCheckActionTestSuite) TestPrerequisiteCheckAction_Execu
 	}
 }
 
+func (suite *PrerequisiteCheckActionTestSuite) TestPrerequisiteCheckAction_GetOutput() {
+	action := &utility.PrerequisiteCheckAction{
+		Description: "Check if docker is available",
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal("Check if docker is available", m["description"])
+	suite.Equal(true, m["success"])
+}
+
 func (suite *PrerequisiteCheckActionTestSuite) TestNewPrerequisiteCheckAction_NilCheck() {
 	logger := mocks.NewDiscardLogger()
-	action, err := utility.NewPrerequisiteCheckAction(logger, "test", nil)
-	assert.Error(suite.T(), err, "NewPrerequisiteCheckAction should return an error when check function is nil")
-	assert.Nil(suite.T(), action, "NewPrerequisiteCheckAction should return nil action when check function is nil")
+	action, err := utility.NewPrerequisiteCheckAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: "test"},
+		task_engine.StaticParameter{Value: utility.PrerequisiteCheckFunc(func(ctx context.Context, l *slog.Logger) (bool, error) { return false, nil })},
+	)
+	suite.Require().NoError(err)
+	assert.NotNil(suite.T(), action, "NewPrerequisiteCheckAction should return a valid action")
 }

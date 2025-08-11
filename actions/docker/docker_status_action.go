@@ -19,27 +19,32 @@ type ContainerState struct {
 	Status string   `json:"status"`
 }
 
-// NewGetContainerStateAction creates an action to get the state of specific containers by ID or name
-func NewGetContainerStateAction(logger *slog.Logger, containerIdentifiers ...string) *task_engine.Action[*GetContainerStateAction] {
-	id := fmt.Sprintf("get-container-state-%s-action", strings.Join(containerIdentifiers, "-"))
-	return &task_engine.Action[*GetContainerStateAction]{
-		ID: id,
-		Wrapped: &GetContainerStateAction{
-			BaseAction:       task_engine.BaseAction{Logger: logger},
-			ContainerIDs:     containerIdentifiers,
-			CommandProcessor: command.NewDefaultCommandRunner(),
-		},
+// GetContainerStateActionBuilder provides a fluent interface for building GetContainerStateAction
+type GetContainerStateActionBuilder struct {
+	logger             *slog.Logger
+	containerNameParam task_engine.ActionParameter
+}
+
+// NewGetContainerStateAction creates a fluent builder for GetContainerStateAction
+func NewGetContainerStateAction(logger *slog.Logger) *GetContainerStateActionBuilder {
+	return &GetContainerStateActionBuilder{
+		logger: logger,
 	}
 }
 
-// NewGetAllContainersStateAction creates an action to get the state of all containers
-func NewGetAllContainersStateAction(logger *slog.Logger) *task_engine.Action[*GetContainerStateAction] {
+// WithParameters sets the parameters for container name
+func (b *GetContainerStateActionBuilder) WithParameters(containerNameParam task_engine.ActionParameter) *task_engine.Action[*GetContainerStateAction] {
+	b.containerNameParam = containerNameParam
+
+	id := "get-container-state-action"
 	return &task_engine.Action[*GetContainerStateAction]{
-		ID: "get-all-containers-state-action",
+		ID:   id,
+		Name: "Get Container State",
 		Wrapped: &GetContainerStateAction{
-			BaseAction:       task_engine.BaseAction{Logger: logger},
-			ContainerIDs:     []string{}, // Empty means get all
-			CommandProcessor: command.NewDefaultCommandRunner(),
+			BaseAction:         task_engine.NewBaseAction(b.logger),
+			ContainerName:      "",
+			CommandProcessor:   command.NewDefaultCommandRunner(),
+			ContainerNameParam: b.containerNameParam,
 		},
 	}
 }
@@ -50,6 +55,10 @@ type GetContainerStateAction struct {
 	ContainerIDs     []string
 	CommandProcessor command.CommandRunner
 	ContainerStates  []ContainerState
+
+	// Parameter-aware fields
+	ContainerName      string
+	ContainerNameParam task_engine.ActionParameter
 }
 
 // SetCommandProcessor allows injecting a mock or alternative CommandProcessor for testing
@@ -58,6 +67,39 @@ func (a *GetContainerStateAction) SetCommandProcessor(processor command.CommandR
 }
 
 func (a *GetContainerStateAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve container name parameter if it exists
+	if a.ContainerNameParam != nil {
+		containerNameValue, err := a.ContainerNameParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve container name parameter: %w", err)
+		}
+		switch v := containerNameValue.(type) {
+		case string:
+			a.ContainerName = v
+			if strings.TrimSpace(v) != "" {
+				a.ContainerIDs = []string{v}
+			}
+		case []string:
+			filtered := make([]string, 0, len(v))
+			for _, name := range v {
+				if strings.TrimSpace(name) != "" {
+					filtered = append(filtered, name)
+				}
+			}
+			if len(filtered) > 0 {
+				a.ContainerIDs = filtered
+			}
+		default:
+			return fmt.Errorf("container name parameter is not a string, got %T", containerNameValue)
+		}
+	}
+
 	a.Logger.Info("Getting container state", "containerIDs", a.ContainerIDs)
 
 	var output string
@@ -174,4 +216,13 @@ func (a *GetContainerStateAction) parseContainerOutput(output string) ([]Contain
 	}
 
 	return containerStates, nil
+}
+
+// GetOutput returns the retrieved container states
+func (a *GetContainerStateAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"containers": a.ContainerStates,
+		"count":      len(a.ContainerStates),
+		"success":    true,
+	}
 }

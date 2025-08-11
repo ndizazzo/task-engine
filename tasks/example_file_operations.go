@@ -17,10 +17,9 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 		Actions: []engine.ActionWrapper{
 			// Step 1: Create project structure
 			func() engine.ActionWrapper {
-				action, err := file.NewCreateDirectoriesAction(
-					logger,
-					workingDir,
-					[]string{"src", "tests", "docs", "tmp"},
+				action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir},
+					engine.StaticParameter{Value: []string{"src", "tests", "docs", "tmp"}},
 				)
 				if err != nil {
 					logger.Error("Failed to create directories action", "error", err)
@@ -31,12 +30,11 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 2: Create initial source file
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					workingDir+"/src/main.go",
-					[]byte(initialSourceCode),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/src/main.go"},
+					engine.StaticParameter{Value: []byte(initialSourceCode)},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -47,12 +45,11 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 3: Create a configuration file
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					workingDir+"/config.json",
-					[]byte(initialConfig),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/config.json"},
+					engine.StaticParameter{Value: []byte(initialConfig)},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -63,12 +60,11 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 4: Copy the source file to backup
 			func() engine.ActionWrapper {
-				action, err := file.NewCopyFileAction(
-					workingDir+"/src/main.go",
-					workingDir+"/src/main.go.backup",
-					true,  // createDir
-					false, // recursive
-					logger,
+				action, err := file.NewCopyFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/src/main.go"},
+					engine.StaticParameter{Value: workingDir + "/src/main.go.backup"},
+					true,
+					false,
 				)
 				if err != nil {
 					logger.Error("Failed to create copy file action", "error", err)
@@ -78,31 +74,34 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 			}(),
 
 			// Step 5: Replace placeholder text in the source file
-			file.NewReplaceLinesAction(
-				workingDir+"/src/main.go",
-				map[*regexp.Regexp]string{
-					regexp.MustCompile("TODO: implement main logic"): "fmt.Println(\"Hello, Task Engine!\")",
-				},
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action := file.NewReplaceLinesAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/src/main.go"},
+					map[*regexp.Regexp]engine.ActionParameter{
+						regexp.MustCompile("TODO: implement main logic"): engine.StaticParameter{Value: "fmt.Println(\"Hello, Task Engine!\")"},
+					},
+				)
+				return action
+			}(),
 
 			// Step 6: Replace configuration values
-			file.NewReplaceLinesAction(
-				workingDir+"/config.json",
-				map[*regexp.Regexp]string{
-					regexp.MustCompile("\"development\""): "\"production\"",
-				},
-				logger,
-			),
+			func() engine.ActionWrapper {
+				action := file.NewReplaceLinesAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/config.json"},
+					map[*regexp.Regexp]engine.ActionParameter{
+						regexp.MustCompile("\"development\""): engine.StaticParameter{Value: "\"production\""},
+					},
+				)
+				return action
+			}(),
 
 			// Step 7: Create documentation
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					workingDir+"/docs/README.md",
-					[]byte(documentationContent),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/docs/README.md"},
+					engine.StaticParameter{Value: []byte(documentationContent)},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -113,12 +112,11 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 8: Create a temporary test file
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					workingDir+"/tmp/test.txt",
-					[]byte("This is a temporary test file"),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/tmp/test.txt"},
+					engine.StaticParameter{Value: []byte("This is a temporary test file")},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -129,16 +127,13 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 9: Clean up temporary file
 			func() engine.ActionWrapper {
-				action, err := file.NewDeletePathAction(
-					workingDir+"/tmp/test.txt",
-					false, // recursive
-					false, // dryRun
-					logger,
+				action := file.NewDeletePathAction(logger).WithParameters(
+					engine.StaticParameter{Value: workingDir + "/tmp/test.txt"},
+					false,
+					false,
+					false,
+					nil,
 				)
-				if err != nil {
-					logger.Error("Failed to create delete path action", "error", err)
-					return nil
-				}
 				return action
 			}(),
 		},

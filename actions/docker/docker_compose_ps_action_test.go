@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
@@ -20,46 +21,28 @@ func TestDockerComposePsActionTestSuite(t *testing.T) {
 	suite.Run(t, new(DockerComposePsActionTestSuite))
 }
 
-func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsAction() {
+// Tests for new constructor pattern with parameters
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_WithParameters() {
 	logger := slog.Default()
-	services := []string{"web", "db"}
 
-	action := NewDockerComposePsAction(logger, services)
-
-	suite.NotNil(action)
-	suite.Equal("docker-compose-ps-action", action.ID)
-	suite.Equal(services, action.Wrapped.Services)
-	suite.False(action.Wrapped.All)
-	suite.Empty(action.Wrapped.Filter)
-	suite.Empty(action.Wrapped.Format)
-	suite.False(action.Wrapped.Quiet)
-	suite.Empty(action.Wrapped.WorkingDir)
-}
-
-func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionWithOptions() {
-	logger := slog.Default()
-	services := []string{"web"}
-
-	action := NewDockerComposePsAction(logger, services,
-		WithComposePsAll(),
-		WithComposePsFilter("status=running"),
-		WithComposePsFormat("table {{.Name}}\t{{.Status}}"),
-		WithComposePsQuiet(),
-		WithComposePsWorkingDir("/path/to/compose"),
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services
+		task_engine.StaticParameter{Value: false},      // all
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: false},      // quiet
+		task_engine.StaticParameter{Value: ""},         // workingDir
 	)
 
+	suite.Require().NoError(err)
 	suite.NotNil(action)
-	suite.Equal(services, action.Wrapped.Services)
-	suite.True(action.Wrapped.All)
-	suite.Equal("status=running", action.Wrapped.Filter)
-	suite.Equal("table {{.Name}}\t{{.Status}}", action.Wrapped.Format)
-	suite.True(action.Wrapped.Quiet)
-	suite.Equal("/path/to/compose", action.Wrapped.WorkingDir)
+	suite.Equal("docker-compose-ps-action", action.ID)
+	suite.NotNil(action.Wrapped)
 }
 
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_Success() {
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithParameters() {
 	logger := slog.Default()
-	services := []string{"web", "db"}
 	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp
 myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Up 2 hours         5432/tcp`
@@ -67,23 +50,29 @@ myapp_db_1          postgres:13         "docker-entrypoint.s"    db             
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
 
-	action := NewDockerComposePsAction(logger, services)
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"web", "db"}}, // services
+		task_engine.StaticParameter{Value: false},                 // all
+		task_engine.StaticParameter{Value: ""},                    // filter
+		task_engine.StaticParameter{Value: ""},                    // format
+		task_engine.StaticParameter{Value: false},                 // quiet
+		task_engine.StaticParameter{Value: ""},                    // workingDir
+	)
+
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
 	suite.Len(action.Wrapped.ServicesList, 2)
-
-	// Check first service
 	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
 	suite.Equal("nginx:latest", action.Wrapped.ServicesList[0].Image)
 	suite.Equal("web", action.Wrapped.ServicesList[0].ServiceName)
 	suite.Equal("Up 2 hours", action.Wrapped.ServicesList[0].Status)
 	suite.Equal("0.0.0.0:8080->80/tcp", action.Wrapped.ServicesList[0].Ports)
-
-	// Check second service
 	suite.Equal("myapp_db_1", action.Wrapped.ServicesList[1].Name)
 	suite.Equal("postgres:13", action.Wrapped.ServicesList[1].Image)
 	suite.Equal("db", action.Wrapped.ServicesList[1].ServiceName)
@@ -93,7 +82,135 @@ myapp_db_1          postgres:13         "docker-entrypoint.s"    db             
 	mockRunner.AssertExpectations(suite.T())
 }
 
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_NoServices() {
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithAllParameter() {
+	logger := slog.Default()
+	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
+myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp
+myapp_stopped_1     nginx:alpine        "nginx -g 'daemon off"   stopped             3 hours ago         Exited (0) 1 hour ago`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "--all").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services (empty)
+		task_engine.StaticParameter{Value: true},       // all = true
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: false},      // quiet
+		task_engine.StaticParameter{Value: ""},         // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.Len(action.Wrapped.ServicesList, 2)
+	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
+	suite.Equal("myapp_stopped_1", action.Wrapped.ServicesList[1].Name)
+	suite.Equal("Exited (0) 1 hour ago", action.Wrapped.ServicesList[1].Status)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithFilterParameter() {
+	logger := slog.Default()
+	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
+myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "--filter", "status=running").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}},       // services
+		task_engine.StaticParameter{Value: false},            // all
+		task_engine.StaticParameter{Value: "status=running"}, // filter
+		task_engine.StaticParameter{Value: ""},               // format
+		task_engine.StaticParameter{Value: false},            // quiet
+		task_engine.StaticParameter{Value: ""},               // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.Equal("status=running", action.Wrapped.Filter)
+	suite.Len(action.Wrapped.ServicesList, 1)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithFormatParameter() {
+	logger := slog.Default()
+	expectedOutput := `myapp_web_1	Up 2 hours
+myapp_db_1	Up 2 hours`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "--format", "table {{.Name}}\t{{.Status}}").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}},                     // services
+		task_engine.StaticParameter{Value: false},                          // all
+		task_engine.StaticParameter{Value: ""},                             // filter
+		task_engine.StaticParameter{Value: "table {{.Name}}\t{{.Status}}"}, // format
+		task_engine.StaticParameter{Value: false},                          // quiet
+		task_engine.StaticParameter{Value: ""},                             // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.Equal("table {{.Name}}\t{{.Status}}", action.Wrapped.Format)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithQuietParameter() {
+	logger := slog.Default()
+	expectedOutput := `myapp_web_1
+myapp_db_1`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "--quiet").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services
+		task_engine.StaticParameter{Value: false},      // all
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: true},       // quiet = true
+		task_engine.StaticParameter{Value: ""},         // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.True(action.Wrapped.Quiet)
+	suite.Len(action.Wrapped.ServicesList, 2)
+	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
+	suite.Equal("myapp_db_1", action.Wrapped.ServicesList[1].Name)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithWorkingDirParameter() {
 	logger := slog.Default()
 	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
@@ -101,260 +218,256 @@ myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web            
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ps").Return(expectedOutput, nil)
 
-	action := NewDockerComposePsAction(logger, []string{})
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}},         // services
+		task_engine.StaticParameter{Value: false},              // all
+		task_engine.StaticParameter{Value: ""},                 // filter
+		task_engine.StaticParameter{Value: ""},                 // format
+		task_engine.StaticParameter{Value: false},              // quiet
+		task_engine.StaticParameter{Value: "/path/to/compose"}, // workingDir
+	)
+
+	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.Equal("/path/to/compose", action.Wrapped.WorkingDir)
 	suite.Len(action.Wrapped.ServicesList, 1)
-	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
+
 	mockRunner.AssertExpectations(suite.T())
 }
 
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_WithAll() {
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_WithMultipleParameters() {
 	logger := slog.Default()
-	services := []string{"web"}
 	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
-myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--all", "web").Return(expectedOutput, nil)
-
-	action := NewDockerComposePsAction(logger, services, WithComposePsAll())
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Len(action.Wrapped.ServicesList, 1)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_WithFilter() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
-myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--filter", "status=running", "web").Return(expectedOutput, nil)
-
-	action := NewDockerComposePsAction(logger, services, WithComposePsFilter("status=running"))
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Len(action.Wrapped.ServicesList, 1)
-	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_WithFormat() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
-myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--format", "table {{.Name}}\t{{.Status}}", "web").Return(expectedOutput, nil)
-
-	action := NewDockerComposePsAction(logger, services, WithComposePsFormat("table {{.Name}}\t{{.Status}}"))
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Len(action.Wrapped.ServicesList, 1)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_WithQuiet() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedOutput := `myapp_web_1
-myapp_db_1`
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--quiet", "web").Return(expectedOutput, nil)
-
-	action := NewDockerComposePsAction(logger, services, WithComposePsQuiet())
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Len(action.Wrapped.ServicesList, 2)
-	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
-	suite.Equal("myapp_db_1", action.Wrapped.ServicesList[1].Name)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_CommandError() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedError := errors.New("docker compose ps command failed")
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web").Return("", expectedError)
-
-	action := NewDockerComposePsAction(logger, services)
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.Error(err)
-	suite.Contains(err.Error(), "docker compose ps command failed", "Error should contain the command failure message")
-	suite.Empty(action.Wrapped.Output)
-	suite.Empty(action.Wrapped.ServicesList)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_ContextCancellation() {
-	logger := slog.Default()
-	services := []string{"web"}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web").Return("", context.Canceled)
-
-	action := NewDockerComposePsAction(logger, services)
-	action.Wrapped.SetCommandRunner(mockRunner)
-
-	err := action.Wrapped.Execute(ctx)
-
-	suite.Error(err)
-	suite.Contains(err.Error(), "context canceled", "Error should contain the context cancellation message")
-	suite.Empty(action.Wrapped.Output)
-	suite.Empty(action.Wrapped.ServicesList)
-	mockRunner.AssertExpectations(suite.T())
-}
-
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_parseServices() {
-	logger := slog.Default()
-	output := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp
-myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Up 2 hours         5432/tcp`
+myapp_stopped_1     nginx:alpine        "nginx -g 'daemon off"   stopped             3 hours ago         Exited (0) 1 hour ago`
 
-	action := NewDockerComposePsAction(logger, []string{})
-	action.Wrapped.Output = output
-	action.Wrapped.parseServices(output)
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "--all", "--filter", "status=exited", "--format", "table {{.Name}}\t{{.Status}}", "web").Return(expectedOutput, nil)
 
-	suite.Len(action.Wrapped.ServicesList, 2)
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"web"}},                // services
+		task_engine.StaticParameter{Value: true},                           // all = true
+		task_engine.StaticParameter{Value: "status=exited"},                // filter
+		task_engine.StaticParameter{Value: "table {{.Name}}\t{{.Status}}"}, // format
+		task_engine.StaticParameter{Value: false},                          // quiet
+		task_engine.StaticParameter{Value: "/path/to/compose"},             // workingDir
+	)
 
-	// Check first service
-	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
-	suite.Equal("nginx:latest", action.Wrapped.ServicesList[0].Image)
-	suite.Equal("web", action.Wrapped.ServicesList[0].ServiceName)
-	suite.Equal("Up 2 hours", action.Wrapped.ServicesList[0].Status)
-	suite.Equal("0.0.0.0:8080->80/tcp", action.Wrapped.ServicesList[0].Ports)
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
 
-	// Check second service
-	suite.Equal("myapp_db_1", action.Wrapped.ServicesList[1].Name)
-	suite.Equal("postgres:13", action.Wrapped.ServicesList[1].Image)
-	suite.Equal("db", action.Wrapped.ServicesList[1].ServiceName)
-	suite.Equal("Up 2 hours", action.Wrapped.ServicesList[1].Status)
-	suite.Equal("5432/tcp", action.Wrapped.ServicesList[1].Ports)
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.True(action.Wrapped.All)
+	suite.Equal("status=exited", action.Wrapped.Filter)
+	suite.Equal("table {{.Name}}\t{{.Status}}", action.Wrapped.Format)
+	suite.False(action.Wrapped.Quiet)
+	suite.Equal("/path/to/compose", action.Wrapped.WorkingDir)
+	suite.Equal([]string{"web"}, action.Wrapped.Services)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_InvalidParameterTypes() {
+	logger := slog.Default()
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services
+		task_engine.StaticParameter{Value: "invalid"},  // all should be bool, not string
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: false},      // quiet
+		task_engine.StaticParameter{Value: ""},         // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "all parameter is not a bool")
+	action, err = constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services
+		task_engine.StaticParameter{Value: false},      // all
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: "invalid"},  // quiet should be bool, not string
+		task_engine.StaticParameter{Value: ""},         // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "quiet parameter is not a bool")
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_ServicesAsString() {
+	logger := slog.Default()
+	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
+myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: "web,db"}, // services as comma-separated string
+		task_engine.StaticParameter{Value: false},    // all
+		task_engine.StaticParameter{Value: ""},       // filter
+		task_engine.StaticParameter{Value: ""},       // format
+		task_engine.StaticParameter{Value: false},    // quiet
+		task_engine.StaticParameter{Value: ""},       // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal([]string{"web", "db"}, action.Wrapped.Services)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_ServicesAsSpaceSeparatedString() {
+	logger := slog.Default()
+	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
+myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: "web db"}, // services as space-separated string
+		task_engine.StaticParameter{Value: false},    // all
+		task_engine.StaticParameter{Value: ""},       // filter
+		task_engine.StaticParameter{Value: ""},       // format
+		task_engine.StaticParameter{Value: false},    // quiet
+		task_engine.StaticParameter{Value: ""},       // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal([]string{"web", "db"}, action.Wrapped.Services)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_CommandFailure() {
+	logger := slog.Default()
+	expectedError := "docker compose ps failed"
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommand", "docker", "compose", "ps").Return("", errors.New(expectedError))
+
+	constructor := NewDockerComposePsAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // services
+		task_engine.StaticParameter{Value: false},      // all
+		task_engine.StaticParameter{Value: ""},         // filter
+		task_engine.StaticParameter{Value: ""},         // format
+		task_engine.StaticParameter{Value: false},      // quiet
+		task_engine.StaticParameter{Value: ""},         // workingDir
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), expectedError)
+	suite.Empty(action.Wrapped.Output)
+	suite.Empty(action.Wrapped.ServicesList)
+
+	mockRunner.AssertExpectations(suite.T())
 }
 
 func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_parseServiceLine() {
-	logger := slog.Default()
-	action := NewDockerComposePsAction(logger, []string{})
-
-	// Test normal line
-	line := "myapp_web_1         nginx:latest        \"nginx -g 'daemon off\"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp"
-	service := action.Wrapped.parseServiceLine(line)
+	action := &DockerComposePsAction{}
+	line := `myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
+	service := action.parseServiceLine(line)
 
 	suite.Equal("myapp_web_1", service.Name)
 	suite.Equal("nginx:latest", service.Image)
 	suite.Equal("web", service.ServiceName)
 	suite.Equal("Up 2 hours", service.Status)
 	suite.Equal("0.0.0.0:8080->80/tcp", service.Ports)
-
-	// Test line with different status
-	line = "myapp_db_1          postgres:13         \"docker-entrypoint.s\"    db                  2 hours ago         Exited (0) 2 hours ago         5432/tcp"
-	service = action.Wrapped.parseServiceLine(line)
+	line = `myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Exited (0) 2 hours ago         5432/tcp`
+	service = action.parseServiceLine(line)
 
 	suite.Equal("myapp_db_1", service.Name)
 	suite.Equal("postgres:13", service.Image)
 	suite.Equal("db", service.ServiceName)
 	suite.Equal("Exited (0) 2 hours ago", service.Status)
 	suite.Equal("5432/tcp", service.Ports)
-
-	// Test line with extra whitespace
-	line = "  myapp_web_1    nginx:latest    \"nginx -g 'daemon off\"    web   2 hours ago    Up 2 hours   0.0.0.0:8080->80/tcp  "
-	service = action.Wrapped.parseServiceLine(line)
-
-	suite.Equal("myapp_web_1", service.Name)
-	suite.Equal("nginx:latest", service.Image)
-	suite.Equal("web", service.ServiceName)
-	suite.Equal("Up 2 hours", service.Status)
-	suite.Equal("0.0.0.0:8080->80/tcp", service.Ports)
-
-	// Test line with tab separators
-	line = "myapp_web_1\tnginx:latest\t\"nginx -g 'daemon off\"\tweb\t2 hours ago\tUp 2 hours\t0.0.0.0:8080->80/tcp"
-	service = action.Wrapped.parseServiceLine(line)
+	action.Quiet = true
+	line = "myapp_web_1"
+	service = action.parseServiceLine(line)
 
 	suite.Equal("myapp_web_1", service.Name)
-	suite.Equal("nginx:latest", service.Image)
-	suite.Equal("web", service.ServiceName)
-	suite.Equal("Up 2 hours", service.Status)
-	suite.Equal("0.0.0.0:8080->80/tcp", service.Ports)
-
-	// Test line with mixed separators
-	line = "myapp_web_1\t nginx:latest \t\"nginx -g 'daemon off\"\t web \t2 hours ago\t Up 2 hours \t0.0.0.0:8080->80/tcp"
-	service = action.Wrapped.parseServiceLine(line)
-
-	suite.Equal("myapp_web_1", service.Name)
-	suite.Equal("nginx:latest", service.Image)
-	suite.Equal("web", service.ServiceName)
-	suite.Equal("Up 2 hours", service.Status)
-	suite.Equal("0.0.0.0:8080->80/tcp", service.Ports)
+	suite.Equal("", service.Image)
+	suite.Equal("", service.ServiceName)
+	suite.Equal("", service.Status)
+	suite.Equal("", service.Ports)
 }
 
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_EmptyOutput() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedOutput := ""
+func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_parseServices() {
+	action := &DockerComposePsAction{}
 
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web").Return(expectedOutput, nil)
+	output := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
+myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp
+myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Up 2 hours         5432/tcp`
 
-	action := NewDockerComposePsAction(logger, services)
-	action.Wrapped.SetCommandRunner(mockRunner)
+	action.parseServices(output)
 
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Empty(action.Wrapped.ServicesList)
-	mockRunner.AssertExpectations(suite.T())
+	suite.Len(action.ServicesList, 2)
+	suite.Equal("myapp_web_1", action.ServicesList[0].Name)
+	suite.Equal("nginx:latest", action.ServicesList[0].Image)
+	suite.Equal("web", action.ServicesList[0].ServiceName)
+	suite.Equal("Up 2 hours", action.ServicesList[0].Status)
+	suite.Equal("0.0.0.0:8080->80/tcp", action.ServicesList[0].Ports)
+	suite.Equal("myapp_db_1", action.ServicesList[1].Name)
+	suite.Equal("postgres:13", action.ServicesList[1].Image)
+	suite.Equal("db", action.ServicesList[1].ServiceName)
+	suite.Equal("Up 2 hours", action.ServicesList[1].Status)
+	suite.Equal("5432/tcp", action.ServicesList[1].Ports)
 }
 
-func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_Execute_OutputWithTrailingWhitespace() {
-	logger := slog.Default()
-	services := []string{"web"}
-	expectedOutput := `NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS              PORTS
-myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
+func (suite *DockerComposePsActionTestSuite) TestDockerComposePsAction_GetOutput() {
+	action := &DockerComposePsAction{
+		Output: "test output",
+		ServicesList: []ComposeService{
+			{Name: "web", ServiceName: "web", Status: "Up"},
+			{Name: "db", ServiceName: "db", Status: "Up"},
+		},
+	}
 
-	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web").Return(expectedOutput, nil)
+	output := action.GetOutput()
 
-	action := NewDockerComposePsAction(logger, services)
-	action.Wrapped.SetCommandRunner(mockRunner)
+	suite.IsType(map[string]interface{}{}, output)
+	outputMap := output.(map[string]interface{})
 
-	err := action.Wrapped.Execute(context.Background())
-
-	suite.NoError(err)
-	suite.Equal(expectedOutput, action.Wrapped.Output)
-	suite.Len(action.Wrapped.ServicesList, 1)
-	suite.Equal("myapp_web_1", action.Wrapped.ServicesList[0].Name)
-	mockRunner.AssertExpectations(suite.T())
+	suite.Equal(2, outputMap["count"])
+	suite.Equal("test output", outputMap["output"])
+	suite.Equal(true, outputMap["success"])
+	suite.Len(outputMap["services"], 2)
 }

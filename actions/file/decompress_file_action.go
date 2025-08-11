@@ -14,41 +14,33 @@ import (
 	engine "github.com/ndizazzo/task-engine"
 )
 
-// NewDecompressFileAction creates an action that decompresses a file using the specified compression type.
-// If compressionType is empty, it will be auto-detected from the file extension.
-func NewDecompressFileAction(sourcePath string, destinationPath string, compressionType CompressionType, logger *slog.Logger) (*engine.Action[*DecompressFileAction], error) {
-	if sourcePath == "" {
-		return nil, fmt.Errorf("invalid parameter: sourcePath cannot be empty")
+// NewDecompressFileAction creates a new DecompressFileAction with the given logger
+func NewDecompressFileAction(logger *slog.Logger) *DecompressFileAction {
+	return &DecompressFileAction{
+		BaseAction: engine.NewBaseAction(logger),
 	}
-	if destinationPath == "" {
-		return nil, fmt.Errorf("invalid parameter: destinationPath cannot be empty")
-	}
+}
 
-	// Auto-detect compression type if not specified
-	if compressionType == "" {
-		compressionType = DetectCompressionType(sourcePath)
-		if compressionType == "" {
-			return nil, fmt.Errorf("could not auto-detect compression type from file extension: %s", sourcePath)
+// WithParameters sets the parameters for source path, destination path, and compression type
+func (a *DecompressFileAction) WithParameters(sourcePathParam, destinationPathParam engine.ActionParameter, compressionType CompressionType) (*engine.Action[*DecompressFileAction], error) {
+	// Validate compression type if specified
+	if compressionType != "" {
+		switch compressionType {
+		case GzipCompression:
+			// Valid compression type
+		default:
+			return nil, fmt.Errorf("invalid compression type: %s", compressionType)
 		}
 	}
 
-	// Validate compression type
-	switch compressionType {
-	case GzipCompression:
-		// Valid compression type
-	default:
-		return nil, fmt.Errorf("invalid compression type: %s", compressionType)
-	}
+	a.SourcePathParam = sourcePathParam
+	a.DestinationPathParam = destinationPathParam
+	a.CompressionType = compressionType
 
-	id := fmt.Sprintf("decompress-file-%s-%s", compressionType, filepath.Base(sourcePath))
 	return &engine.Action[*DecompressFileAction]{
-		ID: id,
-		Wrapped: &DecompressFileAction{
-			BaseAction:      engine.BaseAction{Logger: logger},
-			SourcePath:      sourcePath,
-			DestinationPath: destinationPath,
-			CompressionType: compressionType,
-		},
+		ID:      "decompress-file-action",
+		Name:    "Decompress File",
+		Wrapped: a,
 	}, nil
 }
 
@@ -58,15 +50,56 @@ type DecompressFileAction struct {
 	SourcePath      string
 	DestinationPath string
 	CompressionType CompressionType
+
+	// Parameter-aware fields
+	SourcePathParam      engine.ActionParameter
+	DestinationPathParam engine.ActionParameter
 }
 
 func (a *DecompressFileAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *engine.GlobalContext
+	if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.SourcePathParam != nil {
+		sourceValue, err := a.SourcePathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve source path parameter: %w", err)
+		}
+		if sourceStr, ok := sourceValue.(string); ok {
+			a.SourcePath = sourceStr
+		} else {
+			return fmt.Errorf("source path parameter is not a string, got %T", sourceValue)
+		}
+	}
+
+	if a.DestinationPathParam != nil {
+		destValue, err := a.DestinationPathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve destination path parameter: %w", err)
+		}
+		if destStr, ok := destValue.(string); ok {
+			a.DestinationPath = destStr
+		} else {
+			return fmt.Errorf("destination path parameter is not a string, got %T", destValue)
+		}
+	}
+
+	// Auto-detect compression type if not specified
+	if a.CompressionType == "" {
+		a.CompressionType = DetectCompressionType(a.SourcePath)
+		if a.CompressionType == "" {
+			return fmt.Errorf("could not auto-detect compression type from file extension: %s", a.SourcePath)
+		}
+	}
+
 	a.Logger.Info("Attempting to decompress file",
 		"source", a.SourcePath,
 		"destination", a.DestinationPath,
 		"compressionType", a.CompressionType)
-
-	// Check if source file exists
 	sourceInfo, err := os.Stat(a.SourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -77,8 +110,6 @@ func (a *DecompressFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to stat source file", "path", a.SourcePath, "error", err)
 		return fmt.Errorf("failed to stat source file %s: %w", a.SourcePath, err)
 	}
-
-	// Check if it's a regular file
 	if sourceInfo.IsDir() {
 		errMsg := fmt.Sprintf("source path %s is a directory, not a file", a.SourcePath)
 		a.Logger.Error(errMsg)
@@ -87,7 +118,7 @@ func (a *DecompressFileAction) Execute(execCtx context.Context) error {
 
 	// Create destination directory if needed
 	destDir := filepath.Dir(a.DestinationPath)
-	if err := os.MkdirAll(destDir, 0750); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		a.Logger.Error("Failed to create destination directory", "path", destDir, "error", err)
 		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
 	}
@@ -99,8 +130,6 @@ func (a *DecompressFileAction) Execute(execCtx context.Context) error {
 		return fmt.Errorf("failed to open source file %s: %w", a.SourcePath, err)
 	}
 	defer sourceFile.Close()
-
-	// Create destination file
 	destFile, err := os.Create(a.DestinationPath)
 	if err != nil {
 		a.Logger.Error("Failed to create destination file", "path", a.DestinationPath, "error", err)
@@ -157,6 +186,16 @@ func (a *DecompressFileAction) decompressGzip(source io.Reader, destination io.W
 	}
 
 	return nil
+}
+
+// GetOutput returns metadata about the decompression operation
+func (a *DecompressFileAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"source":          a.SourcePath,
+		"destination":     a.DestinationPath,
+		"compressionType": string(a.CompressionType),
+		"success":         true,
+	}
 }
 
 // DetectCompressionType auto-detects the compression type from file extension

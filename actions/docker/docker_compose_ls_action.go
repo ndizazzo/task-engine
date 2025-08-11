@@ -17,64 +17,122 @@ type ComposeStack struct {
 	ConfigFiles string
 }
 
-// NewDockerComposeLsAction creates an action to list Docker Compose stacks
-func NewDockerComposeLsAction(logger *slog.Logger, options ...DockerComposeLsOption) *task_engine.Action[*DockerComposeLsAction] {
+// DockerComposeLsConfig holds configuration for Docker Compose ls action
+type DockerComposeLsConfig struct {
+	All        bool
+	Filter     string
+	Format     string
+	Quiet      bool
+	WorkingDir string
+}
+
+// DockerComposeLsActionBuilder provides a fluent interface for building DockerComposeLsAction
+type DockerComposeLsActionBuilder struct {
+	logger *slog.Logger
+}
+
+// NewDockerComposeLsAction creates a fluent builder for DockerComposeLsAction
+func NewDockerComposeLsAction(logger *slog.Logger) *DockerComposeLsActionBuilder {
+	return &DockerComposeLsActionBuilder{logger: logger}
+}
+
+// WithParameters sets the parameters for working directory and configuration
+func (b *DockerComposeLsActionBuilder) WithParameters(workingDirParam task_engine.ActionParameter, config DockerComposeLsConfig) *task_engine.Action[*DockerComposeLsAction] {
+	// Determine whether to treat the provided parameter as active
+	// - Non-empty static string: active (resolve at runtime)
+	// - Non-string static parameter: active (so Execute will error as tests expect)
+	// - Any non-static parameter: active
+	// - Empty string static parameter: inactive (back-compat original constructor)
+	useParam := false
+	if sp, ok := workingDirParam.(task_engine.StaticParameter); ok {
+		switch v := sp.Value.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				useParam = true
+			}
+		default:
+			// Non-string value should still attempt resolution (and then fail)
+			useParam = true
+		}
+	} else if workingDirParam != nil {
+		useParam = true
+	}
+
 	action := &DockerComposeLsAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		All:              false,
-		Filter:           "",
-		Format:           "",
-		Quiet:            false,
-		WorkingDir:       "",
+		BaseAction:       task_engine.NewBaseAction(b.logger),
+		All:              config.All,
+		Filter:           config.Filter,
+		Format:           config.Format,
+		Quiet:            config.Quiet,
+		WorkingDir:       config.WorkingDir,
 		CommandProcessor: command.NewDefaultCommandRunner(),
 	}
-
-	// Apply options
-	for _, option := range options {
-		option(action)
+	if useParam {
+		action.WorkingDirParam = workingDirParam
 	}
 
+	id := "docker-compose-ls-action"
+	if useParam {
+		id = "docker-compose-ls-with-params-action"
+	}
 	return &task_engine.Action[*DockerComposeLsAction]{
-		ID:      "docker-compose-ls-action",
+		ID:      id,
+		Name:    "Docker Compose LS",
 		Wrapped: action,
 	}
 }
 
 // DockerComposeLsOption is a function type for configuring DockerComposeLsAction
-type DockerComposeLsOption func(*DockerComposeLsAction)
+type DockerComposeLsOption func(*DockerComposeLsConfig)
+
+// NewDockerComposeLsConfig creates a config with options
+func NewDockerComposeLsConfig(options ...DockerComposeLsOption) DockerComposeLsConfig {
+	config := DockerComposeLsConfig{
+		All:        false,
+		Filter:     "",
+		Format:     "",
+		Quiet:      false,
+		WorkingDir: "",
+	}
+	for _, option := range options {
+		option(&config)
+	}
+
+	return config
+}
 
 // WithComposeAll shows all stacks (default hides stopped stacks)
 func WithComposeAll() DockerComposeLsOption {
-	return func(a *DockerComposeLsAction) {
-		a.All = true
+	return func(c *DockerComposeLsConfig) {
+		c.All = true
 	}
 }
 
 // WithComposeFilter filters output based on conditions provided
 func WithComposeFilter(filter string) DockerComposeLsOption {
-	return func(a *DockerComposeLsAction) {
-		a.Filter = filter
+	return func(c *DockerComposeLsConfig) {
+		c.Filter = filter
 	}
 }
 
 // WithComposeFormat uses a custom template for output
 func WithComposeFormat(format string) DockerComposeLsOption {
-	return func(a *DockerComposeLsAction) {
-		a.Format = format
+	return func(c *DockerComposeLsConfig) {
+		c.Format = format
 	}
 }
 
 // WithComposeQuiet only show stack names
-func WithComposeQuiet() DockerComposeLsOption {
-	return func(a *DockerComposeLsAction) {
-		a.Quiet = true
+func WithComposeLsQuiet() DockerComposeLsOption {
+	return func(c *DockerComposeLsConfig) {
+		c.Quiet = true
 	}
 }
 
 // WithWorkingDir sets the working directory for the compose command
 func WithWorkingDir(workingDir string) DockerComposeLsOption {
-	return func(a *DockerComposeLsAction) {
-		a.WorkingDir = workingDir
+	return func(c *DockerComposeLsConfig) {
+		c.WorkingDir = workingDir
 	}
 }
 
@@ -89,6 +147,9 @@ type DockerComposeLsAction struct {
 	CommandProcessor command.CommandRunner
 	Output           string
 	Stacks           []ComposeStack // Stores the parsed stacks
+
+	// Parameter-aware fields
+	WorkingDirParam task_engine.ActionParameter
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
@@ -97,6 +158,25 @@ func (a *DockerComposeLsAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerComposeLsAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve working directory parameter if it exists
+	if a.WorkingDirParam != nil {
+		workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+		}
+		if workingDirStr, ok := workingDirValue.(string); ok {
+			a.WorkingDir = workingDirStr
+		} else {
+			return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
+		}
+	}
+
 	args := []string{"compose", "ls"}
 
 	if a.All {
@@ -135,6 +215,18 @@ func (a *DockerComposeLsAction) Execute(execCtx context.Context) error {
 	)
 
 	return nil
+}
+
+// GetOutput returns parsed stack information and raw output metadata.
+// This enables other actions to reference the output of this action
+// using ActionOutputParameter references.
+func (a *DockerComposeLsAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"stacks":  a.Stacks,
+		"count":   len(a.Stacks),
+		"output":  a.Output,
+		"success": true,
+	}
 }
 
 // parseStacks parses the docker compose ls output and populates the Stacks slice

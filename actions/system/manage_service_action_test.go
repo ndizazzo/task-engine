@@ -1,7 +1,6 @@
 package system_test
 
 import (
-	"context"
 	"testing"
 
 	task_engine "github.com/ndizazzo/task-engine"
@@ -41,8 +40,10 @@ func (suite *ManageServiceTestSuite) TestValidActions() {
 
 func (suite *ManageServiceTestSuite) runActionTest(actionType, serviceName string, shouldError bool) {
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewManageServiceAction(serviceName, actionType, logger)
-	action.Wrapped.CommandProcessor = suite.mockProcessor
+	manageAction := system.NewManageServiceAction(logger)
+	manageAction.CommandProcessor = suite.mockProcessor
+	action, err := manageAction.WithParameters(task_engine.StaticParameter{Value: serviceName}, task_engine.StaticParameter{Value: actionType})
+	suite.NoError(err)
 
 	if shouldError {
 		suite.mockProcessor.On("RunCommand", "systemctl", actionType, serviceName).Return("", assert.AnError)
@@ -50,7 +51,7 @@ func (suite *ManageServiceTestSuite) runActionTest(actionType, serviceName strin
 		suite.mockProcessor.On("RunCommand", "systemctl", actionType, serviceName).Return("success", nil)
 	}
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(suite.T().Context())
 
 	if shouldError {
 		suite.Error(err, "Expected an error for invalid action type")
@@ -65,25 +66,34 @@ func (suite *ManageServiceTestSuite) runActionTest(actionType, serviceName strin
 
 func (suite *ManageServiceTestSuite) TestCommandError() {
 	logger := command_mock.NewDiscardLogger()
-	action := &task_engine.Action[*system.ManageServiceAction]{
-		ID: "manage-service-command-error",
-		Wrapped: &system.ManageServiceAction{
-			ServiceName: "mock-service",
-			ActionType:  "restart",
-			BaseAction: task_engine.BaseAction{
-				Logger: logger,
-			},
-		},
-	}
-
-	action.Wrapped.CommandProcessor = suite.mockProcessor
+	manageAction := system.NewManageServiceAction(logger)
+	manageAction.CommandProcessor = suite.mockProcessor
+	action, err := manageAction.WithParameters(
+		task_engine.StaticParameter{Value: "mock-service"},
+		task_engine.StaticParameter{Value: "restart"},
+	)
+	suite.NoError(err)
 
 	suite.mockProcessor.On("RunCommand", "systemctl", "restart", "mock-service").Return("", assert.AnError)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(suite.T().Context())
 
 	suite.Error(err, "Expected an error due to simulated command failure")
 	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "systemctl", "restart", "mock-service")
+}
+
+func (suite *ManageServiceTestSuite) TestManageServiceAction_GetOutput() {
+	action := &system.ManageServiceAction{
+		ServiceName: "nginx",
+		ActionType:  "start",
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal("nginx", m["service"])
+	suite.Equal("start", m["action"])
+	suite.Equal(true, m["success"])
 }
 
 func TestManageServiceTestSuite(t *testing.T) {

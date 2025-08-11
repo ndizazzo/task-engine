@@ -57,23 +57,15 @@ func TestTestableTaskManager(t *testing.T) {
 			Name:    "Test Task",
 			Actions: []task_engine.ActionWrapper{},
 		}
-
-		// Test AddTask hook
 		err := tm.AddTask(task)
 		require.NoError(t, err)
 		assert.True(t, taskAddedCalled)
-
-		// Test RunTask hook
 		err = tm.RunTask("test-task")
 		require.NoError(t, err)
 		assert.True(t, taskStartedCalled)
-
-		// Test StopTask hook
 		err = tm.StopTask("test-task")
 		require.NoError(t, err)
 		assert.True(t, taskStoppedCalled)
-
-		// Test SimulateTaskCompletion hook
 		tm.SimulateTaskCompletion("test-task", nil)
 		assert.True(t, taskCompletedCalled)
 
@@ -84,48 +76,36 @@ func TestTestableTaskManager(t *testing.T) {
 
 	t.Run("Result Override and Retrieval", func(t *testing.T) {
 		tm := NewTestableTaskManager(logger)
-
-		// Test setting and getting task results
 		expectedResult := "test result"
 		tm.OverrideTaskResult("task1", expectedResult)
 
 		result, exists := tm.GetTaskResult("task1")
 		assert.True(t, exists)
 		assert.Equal(t, expectedResult, result)
-
-		// Test non-existent result
 		_, exists = tm.GetTaskResult("nonexistent")
 		assert.False(t, exists)
 	})
 
 	t.Run("Error Override and Retrieval", func(t *testing.T) {
 		tm := NewTestableTaskManager(logger)
-
-		// Test setting and getting task errors
 		expectedError := errors.New("test error")
 		tm.OverrideTaskError("task1", expectedError)
 
 		err, exists := tm.GetTaskError("task1")
 		assert.True(t, exists)
 		assert.Equal(t, expectedError, err)
-
-		// Test non-existent error
 		_, exists = tm.GetTaskError("nonexistent")
 		assert.False(t, exists)
 	})
 
 	t.Run("Timing Override and Retrieval", func(t *testing.T) {
 		tm := NewTestableTaskManager(logger)
-
-		// Test setting and getting task timing
 		expectedDuration := 5 * time.Second
 		tm.OverrideTaskTiming("task1", expectedDuration)
 
 		duration, exists := tm.GetTaskTiming("task1")
 		assert.True(t, exists)
 		assert.Equal(t, expectedDuration, duration)
-
-		// Test non-existent timing
 		_, exists = tm.GetTaskTiming("nonexistent")
 		assert.False(t, exists)
 	})
@@ -142,8 +122,6 @@ func TestTestableTaskManager(t *testing.T) {
 		require.NoError(t, err)
 		err = tm.AddTask(task2)
 		require.NoError(t, err)
-
-		// Check added calls
 		addedCalls := tm.GetTaskAddedCalls()
 		assert.Len(t, addedCalls, 2)
 		assert.Equal(t, "task1", addedCalls[0].ID)
@@ -154,8 +132,6 @@ func TestTestableTaskManager(t *testing.T) {
 		require.NoError(t, err)
 		err = tm.RunTask("task2")
 		require.NoError(t, err)
-
-		// Check started calls
 		startedCalls := tm.GetTaskStartedCalls()
 		assert.Len(t, startedCalls, 2)
 		assert.Equal(t, "task1", startedCalls[0])
@@ -166,8 +142,6 @@ func TestTestableTaskManager(t *testing.T) {
 		require.NoError(t, err)
 		err = tm.StopTask("task2")
 		require.NoError(t, err)
-
-		// Check stopped calls
 		stoppedCalls := tm.GetTaskStoppedCalls()
 		assert.Len(t, stoppedCalls, 2)
 		assert.Equal(t, "task1", stoppedCalls[0])
@@ -203,15 +177,11 @@ func TestTestableTaskManager(t *testing.T) {
 		tm.OverrideTaskResult("task1", "result1")
 		tm.OverrideTaskError("task2", errors.New("error2"))
 		tm.OverrideTaskTiming("task3", 3*time.Second)
-
-		// Verify data exists
 		_, exists := tm.GetTaskResult("task1")
 		assert.True(t, exists)
 
 		// Clear test data
 		tm.ClearTestData()
-
-		// Verify data is cleared
 		_, exists = tm.GetTaskResult("task1")
 		assert.False(t, exists)
 
@@ -233,16 +203,12 @@ func TestTestableTaskManager(t *testing.T) {
 		task := &task_engine.Task{ID: "test-task", Name: "Test", Actions: []task_engine.ActionWrapper{}}
 		err := tm.AddTask(task)
 		require.NoError(t, err)
-
-		// Verify state exists
 		assert.Len(t, tm.Tasks, 1)
 		_, exists := tm.GetTaskResult("task1")
 		assert.True(t, exists)
 
 		// Reset to clean state
 		tm.ResetToCleanState()
-
-		// Verify state is reset
 		assert.Len(t, tm.Tasks, 0)
 		_, exists = tm.GetTaskResult("task1")
 		assert.False(t, exists)
@@ -278,8 +244,6 @@ func TestTestableTaskManager(t *testing.T) {
 
 		// Wait for task to complete
 		time.Sleep(200 * time.Millisecond)
-
-		// Verify task was added and started
 		addedCalls := tm.GetTaskAddedCalls()
 		assert.Len(t, addedCalls, 1)
 		assert.Equal(t, "integration-test", addedCalls[0].ID)
@@ -305,12 +269,20 @@ func (ma *MockAction) GetID() string {
 	return ma.ID
 }
 
+func (ma *MockAction) SetID(id string) {
+	ma.ID = id
+}
+
 func (ma *MockAction) GetDuration() time.Duration {
 	return ma.Duration
 }
 
 func (ma *MockAction) GetLogger() *slog.Logger {
 	return ma.Logger
+}
+
+func (ma *MockAction) GetName() string {
+	return ma.ID // Use ID as name for simplicity
 }
 
 func (ma *MockAction) Execute(ctx context.Context) error {
@@ -321,5 +293,13 @@ func (ma *MockAction) Execute(ctx context.Context) error {
 	default:
 		// Execute immediately without delays
 		return nil
+	}
+}
+
+func (ma *MockAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"id":       ma.ID,
+		"duration": ma.Duration,
+		"success":  true,
 	}
 }

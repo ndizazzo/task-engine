@@ -22,54 +22,86 @@ type ServiceStatus struct {
 	Exists      bool   `json:"exists"`
 }
 
-// NewGetServiceStatusAction creates an action to get the status of specific services
-func NewGetServiceStatusAction(logger *slog.Logger, serviceNames ...string) *task_engine.Action[*GetServiceStatusAction] {
-	id := fmt.Sprintf("get-service-status-%s-action", strings.Join(serviceNames, "-"))
-	return &task_engine.Action[*GetServiceStatusAction]{
-		ID: id,
-		Wrapped: &GetServiceStatusAction{
-			BaseAction:       task_engine.BaseAction{Logger: logger},
-			ServiceNames:     serviceNames,
+// NewServiceStatusAction creates a new ServiceStatusAction with the given logger
+func NewServiceStatusAction(logger *slog.Logger) *ServiceStatusAction {
+	return &ServiceStatusAction{
+		BaseAction:       task_engine.NewBaseAction(logger),
+		CommandProcessor: command.NewDefaultCommandRunner(),
+	}
+}
+
+// NewGetAllServicesStatusAction creates an action to get the status of all services (backward compatibility)
+// This function exists for backward compatibility and returns an action that will fail because no service names are provided
+func NewGetAllServicesStatusAction(logger *slog.Logger) *task_engine.Action[*ServiceStatusAction] {
+	return &task_engine.Action[*ServiceStatusAction]{
+		ID:   "get-all-services-status-action",
+		Name: "Get All Services Status",
+		Wrapped: &ServiceStatusAction{
+			BaseAction:       task_engine.NewBaseAction(logger),
+			ServiceNames:     []string{}, // Empty means get all - will cause error
 			CommandProcessor: command.NewDefaultCommandRunner(),
 		},
 	}
 }
 
-// NewGetAllServicesStatusAction creates an action to get the status of all services
-func NewGetAllServicesStatusAction(logger *slog.Logger) *task_engine.Action[*GetServiceStatusAction] {
-	return &task_engine.Action[*GetServiceStatusAction]{
-		ID: "get-all-services-status-action",
-		Wrapped: &GetServiceStatusAction{
-			BaseAction:       task_engine.BaseAction{Logger: logger},
-			ServiceNames:     []string{}, // Empty means get all
-			CommandProcessor: command.NewDefaultCommandRunner(),
-		},
-	}
-}
-
-// GetServiceStatusAction retrieves the status of systemd services
-type GetServiceStatusAction struct {
+// ServiceStatusAction retrieves the status of systemd services
+type ServiceStatusAction struct {
 	task_engine.BaseAction
-	ServiceNames     []string
+
+	// Parameters
+	ServiceNamesParam task_engine.ActionParameter
+
+	// Runtime resolved values
+	ServiceNames    []string
+	ServiceStatuses []ServiceStatus
+
 	CommandProcessor command.CommandRunner
-	ServiceStatuses  []ServiceStatus
+}
+
+// WithParameters sets the service names parameter and returns a wrapped Action
+func (a *ServiceStatusAction) WithParameters(serviceNamesParam task_engine.ActionParameter) (*task_engine.Action[*ServiceStatusAction], error) {
+	a.ServiceNamesParam = serviceNamesParam
+
+	id := "service-status-action"
+	return &task_engine.Action[*ServiceStatusAction]{
+		ID:      id,
+		Name:    "Service Status",
+		Wrapped: a,
+	}, nil
 }
 
 // SetCommandProcessor allows injecting a mock or alternative CommandProcessor for testing
-func (a *GetServiceStatusAction) SetCommandProcessor(processor command.CommandRunner) {
+func (a *ServiceStatusAction) SetCommandProcessor(processor command.CommandRunner) {
 	a.CommandProcessor = processor
 }
 
-func (a *GetServiceStatusAction) Execute(execCtx context.Context) error {
+func (a *ServiceStatusAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve service names parameter if it exists
+	if a.ServiceNamesParam != nil {
+		serviceNamesValue, err := a.ServiceNamesParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve service names parameter: %w", err)
+		}
+		if serviceNamesSlice, ok := serviceNamesValue.([]string); ok {
+			a.ServiceNames = serviceNamesSlice
+		} else {
+			return fmt.Errorf("service names parameter is not a []string, got %T", serviceNamesValue)
+		}
+	}
+
+	if len(a.ServiceNames) == 0 {
+		return fmt.Errorf("no service names provided and no parameter to resolve")
+	}
+
 	a.Logger.Info("Getting service status", "serviceNames", a.ServiceNames)
 
 	var serviceStatuses []ServiceStatus
-
-	if len(a.ServiceNames) == 0 {
-		// Get all services - this would be very slow and not practical
-		// For now, return an error suggesting to use specific service names
-		return fmt.Errorf("getting all services status is not supported; please specify service names")
-	}
 
 	// Get status for each service individually to handle mixed output properly
 	for _, serviceName := range a.ServiceNames {
@@ -90,8 +122,17 @@ func (a *GetServiceStatusAction) Execute(execCtx context.Context) error {
 	return nil
 }
 
+// GetOutput returns the retrieved service statuses
+func (a *ServiceStatusAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"services": a.ServiceStatuses,
+		"count":    len(a.ServiceStatuses),
+		"success":  true,
+	}
+}
+
 // getServiceStatus gets the status of a single service using systemctl show
-func (a *GetServiceStatusAction) getServiceStatus(execCtx context.Context, serviceName string) (ServiceStatus, error) {
+func (a *ServiceStatusAction) getServiceStatus(execCtx context.Context, serviceName string) (ServiceStatus, error) {
 	// Use systemctl show with specific properties for reliable parsing
 	properties := []string{
 		"LoadState",     // loaded, not-found, error, masked, bad-setting
@@ -106,8 +147,6 @@ func (a *GetServiceStatusAction) getServiceStatus(execCtx context.Context, servi
 	// Build the command with all properties
 	args := []string{"show", "--property=" + strings.Join(properties, ","), serviceName}
 	output, err := a.CommandProcessor.RunCommandWithContext(execCtx, "systemctl", args...)
-
-	// Check if the service doesn't exist
 	if err != nil || strings.Contains(output, "could not be found") || strings.Contains(output, "Unit not found") {
 		return ServiceStatus{
 			Name:   serviceName,
@@ -119,7 +158,7 @@ func (a *GetServiceStatusAction) getServiceStatus(execCtx context.Context, servi
 }
 
 // parseServiceShowOutput parses the systemctl show output
-func (a *GetServiceStatusAction) parseServiceShowOutput(serviceName, output string) (ServiceStatus, error) {
+func (a *ServiceStatusAction) parseServiceShowOutput(serviceName, output string) (ServiceStatus, error) {
 	status := ServiceStatus{
 		Name:   serviceName,
 		Exists: true,

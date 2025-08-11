@@ -16,23 +16,85 @@ type ReplaceLinesAction struct {
 
 	FilePath        string
 	ReplacePatterns map[*regexp.Regexp]string
+	// Optional parameterized replacements; if set, these take precedence over ReplacePatterns
+	ReplaceParamPatterns map[*regexp.Regexp]task_engine.ActionParameter
+	// Optional file path parameter
+	FilePathParam task_engine.ActionParameter
 }
 
-func NewReplaceLinesAction(
-	filePath string,
-	patterns map[*regexp.Regexp]string, logger *slog.Logger,
-) *task_engine.Action[*ReplaceLinesAction] {
+// NewReplaceLinesAction creates a new ReplaceLinesAction with the given logger
+func NewReplaceLinesAction(logger *slog.Logger) *ReplaceLinesAction {
+	return &ReplaceLinesAction{
+		BaseAction: task_engine.NewBaseAction(logger),
+	}
+}
+
+// WithParameters sets the parameters for file path and replacement patterns
+func (a *ReplaceLinesAction) WithParameters(filePathParam task_engine.ActionParameter, replaceParamPatterns map[*regexp.Regexp]task_engine.ActionParameter) *task_engine.Action[*ReplaceLinesAction] {
+	a.FilePathParam = filePathParam
+	a.ReplaceParamPatterns = replaceParamPatterns
+
 	return &task_engine.Action[*ReplaceLinesAction]{
-		ID: "replace-lines-action",
-		Wrapped: &ReplaceLinesAction{
-			BaseAction:      task_engine.BaseAction{Logger: logger},
-			FilePath:        filePath,
-			ReplacePatterns: patterns,
-		},
+		ID:      "replace-lines-action",
+		Name:    "Replace Lines",
+		Wrapped: a,
 	}
 }
 
 func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
+	// Resolve file path parameter if provided
+	if a.FilePathParam != nil {
+		gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
+		if !ok || gc == nil {
+			return fmt.Errorf("global context not available for path parameter resolution")
+		}
+		val, err := a.FilePathParam.Resolve(ctx, gc)
+		if err != nil {
+			return fmt.Errorf("failed to resolve file path parameter: %w", err)
+		}
+		if pathStr, ok := val.(string); ok {
+			a.FilePath = pathStr
+		} else {
+			return fmt.Errorf("file path parameter is not a string, got %T", val)
+		}
+	}
+
+	if a.FilePath == "" {
+		return fmt.Errorf("file path cannot be empty")
+	}
+
+	// Resolve parameterized replacements first, if provided
+	var resolvedReplacements map[*regexp.Regexp]string
+	if len(a.ReplaceParamPatterns) > 0 {
+		resolvedReplacements = make(map[*regexp.Regexp]string, len(a.ReplaceParamPatterns))
+		gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
+		if !ok || gc == nil {
+			return fmt.Errorf("global context not available for parameter resolution")
+		}
+		for pattern, param := range a.ReplaceParamPatterns {
+			if param == nil {
+				resolvedReplacements[pattern] = ""
+				continue
+			}
+			val, err := param.Resolve(ctx, gc)
+			if err != nil {
+				return fmt.Errorf("failed to resolve replacement parameter: %w", err)
+			}
+			var replacement string
+			switch v := val.(type) {
+			case string:
+				replacement = v
+			case []byte:
+				replacement = string(v)
+			default:
+				replacement = fmt.Sprint(v)
+			}
+			resolvedReplacements[pattern] = replacement
+		}
+	} else {
+		resolvedReplacements = a.ReplacePatterns
+	}
+
 	file, err := os.Open(a.FilePath)
 	if err != nil {
 		a.Logger.Error("Failed to open file",
@@ -48,7 +110,7 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		for pattern, replacement := range a.ReplacePatterns {
+		for pattern, replacement := range resolvedReplacements {
 			if pattern.MatchString(line) {
 				line = pattern.ReplaceAllString(line, replacement)
 
@@ -97,4 +159,12 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (a *ReplaceLinesAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"filePath": a.FilePath,
+		"patterns": len(a.ReplacePatterns),
+		"success":  true,
+	}
 }

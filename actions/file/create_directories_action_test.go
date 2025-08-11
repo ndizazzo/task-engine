@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
@@ -23,7 +24,7 @@ func (suite *CreateDirectoriesActionTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	suite.rootPath = filepath.Join(suite.tempDir, "installation")
-	err = os.MkdirAll(suite.rootPath, 0750)
+	err = os.MkdirAll(suite.rootPath, 0o750)
 	suite.Require().NoError(err)
 }
 
@@ -42,14 +43,15 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_Success() {
 		"scripts",
 	}
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
 	suite.Require().NoError(err)
-	err = action.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
-
-	// Verify all directories were created
 	for _, dir := range directories {
 		fullPath := filepath.Join(suite.rootPath, dir)
 		suite.DirExists(fullPath, "Directory should exist: %s", fullPath)
@@ -57,7 +59,7 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_Success() {
 		info, err := os.Stat(fullPath)
 		suite.NoError(err)
 		suite.True(info.IsDir())
-		suite.Equal(os.FileMode(0750), info.Mode().Perm())
+		suite.Equal(os.FileMode(0o750), info.Mode().Perm())
 	}
 }
 
@@ -65,22 +67,26 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_EmptyInstal
 	logger := mocks.NewDiscardLogger()
 	directories := []string{"data"}
 
-	action, err := file.NewCreateDirectoriesAction(logger, "", directories)
-
-	// With validation, action should be nil for invalid parameters
-	suite.Error(err)
-	suite.Nil(action, "Action should be nil when rootPath is empty")
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: ""},
+		task_engine.StaticParameter{Value: directories},
+	)
+	suite.NoError(err)
+	execErr := action.Wrapped.Execute(context.Background())
+	suite.Error(execErr)
 }
 
 func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_EmptyDirectoriesList() {
 	logger := mocks.NewDiscardLogger()
 	directories := []string{}
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
-
-	// With validation, action should be nil for empty directories list
-	suite.Error(err)
-	suite.Nil(action, "Action should be nil when directories list is empty")
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
+	suite.NoError(err)
+	execErr := action.Wrapped.Execute(context.Background())
+	suite.Error(execErr)
 }
 
 func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_WithEmptyDirNames() {
@@ -93,15 +99,15 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_WithEmptyDi
 		"config",
 	}
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
 	suite.Require().NoError(err)
-	err = action.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
-	// Should create 3 directories (skipping the 2 empty ones)
 	suite.Equal(3, action.Wrapped.CreatedDirsCount)
-
-	// Verify only non-empty directories were created
 	expectedDirs := []string{"data", "logs", "config"}
 	for _, dir := range expectedDirs {
 		fullPath := filepath.Join(suite.rootPath, dir)
@@ -119,14 +125,15 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_NestedPaths
 		"config/backend",
 	}
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
 	suite.Require().NoError(err)
-	err = action.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
-
-	// Verify all nested directories were created
 	for _, dir := range directories {
 		fullPath := filepath.Join(suite.rootPath, dir)
 		suite.DirExists(fullPath, "Nested directory should exist: %s", fullPath)
@@ -142,17 +149,18 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_AlreadyExis
 
 	// Pre-create one of the directories
 	existingPath := filepath.Join(suite.rootPath, "existing_dir")
-	err := os.MkdirAll(existingPath, 0750)
+	err := os.MkdirAll(existingPath, 0o750)
 	suite.Require().NoError(err)
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
 	suite.Require().NoError(err)
-	err = action.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
-
-	// Verify both directories exist
 	for _, dir := range directories {
 		fullPath := filepath.Join(suite.rootPath, dir)
 		suite.DirExists(fullPath, "Directory should exist: %s", fullPath)
@@ -167,14 +175,15 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_RelativePat
 		"logs/./app",
 	}
 
-	action, err := file.NewCreateDirectoriesAction(logger, suite.rootPath, directories)
+	action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.rootPath},
+		task_engine.StaticParameter{Value: directories},
+	)
 	suite.Require().NoError(err)
-	err = action.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(len(directories), action.Wrapped.CreatedDirsCount)
-
-	// Verify directories were created (filepath.Join handles relative paths)
 	for _, dir := range directories {
 		fullPath := filepath.Join(suite.rootPath, dir)
 		cleanPath := filepath.Clean(fullPath)
@@ -184,4 +193,20 @@ func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectories_RelativePat
 
 func TestCreateDirectoriesActionTestSuite(t *testing.T) {
 	suite.Run(t, new(CreateDirectoriesActionTestSuite))
+}
+
+func (suite *CreateDirectoriesActionTestSuite) TestCreateDirectoriesAction_GetOutput() {
+	action := &file.CreateDirectoriesAction{}
+	action.RootPath = "/tmp/root"
+	action.Directories = []string{"a", "b"}
+	action.CreatedDirsCount = 2
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal("/tmp/root", m["rootPath"])
+	suite.Len(m["directories"], 2)
+	suite.Equal(2, m["created"])
+	suite.Equal(2, m["total"])
+	suite.Equal(true, m["success"])
 }
