@@ -15,12 +15,13 @@ func NewDockerStatusTask(logger *slog.Logger) *task_engine.Task {
 		ID:   "container-state-example",
 		Name: "Container State Operations Example",
 		Actions: []task_engine.ActionWrapper{
-			// Example 1: Get state of all containers
-			docker.NewGetAllContainersStateAction(logger),
-			// Example 2: Get state of specific containers by name
-			docker.NewGetContainerStateAction(logger, "nginx", "redis"),
+			// Example 1: Get state of all containers (empty param -> all)
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}),
+			// Example 2: Get state of specific containers by name (run twice)
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "nginx"}),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "redis"}),
 			// Example 3: Get state of a single container
-			docker.NewGetContainerStateAction(logger, "my-app"),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "my-app"}),
 		},
 		Logger: logger,
 	}
@@ -56,7 +57,7 @@ func NewDockerStatusFilteringTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Status Filtering Example",
 		Actions: []task_engine.ActionWrapper{
 			// Get all containers
-			docker.NewGetAllContainersStateAction(logger),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}),
 		},
 		Logger: logger,
 	}
@@ -89,7 +90,9 @@ func NewDockerStatusMonitoringTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Status Monitoring Example",
 		Actions: []task_engine.ActionWrapper{
 			// Get state of critical containers
-			docker.NewGetContainerStateAction(logger, "web-server", "database", "cache"),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "web-server"}),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "database"}),
+			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "cache"}),
 		},
 		Logger: logger,
 	}

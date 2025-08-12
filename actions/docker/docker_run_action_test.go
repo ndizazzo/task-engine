@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/docker"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func (suite *DockerRunTestSuite) TestExecuteSuccess() {
 	image := "hello-world:latest"
 	runArgs := []string{"--rm", image}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger, image, nil, runArgs...)
+	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "Hello from Docker! ...some more output..."
@@ -42,7 +43,7 @@ func (suite *DockerRunTestSuite) TestExecuteSuccessWithCommand() {
 	image := "busybox:latest"
 	runArgs := []string{"--rm", image, "echo", "hello from busybox"}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger, image, nil, runArgs...)
+	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "hello from busybox"
@@ -59,7 +60,7 @@ func (suite *DockerRunTestSuite) TestExecuteCommandFailure() {
 	image := "nonexistent-image:latest"
 	runArgs := []string{"--rm", image}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger, image, nil, runArgs...)
+	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "Error: image not found..."
@@ -70,7 +71,7 @@ func (suite *DockerRunTestSuite) TestExecuteCommandFailure() {
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to run docker container")
 	suite.mockProcessor.AssertExpectations(suite.T())
-	suite.Equal(strings.TrimSpace(expectedOutput), action.Wrapped.Output) // Check output stored even on error
+	suite.Equal(strings.TrimSpace(expectedOutput), action.Wrapped.Output)
 }
 
 func (suite *DockerRunTestSuite) TestExecuteSuccessWithBuffer() {
@@ -79,7 +80,7 @@ func (suite *DockerRunTestSuite) TestExecuteSuccessWithBuffer() {
 	logger := command_mock.NewDiscardLogger()
 	var buffer bytes.Buffer // Create buffer
 
-	action := docker.NewDockerRunAction(logger, image, &buffer, runArgs...)
+	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, &buffer, runArgs...)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "buffer test"
@@ -88,8 +89,24 @@ func (suite *DockerRunTestSuite) TestExecuteSuccessWithBuffer() {
 	err := action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-	suite.Equal(expectedOutput, action.Wrapped.Output) // Check internal field too
-	suite.Equal(expectedOutput, buffer.String())       // Check buffer content
+	suite.Equal(expectedOutput, action.Wrapped.Output)
+	suite.Equal(expectedOutput, buffer.String())
+}
+
+func (suite *DockerRunTestSuite) TestDockerRunAction_GetOutput() {
+	action := &docker.DockerRunAction{
+		Image:   "nginx:latest",
+		RunArgs: []string{"--rm", "-d"},
+		Output:  "container_id",
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal("nginx:latest", m["image"])
+	suite.Equal([]string{"--rm", "-d"}, m["args"])
+	suite.Equal("container_id", m["output"])
+	suite.Equal(true, m["success"])
 }
 
 func TestDockerRunTestSuite(t *testing.T) {

@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/system"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -29,17 +31,17 @@ FragmentPath=/etc/systemd/system/lemony-agent.service
 Vendor=disabled; vendor preset: enabled`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -66,29 +68,25 @@ Vendor=disabled; vendor preset: enabled`
 	networkdOutput := `Unit networkd.service could not be found.`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceNames...)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: serviceNames})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", "lemony-agent.service").Return(lemonyOutput, nil)
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", "networkd.service").Return(networkdOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", "lemony-agent.service").Return(lemonyOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", "networkd.service").Return(networkdOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed results
 	suite.Len(action.Wrapped.ServiceStatuses, 2)
-
-	// Check lemony-agent service
 	lemonyService := action.Wrapped.ServiceStatuses[0]
 	suite.Equal("lemony-agent.service", lemonyService.Name)
 	suite.Equal("Lemony Update Agent", lemonyService.Description)
 	suite.Equal("loaded", lemonyService.Loaded)
 	suite.Equal("inactive (dead)", lemonyService.Active)
 	suite.True(lemonyService.Exists)
-
-	// Check networkd service (doesn't exist)
 	networkdService := action.Wrapped.ServiceStatuses[1]
 	suite.Equal("networkd.service", networkdService.Name)
 	suite.False(networkdService.Exists)
@@ -98,10 +96,10 @@ func (suite *ServiceStatusActionTestSuite) TestGetAllServicesStatusNotSupported(
 	logger := command_mock.NewDiscardLogger()
 	action := system.NewGetAllServicesStatusAction(logger)
 
-	err := action.Execute(context.Background())
+	err := action.Execute(suite.T().Context())
 
 	suite.Error(err)
-	suite.Contains(err.Error(), "getting all services status is not supported")
+	suite.Contains(err.Error(), "no service names provided and no parameter to resolve")
 }
 
 func (suite *ServiceStatusActionTestSuite) TestServiceWithDifferentStates() {
@@ -114,17 +112,17 @@ FragmentPath=/lib/systemd/system/sshd.service
 Vendor=enabled; vendor preset: enabled`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -146,17 +144,17 @@ Description=Minimal Service
 FragmentPath=/etc/systemd/system/minimal.service`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -179,17 +177,17 @@ FragmentPath=/lib/systemd/system/complex.service
 Vendor=Custom Vendor; vendor preset: disabled; custom setting: enabled`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -207,17 +205,17 @@ func (suite *ServiceStatusActionTestSuite) TestNonExistentService() {
 	expectedOutput := `Unit nonexistent.service could not be found.`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -228,17 +226,17 @@ func (suite *ServiceStatusActionTestSuite) TestCommandFailure() {
 	serviceName := "failing.service"
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", assert.AnError)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", assert.AnError)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
-	suite.NoError(err) // Should not fail, should return service with Exists=false
+	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -249,20 +247,20 @@ func (suite *ServiceStatusActionTestSuite) TestContextCancellation() {
 	serviceName := "test.service"
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(suite.T().Context())
 	cancel() // Cancel immediately
 
-	suite.mockProcessor.On("RunCommandWithContext", ctx, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", context.Canceled)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", context.Canceled)
 
-	err := action.Execute(ctx)
+	err = action.Execute(ctx)
 
-	suite.NoError(err) // Should not fail, should return service with Exists=false
+	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -273,17 +271,17 @@ func (suite *ServiceStatusActionTestSuite) TestEmptyServiceName() {
 	serviceName := ""
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", assert.AnError)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return("", assert.AnError)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
-	suite.NoError(err) // Should not fail, should return service with Exists=false
+	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -300,17 +298,17 @@ FragmentPath=/lib/systemd/system/unicode-服务.service
 Vendor=enabled; vendor preset: enabled`
 
 	logger := command_mock.NewDiscardLogger()
-	action := system.NewGetServiceStatusAction(logger, serviceName)
-	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
+	statusAction := system.NewServiceStatusAction(logger)
+	statusAction.SetCommandProcessor(suite.mockProcessor)
+	action, err := statusAction.WithParameters(task_engine.StaticParameter{Value: []string{serviceName}})
+	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommandWithContext", context.Background(), "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "show", "--property=LoadState,ActiveState,SubState,Description,FragmentPath,Vendor,UnitFileState", serviceName).Return(expectedOutput, nil)
 
-	err := action.Execute(context.Background())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
-
-	// Verify the parsed result
 	suite.Len(action.Wrapped.ServiceStatuses, 1)
 	service := action.Wrapped.ServiceStatuses[0]
 	suite.Equal(serviceName, service.Name)
@@ -321,6 +319,22 @@ Vendor=enabled; vendor preset: enabled`
 	suite.Equal("/lib/systemd/system/unicode-服务.service", service.Path)
 	suite.Equal("enabled; vendor preset: enabled", service.Vendor)
 	suite.True(service.Exists)
+}
+
+func (suite *ServiceStatusActionTestSuite) TestServiceStatusAction_GetOutput() {
+	action := &system.ServiceStatusAction{
+		ServiceStatuses: []system.ServiceStatus{
+			{Name: "nginx", Active: "active", Loaded: "loaded", Exists: true},
+			{Name: "redis", Active: "inactive", Loaded: "loaded", Exists: true},
+		},
+	}
+
+	out := action.GetOutput()
+	suite.IsType(map[string]interface{}{}, out)
+	m := out.(map[string]interface{})
+	suite.Equal(2, m["count"])
+	suite.Equal(true, m["success"])
+	suite.Len(m["services"], 2)
 }
 
 func TestServiceStatusActionTestSuite(t *testing.T) {

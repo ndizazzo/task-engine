@@ -13,6 +13,8 @@ type TaskManagerInterface interface {
 	StopAllTasks()
 	GetRunningTasks() []string
 	IsTaskRunning(taskID string) bool
+	GetGlobalContext() *GlobalContext
+	ResetGlobalContext()
 }
 
 // TaskInterface defines the contract for individual tasks
@@ -20,6 +22,7 @@ type TaskInterface interface {
 	GetID() string
 	GetName() string
 	Run(ctx context.Context) error
+	RunWithContext(ctx context.Context, globalContext *GlobalContext) error
 	GetCompletedTasks() int
 	GetTotalTime() time.Duration
 }

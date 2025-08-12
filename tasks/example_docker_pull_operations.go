@@ -33,12 +33,17 @@ func ExampleDockerPullOperations() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(
-		logger,
-		images,
-		docker.WithPullQuietOutput(),
-		docker.WithPullPlatform("linux/amd64"),
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: map[string]docker.MultiArchImageSpec{}},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: true},
+		task_engine.StaticParameter{Value: "linux/amd64"},
 	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-example",
@@ -73,7 +78,17 @@ func ExampleDockerPullOperationsWithErrorHandling() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(logger, images)
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: map[string]docker.MultiArchImageSpec{}},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: ""},
+	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-with-error-handling",
@@ -113,7 +128,17 @@ func ExampleDockerPullOperationsForMultiArch() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(logger, images)
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: map[string]docker.MultiArchImageSpec{}},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: ""},
+	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-multi-arch",
@@ -148,11 +173,17 @@ func ExampleDockerPullOperationsWithCustomPlatform() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(
-		logger,
-		images,
-		docker.WithPullPlatform("linux/amd64"),
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: map[string]docker.MultiArchImageSpec{}},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: "linux/amd64"},
 	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-custom-platform",
@@ -177,7 +208,17 @@ func ExampleDockerPullOperationsMinimal() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(logger, images)
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: map[string]docker.MultiArchImageSpec{}},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: ""},
+	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-minimal",
@@ -212,7 +253,17 @@ func ExampleDockerPullMultiArchOperations() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullMultiArchAction(logger, multiArchImages)
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: map[string]docker.ImageSpec{}},
+		task_engine.StaticParameter{Value: multiArchImages},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: ""},
+	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-multiarch",
@@ -242,12 +293,17 @@ func ExampleDockerPullMultiArchOperationsWithOptions() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullMultiArchAction(
-		logger,
-		multiArchImages,
-		docker.WithPullQuietOutput(),
-		docker.WithPullPlatform("linux/amd64"),
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: map[string]docker.ImageSpec{}},
+		task_engine.StaticParameter{Value: multiArchImages},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: true},
+		task_engine.StaticParameter{Value: "linux/amd64"},
 	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-multiarch-with-options",
@@ -290,8 +346,17 @@ func ExampleDockerPullMixedOperations() *task_engine.Task {
 		},
 	}
 
-	pullAction := docker.NewDockerPullAction(logger, images)
-	pullAction.Wrapped.MultiArchImages = multiArchImages
+	pullAction, err := docker.NewDockerPullAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: images},
+		task_engine.StaticParameter{Value: multiArchImages},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: false},
+		task_engine.StaticParameter{Value: ""},
+	)
+	if err != nil {
+		logger.Error("Failed to create DockerPullAction", "error", err)
+		return nil
+	}
 
 	task := &task_engine.Task{
 		ID:   "docker-pull-mixed",

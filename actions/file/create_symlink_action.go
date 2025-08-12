@@ -17,33 +17,65 @@ type CreateSymlinkAction struct {
 	LinkPath   string
 	Overwrite  bool
 	CreateDirs bool
+
+	// Parameter-aware fields
+	TargetParam   task_engine.ActionParameter
+	LinkPathParam task_engine.ActionParameter
 }
 
-func NewCreateSymlinkAction(target, linkPath string, overwrite, createDirs bool, logger *slog.Logger) (*task_engine.Action[*CreateSymlinkAction], error) {
-	if err := ValidateSourcePath(target); err != nil {
-		return nil, fmt.Errorf("invalid target path: %w", err)
+// NewCreateSymlinkAction creates a new CreateSymlinkAction with the given logger
+func NewCreateSymlinkAction(logger *slog.Logger) *CreateSymlinkAction {
+	return &CreateSymlinkAction{
+		BaseAction: task_engine.NewBaseAction(logger),
 	}
-	if err := ValidateDestinationPath(linkPath); err != nil {
-		return nil, fmt.Errorf("invalid link path: %w", err)
-	}
-	if target == linkPath {
-		return nil, fmt.Errorf("invalid parameter: target and link path cannot be the same")
-	}
+}
 
-	id := fmt.Sprintf("create-symlink-%s", filepath.Base(linkPath))
+// WithParameters sets the parameters for target, link path, overwrite flag, and create directories flag
+func (a *CreateSymlinkAction) WithParameters(targetParam, linkPathParam task_engine.ActionParameter, overwrite, createDirs bool) *task_engine.Action[*CreateSymlinkAction] {
+	a.TargetParam = targetParam
+	a.LinkPathParam = linkPathParam
+	a.Overwrite = overwrite
+	a.CreateDirs = createDirs
+
 	return &task_engine.Action[*CreateSymlinkAction]{
-		ID: id,
-		Wrapped: &CreateSymlinkAction{
-			BaseAction: task_engine.NewBaseAction(logger),
-			Target:     target,
-			LinkPath:   linkPath,
-			Overwrite:  overwrite,
-			CreateDirs: createDirs,
-		},
-	}, nil
+		ID:      "create-symlink-action",
+		Name:    "Create Symlink",
+		Wrapped: a,
+	}
 }
 
 func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.TargetParam != nil {
+		targetValue, err := a.TargetParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve target parameter: %w", err)
+		}
+		if targetStr, ok := targetValue.(string); ok {
+			a.Target = targetStr
+		} else {
+			return fmt.Errorf("target parameter is not a string, got %T", targetValue)
+		}
+	}
+
+	if a.LinkPathParam != nil {
+		linkPathValue, err := a.LinkPathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve link path parameter: %w", err)
+		}
+		if linkPathStr, ok := linkPathValue.(string); ok {
+			a.LinkPath = linkPathStr
+		} else {
+			return fmt.Errorf("link path parameter is not a string, got %T", linkPathValue)
+		}
+	}
+
 	// Sanitize paths to prevent path traversal attacks
 	sanitizedTarget, err := SanitizePath(a.Target)
 	if err != nil {
@@ -55,8 +87,6 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 	}
 
 	a.Logger.Info("Creating symlink", "target", sanitizedTarget, "link", sanitizedLinkPath, "overwrite", a.Overwrite, "createDirs", a.CreateDirs)
-
-	// Check if link already exists
 	if _, err := os.Lstat(sanitizedLinkPath); err == nil {
 		if !a.Overwrite {
 			errMsg := fmt.Sprintf("symlink %s already exists and overwrite is set to false", sanitizedLinkPath)
@@ -77,7 +107,7 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 	// Create parent directories if requested
 	if a.CreateDirs {
 		linkDir := filepath.Dir(sanitizedLinkPath)
-		if err := os.MkdirAll(linkDir, 0750); err != nil {
+		if err := os.MkdirAll(linkDir, 0o750); err != nil {
 			a.Logger.Error("Failed to create parent directory for symlink", "path", linkDir, "error", err)
 			return fmt.Errorf("failed to create directory %s for symlink: %w", linkDir, err)
 		}
@@ -89,8 +119,6 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to create symlink", "target", sanitizedTarget, "link", sanitizedLinkPath, "error", err)
 		return fmt.Errorf("failed to create symlink %s -> %s: %w", sanitizedLinkPath, sanitizedTarget, err)
 	}
-
-	// Verify the symlink was created correctly
 	if err := a.verifySymlink(sanitizedLinkPath, sanitizedTarget); err != nil {
 		a.Logger.Error("Failed to verify symlink", "link", sanitizedLinkPath, "error", err)
 		return fmt.Errorf("failed to verify symlink %s: %w", sanitizedLinkPath, err)
@@ -100,8 +128,18 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 	return nil
 }
 
+// GetOutput returns metadata about the created symlink
+func (a *CreateSymlinkAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"target":    a.Target,
+		"linkPath":  a.LinkPath,
+		"overwrite": a.Overwrite,
+		"created":   true,
+		"success":   true,
+	}
+}
+
 func (a *CreateSymlinkAction) verifySymlink(linkPath, expectedTarget string) error {
-	// Check if the symlink exists and is actually a symlink
 	if err := a.checkSymlinkExists(linkPath); err != nil {
 		return err
 	}

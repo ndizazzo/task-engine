@@ -63,8 +63,6 @@ func (m *EnhancedTaskMock) Run(ctx context.Context) error {
 	m.runCalls = append(m.runCalls, ctx)
 	m.runCount++
 	m.hasRun = true
-
-	// Check if context was cancelled
 	select {
 	case <-ctx.Done():
 		m.contextCancelled = true

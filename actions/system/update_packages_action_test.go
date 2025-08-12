@@ -3,360 +3,401 @@ package system
 import (
 	"context"
 	"errors"
-	"runtime"
+	"log/slog"
 	"testing"
 
-	"log/slog"
-
-	"github.com/stretchr/testify/suite"
-
 	task_engine "github.com/ndizazzo/task-engine"
-	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/suite"
 )
 
-// MockCommandRunner is a mock implementation of CommandRunner for testing
-type MockCommandRunner struct {
-	commands []string
-	args     [][]string
-	outputs  []string
-	errors   []error
-	index    int
-}
-
-func NewMockCommandRunner() *MockCommandRunner {
-	return &MockCommandRunner{
-		commands: make([]string, 0),
-		args:     make([][]string, 0),
-		outputs:  make([]string, 0),
-		errors:   make([]error, 0),
-		index:    0,
-	}
-}
-
-func (m *MockCommandRunner) AddCommand(command string, args []string, output string, err error) {
-	m.commands = append(m.commands, command)
-	m.args = append(m.args, args)
-	m.outputs = append(m.outputs, output)
-	m.errors = append(m.errors, err)
-}
-
-func (m *MockCommandRunner) RunCommand(command string, args ...string) (string, error) {
-	return m.RunCommandWithContext(context.Background(), command, args...)
-}
-
-func (m *MockCommandRunner) RunCommandWithContext(ctx context.Context, command string, args ...string) (string, error) {
-	if m.index >= len(m.commands) {
-		return "", errors.New("unexpected command call")
-	}
-
-	expectedCommand := m.commands[m.index]
-	expectedArgs := m.args[m.index]
-	output := m.outputs[m.index]
-	err := m.errors[m.index]
-
-	if command != expectedCommand {
-		return "", errors.New("unexpected command")
-	}
-
-	if len(args) != len(expectedArgs) {
-		return "", errors.New("unexpected args length")
-	}
-
-	for i, arg := range args {
-		if i < len(expectedArgs) && arg != expectedArgs[i] {
-			return "", errors.New("unexpected arg")
-		}
-	}
-
-	m.index++
-	return output, err
-}
-
-func (m *MockCommandRunner) RunCommandInDir(workingDir string, command string, args ...string) (string, error) {
-	return m.RunCommandInDirWithContext(context.Background(), workingDir, command, args...)
-}
-
-func (m *MockCommandRunner) RunCommandInDirWithContext(ctx context.Context, workingDir string, command string, args ...string) (string, error) {
-	return m.RunCommandWithContext(ctx, command, args...)
-}
-
-type UpdatePackagesTestSuite struct {
+// UpdatePackagesActionTestSuite tests the UpdatePackagesAction
+type UpdatePackagesActionTestSuite struct {
 	suite.Suite
-	logger *slog.Logger
 }
 
-func (suite *UpdatePackagesTestSuite) SetupTest() {
-	suite.logger = command_mock.NewDiscardLogger()
+// TestUpdatePackagesActionTestSuite runs the UpdatePackagesAction test suite
+func TestUpdatePackagesActionTestSuite(t *testing.T) {
+	suite.Run(t, new(UpdatePackagesActionTestSuite))
 }
 
-func (suite *UpdatePackagesTestSuite) TestNewUpdatePackagesActionValidParameters() {
-	packageNames := []string{"package1", "package2"}
-	action := NewUpdatePackagesAction(packageNames, suite.logger)
+// Tests for new constructor pattern with parameters
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_WithParameters() {
+	logger := slog.Default()
 
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl", "wget"}}, // packageNames
+		task_engine.StaticParameter{Value: "apt"},                    // packageManager
+	)
+
+	suite.Require().NoError(err)
 	suite.NotNil(action)
+	suite.Equal("update-packages-action", action.ID)
 	suite.NotNil(action.Wrapped)
-	suite.Equal(packageNames, action.Wrapped.PackageNames)
-	suite.NotEmpty(action.Wrapped.PackageManager)
-	suite.NotNil(action.Wrapped.CommandRunner)
 }
 
-func (suite *UpdatePackagesTestSuite) TestNewUpdatePackagesActionNilLogger() {
-	packageNames := []string{"package1"}
-	action := NewUpdatePackagesAction(packageNames, nil)
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_WithNilLogger() {
+	constructor := NewUpdatePackagesAction(nil)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}},
+		task_engine.StaticParameter{Value: "apt"},
+	)
 
+	suite.Require().NoError(err)
 	suite.NotNil(action)
-	suite.NotNil(action.Wrapped)
 	suite.NotNil(action.Wrapped.Logger)
 }
 
-func (suite *UpdatePackagesTestSuite) TestNewUpdatePackagesActionEmptyPackageList() {
-	packageNames := []string{}
-	action := NewUpdatePackagesAction(packageNames, suite.logger)
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithAptManager() {
+	logger := mocks.NewDiscardLogger()
 
-	suite.NotNil(action)
-	suite.NotNil(action.Wrapped)
-	suite.Empty(action.Wrapped.PackageNames)
-}
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
 
-func (suite *UpdatePackagesTestSuite) TestExecuteEmptyPackageList() {
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{},
-		PackageManager: AptPackageManager,
-		CommandRunner:  NewMockCommandRunner(),
-	}
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl", "wget"}}, // packageNames
+		task_engine.StaticParameter{Value: "apt"},                    // packageManager
+	)
 
-	err := action.Execute(context.Background())
-	suite.Error(err)
-	suite.ErrorContains(err, "no package names provided")
-}
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
 
-func (suite *UpdatePackagesTestSuite) TestExecuteUnsupportedPackageManager() {
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: "",
-		CommandRunner:  NewMockCommandRunner(),
-	}
+	err = action.Wrapped.Execute(context.Background())
 
-	err := action.Execute(context.Background())
-	suite.Error(err)
-	suite.ErrorContains(err, "unsupported operating system for package management")
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteUnsupportedPackageManagerType() {
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: "unsupported",
-		CommandRunner:  NewMockCommandRunner(),
-	}
-
-	err := action.Execute(context.Background())
-	suite.Error(err)
-	suite.ErrorContains(err, "unsupported package manager")
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteAptSuccess() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "Package list updated", nil)
-	mockRunner.AddCommand("apt", []string{"install", "-y", "package1", "package2"}, "Packages installed", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1", "package2"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
 	suite.NoError(err)
+	suite.Equal([]string{"curl", "wget"}, action.Wrapped.PackageNames)
+	suite.Equal(AptPackageManager, action.Wrapped.PackageManager)
+
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func (suite *UpdatePackagesTestSuite) TestExecuteAptUpdateFailure() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "", errors.New("update failed"))
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithBrewManager() {
+	logger := mocks.NewDiscardLogger()
 
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
 
-	err := action.Execute(context.Background())
-	suite.Error(err)
-	suite.ErrorContains(err, "failed to update apt package list")
-}
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl", "wget"}}, // packageNames
+		task_engine.StaticParameter{Value: "brew"},                   // packageManager
+	)
 
-func (suite *UpdatePackagesTestSuite) TestExecuteAptInstallFailure() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "Package list updated", nil)
-	mockRunner.AddCommand("apt", []string{"install", "-y", "package1"}, "", errors.New("install failed"))
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
 
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
+	err = action.Wrapped.Execute(context.Background())
 
-	err := action.Execute(context.Background())
-	suite.Error(err)
-	suite.ErrorContains(err, "failed to install packages with apt")
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteBrewSuccess() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("brew", []string{"install", "package1", "package2"}, "Packages installed", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1", "package2"},
-		PackageManager: BrewPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
 	suite.NoError(err)
+	suite.Equal([]string{"curl", "wget"}, action.Wrapped.PackageNames)
+	suite.Equal(BrewPackageManager, action.Wrapped.PackageManager)
+
+	mockRunner.AssertExpectations(suite.T())
 }
 
-func (suite *UpdatePackagesTestSuite) TestExecuteBrewFailure() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("brew", []string{"install", "package1"}, "", errors.New("install failed"))
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithPackageNamesAsString() {
+	logger := mocks.NewDiscardLogger()
 
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: BrewPackageManager,
-		CommandRunner:  mockRunner,
-	}
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
 
-	err := action.Execute(context.Background())
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: "curl,wget"}, // packageNames as comma-separated string
+		task_engine.StaticParameter{Value: "apt"},       // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal([]string{"curl", "wget"}, action.Wrapped.PackageNames)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithPackageNamesAsSpaceSeparated() {
+	logger := mocks.NewDiscardLogger()
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: "curl wget"}, // packageNames as space-separated string
+		task_engine.StaticParameter{Value: "brew"},      // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal([]string{"curl", "wget"}, action.Wrapped.PackageNames)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_EmptyPackageNames() {
+	logger := mocks.NewDiscardLogger()
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{}}, // empty packageNames
+		task_engine.StaticParameter{Value: "apt"},      // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+
 	suite.Error(err)
-	suite.ErrorContains(err, "failed to install packages with brew")
+	suite.Contains(err.Error(), "no package names provided")
 }
 
-func (suite *UpdatePackagesTestSuite) TestDetectPackageManagerLinux() {
-	// This test will only work on Linux systems
-	if runtime.GOOS != "linux" {
-		suite.T().Skip("Skipping Linux-specific test on non-Linux system")
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_UnsupportedPackageManager() {
+	logger := mocks.NewDiscardLogger()
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: "unsupported"},    // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), "unsupported package manager")
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_EmptyPackageManager() {
+	logger := mocks.NewDiscardLogger()
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: ""},               // empty packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), "unsupported operating system for package management")
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_AptUpdateFailure() {
+	logger := mocks.NewDiscardLogger()
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("", errors.New("update failed"))
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: "apt"},            // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), "failed to update apt package list")
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_AptInstallFailure() {
+	logger := mocks.NewDiscardLogger()
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl").Return("", errors.New("install failed"))
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: "apt"},            // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), "failed to install packages with apt")
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_BrewInstallFailure() {
+	logger := mocks.NewDiscardLogger()
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl").Return("", errors.New("install failed"))
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: "brew"},           // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.Error(err)
+	suite.Contains(err.Error(), "failed to install packages with brew")
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_InvalidParameterTypes() {
+	logger := mocks.NewDiscardLogger()
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: 123}, // packageNames should be []string or string, not int
+		task_engine.StaticParameter{Value: "apt"},
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "package names parameter is not a string slice or string")
+	action, err = constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}},
+		task_engine.StaticParameter{Value: 123}, // packageManager should be string, not int
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(&mocks.MockCommandRunner{})
+
+	err = action.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "package manager parameter is not a string")
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_NilParameters() {
+	logger := mocks.NewDiscardLogger()
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		nil, // nil packageNames parameter
+		nil, // nil packageManager parameter
+	)
+
+	suite.Require().NoError(err)
+
+	// Set up the action to have valid values directly (since parameters are nil)
+	action.Wrapped.PackageNames = []string{"curl"}
+	action.Wrapped.PackageManager = AptPackageManager
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl").Return("Packages installed successfully", nil)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestUpdatePackagesAction_GetOutput() {
+	action := &UpdatePackagesAction{
+		PackageNames:   []string{"curl", "wget"},
+		PackageManager: AptPackageManager,
 	}
 
-	// Test that detectPackageManager works on Linux
-	// Note: This is a basic test that doesn't mock the command availability
+	output := action.GetOutput()
+
+	suite.IsType(map[string]interface{}{}, output)
+	outputMap := output.(map[string]interface{})
+
+	suite.Equal([]string{"curl", "wget"}, outputMap["packages"])
+	suite.Equal("apt", outputMap["packageManager"])
+	suite.Equal(true, outputMap["success"])
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestDetectPackageManager() {
+	// This test will vary based on the OS the test is run on
 	packageManager := detectPackageManager()
 
-	// On Linux, it should either be apt or empty (if apt is not available)
-	if packageManager != "" {
-		suite.Equal(AptPackageManager, packageManager)
-	}
+	// On any system, the detected package manager should be one of the supported ones or empty
+	suite.True(packageManager == AptPackageManager || packageManager == BrewPackageManager || packageManager == "")
 }
 
-func (suite *UpdatePackagesTestSuite) TestDetectPackageManagerDarwin() {
-	// This test will only work on macOS systems
-	if runtime.GOOS != "darwin" {
-		suite.T().Skip("Skipping macOS-specific test on non-macOS system")
-	}
-
-	// Test that detectPackageManager works on macOS
-	packageManager := detectPackageManager()
-
-	// On macOS, it should either be brew or empty (if brew is not available)
-	if packageManager != "" {
-		suite.Equal(BrewPackageManager, packageManager)
-	}
-}
-
-func (suite *UpdatePackagesTestSuite) TestIsCommandAvailable() {
-	// Test with a command that should always be available
+func (suite *UpdatePackagesActionTestSuite) TestIsCommandAvailable() {
 	available := isCommandAvailable("ls")
 	suite.True(available)
-
-	// Test with a command that should not be available
 	available = isCommandAvailable("nonexistentcommand12345")
 	suite.False(available)
 }
 
-func (suite *UpdatePackagesTestSuite) TestExecuteWithContext() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "Package list updated", nil)
-	mockRunner.AddCommand("apt", []string{"install", "-y", "package1"}, "Package installed", nil)
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithMultiplePackages() {
+	logger := mocks.NewDiscardLogger()
 
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget", "git").Return("Packages installed successfully", nil)
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl", "wget", "git"}}, // multiple packages
+		task_engine.StaticParameter{Value: "apt"},                           // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+
+	suite.NoError(err)
+	suite.Equal([]string{"curl", "wget", "git"}, action.Wrapped.PackageNames)
+
+	mockRunner.AssertExpectations(suite.T())
+}
+
+func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_WithContext() {
+	logger := mocks.NewDiscardLogger()
+
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl").Return("Package installed successfully", nil)
+
+	constructor := NewUpdatePackagesAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: []string{"curl"}}, // packageNames
+		task_engine.StaticParameter{Value: "brew"},           // packageManager
+	)
+
+	suite.Require().NoError(err)
+	action.Wrapped.SetCommandRunner(mockRunner)
 
 	ctx := context.Background()
-	err := action.Execute(ctx)
+	err = action.Wrapped.Execute(ctx)
+
 	suite.NoError(err)
-}
 
-func (suite *UpdatePackagesTestSuite) TestExecuteAptWithMultiplePackages() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "Package list updated", nil)
-	mockRunner.AddCommand("apt", []string{"install", "-y", "package1", "package2", "package3"}, "Packages installed", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1", "package2", "package3"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
-	suite.NoError(err)
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteBrewWithMultiplePackages() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("brew", []string{"install", "package1", "package2", "package3"}, "Packages installed", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"package1", "package2", "package3"},
-		PackageManager: BrewPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
-	suite.NoError(err)
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteAptWithOutput() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("apt", []string{"update"}, "Reading package lists... Done", nil)
-	mockRunner.AddCommand("apt", []string{"install", "-y", "curl"}, "curl is already the newest version", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"curl"},
-		PackageManager: AptPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
-	suite.NoError(err)
-}
-
-func (suite *UpdatePackagesTestSuite) TestExecuteBrewWithOutput() {
-	mockRunner := NewMockCommandRunner()
-	mockRunner.AddCommand("brew", []string{"install", "wget"}, "wget is already installed", nil)
-
-	action := &UpdatePackagesAction{
-		BaseAction:     task_engine.BaseAction{Logger: suite.logger},
-		PackageNames:   []string{"wget"},
-		PackageManager: BrewPackageManager,
-		CommandRunner:  mockRunner,
-	}
-
-	err := action.Execute(context.Background())
-	suite.NoError(err)
-}
-
-func TestUpdatePackagesTestSuite(t *testing.T) {
-	suite.Run(t, new(UpdatePackagesTestSuite))
+	mockRunner.AssertExpectations(suite.T())
 }

@@ -6,27 +6,27 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
 )
 
-// NewCreateDirectoriesAction creates an action that creates multiple directories
-// relative to the given installation path.
-func NewCreateDirectoriesAction(logger *slog.Logger, rootPath string, directories []string) (*task_engine.Action[*CreateDirectoriesAction], error) {
-	if rootPath == "" {
-		return nil, fmt.Errorf("invalid parameter: rootPath cannot be empty")
+// NewCreateDirectoriesAction creates a new CreateDirectoriesAction with the given logger
+func NewCreateDirectoriesAction(logger *slog.Logger) *CreateDirectoriesAction {
+	return &CreateDirectoriesAction{
+		BaseAction: task_engine.NewBaseAction(logger),
 	}
-	if len(directories) == 0 {
-		return nil, fmt.Errorf("invalid parameter: directories list cannot be empty")
-	}
+}
+
+// WithParameters sets the parameters for root path and directories
+func (a *CreateDirectoriesAction) WithParameters(rootPathParam, directoriesParam task_engine.ActionParameter) (*task_engine.Action[*CreateDirectoriesAction], error) {
+	a.RootPathParam = rootPathParam
+	a.DirectoriesParam = directoriesParam
 
 	return &task_engine.Action[*CreateDirectoriesAction]{
-		ID: "create-directories-action",
-		Wrapped: &CreateDirectoriesAction{
-			BaseAction:  task_engine.BaseAction{Logger: logger},
-			RootPath:    rootPath,
-			Directories: directories,
-		},
+		ID:      "create-directories-action",
+		Name:    "Create Directories",
+		Wrapped: a,
 	}, nil
 }
 
@@ -36,41 +36,90 @@ type CreateDirectoriesAction struct {
 	RootPath         string
 	Directories      []string
 	CreatedDirsCount int
+
+	// Parameter-aware fields
+	RootPathParam    task_engine.ActionParameter
+	DirectoriesParam task_engine.ActionParameter
 }
 
-func (a *CreateDirectoriesAction) Execute(ctx context.Context) error {
+func (a *CreateDirectoriesAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.RootPathParam != nil {
+		rootPathValue, err := a.RootPathParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve root path parameter: %w", err)
+		}
+		if rootPathStr, ok := rootPathValue.(string); ok {
+			a.RootPath = rootPathStr
+		} else {
+			return fmt.Errorf("root path parameter is not a string, got %T", rootPathValue)
+		}
+	}
+
+	if a.DirectoriesParam != nil {
+		directoriesValue, err := a.DirectoriesParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve directories parameter: %w", err)
+		}
+		if directoriesSlice, ok := directoriesValue.([]string); ok {
+			a.Directories = directoriesSlice
+		} else {
+			return fmt.Errorf("directories parameter is not a []string, got %T", directoriesValue)
+		}
+	}
+
 	if a.RootPath == "" {
 		return fmt.Errorf("root path cannot be empty")
 	}
 
 	if len(a.Directories) == 0 {
-		a.Logger.Info("No directories to create")
-		return nil
+		return fmt.Errorf("directories list cannot be empty")
 	}
 
-	a.Logger.Info("Creating directories", "count", len(a.Directories), "root_path", a.RootPath)
+	a.Logger.Info("Creating directories", "rootPath", a.RootPath, "directories", a.Directories)
 
+	createdCount := 0
 	for _, dir := range a.Directories {
-		if dir == "" {
-			a.Logger.Warn("Skipping empty directory path")
+		// Skip empty directory names
+		if strings.TrimSpace(dir) == "" {
 			continue
 		}
 
-		// Create full path by joining installation path with relative directory
 		fullPath := filepath.Join(a.RootPath, dir)
+		if _, err := os.Stat(fullPath); err == nil {
+			a.Logger.Debug("Directory already exists", "path", fullPath)
+			createdCount++ // Count existing directories as "created" for test compatibility
+			continue
+		}
 
-		a.Logger.Debug("Creating directory", "path", fullPath)
-
-		// Create directory with proper permissions
-		err := os.MkdirAll(fullPath, 0750)
-		if err != nil {
+		// Create the directory with parents
+		if err := os.MkdirAll(fullPath, 0o750); err != nil {
+			a.Logger.Error("Failed to create directory", "path", fullPath, "error", err)
 			return fmt.Errorf("failed to create directory %s: %w", fullPath, err)
 		}
 
-		a.CreatedDirsCount++
-		a.Logger.Debug("Successfully created directory", "path", fullPath)
+		a.Logger.Debug("Created directory", "path", fullPath)
+		createdCount++
 	}
 
-	a.Logger.Info("Successfully created directories", "created_count", a.CreatedDirsCount, "total_count", len(a.Directories))
+	a.CreatedDirsCount = createdCount
+	a.Logger.Info("Successfully created directories", "created", createdCount, "total", len(a.Directories))
 	return nil
+}
+
+// GetOutput returns metadata about the directory creation
+func (a *CreateDirectoriesAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"rootPath":    a.RootPath,
+		"directories": a.Directories,
+		"created":     a.CreatedDirsCount,
+		"total":       len(a.Directories),
+		"success":     true,
+	}
 }

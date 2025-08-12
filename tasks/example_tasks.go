@@ -17,12 +17,11 @@ func NewDockerSetupTask(logger *slog.Logger, projectPath string) *engine.Task {
 			// This would include Docker actions when they're available
 			// For now, we'll create a placeholder task
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					projectPath+"/docker-setup.log",
-					[]byte("Docker setup completed"),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: projectPath + "/docker-setup.log"},
+					engine.StaticParameter{Value: []byte("Docker setup completed")},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -41,7 +40,17 @@ func NewPackageManagementTask(logger *slog.Logger, packages []string) *engine.Ta
 		ID:   "package-management-example",
 		Name: "Package Management Example",
 		Actions: []engine.ActionWrapper{
-			system.NewUpdatePackagesAction(packages, logger),
+			func() engine.ActionWrapper {
+				action, err := system.NewUpdatePackagesAction(logger).WithParameters(
+					engine.StaticParameter{Value: packages},
+					engine.StaticParameter{Value: ""}, // packageManagerParam (auto-detect)
+				)
+				if err != nil {
+					logger.Error("Failed to create update packages action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -56,12 +65,11 @@ func NewSystemManagementTask(logger *slog.Logger, serviceName string) *engine.Ta
 			// This would include system management actions
 			// For now, we'll create a placeholder task
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					"/tmp/system-management.log",
-					[]byte("System management operations completed"),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "/tmp/system-management.log"},
+					engine.StaticParameter{Value: []byte("System management operations completed")},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)
@@ -83,12 +91,11 @@ func NewUtilityOperationsTask(logger *slog.Logger) *engine.Task {
 			// This would include utility actions
 			// For now, we'll create a placeholder task
 			func() engine.ActionWrapper {
-				action, err := file.NewWriteFileAction(
-					"/tmp/utility-operations.log",
-					[]byte("Utility operations completed"),
+				action, err := file.NewWriteFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "/tmp/utility-operations.log"},
+					engine.StaticParameter{Value: []byte("Utility operations completed")},
 					true,
 					nil,
-					logger,
 				)
 				if err != nil {
 					logger.Error("Failed to create write file action", "error", err)

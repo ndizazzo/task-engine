@@ -2,15 +2,11 @@ package utility
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
 	task_engine "github.com/ndizazzo/task-engine"
 )
-
-// ErrNilCheckFunction is returned by NewPrerequisiteCheckAction if the provided check function is nil.
-var ErrNilCheckFunction = errors.New("prerequisite check function cannot be nil")
 
 // PrerequisiteCheckFunc defines the signature for a callback function that checks a prerequisite.
 // It returns true if the parent task should be aborted (prerequisite not met),
@@ -22,29 +18,37 @@ type PrerequisiteCheckFunc func(ctx context.Context, logger *slog.Logger) (abort
 // If the callback indicates the prerequisite is not met, the action returns ErrPrerequisiteNotMet.
 type PrerequisiteCheckAction struct {
 	task_engine.BaseAction
+	// Parameter fields
+	DescriptionParam task_engine.ActionParameter
+	CheckParam       task_engine.ActionParameter
+	// Result fields (resolved from parameters during execution)
 	Check       PrerequisiteCheckFunc
 	Description string // A human-readable description of what is being checked
 }
 
-// NewPrerequisiteCheckAction creates a new PrerequisiteCheckAction.
-// logger: The logger to be used by the action.
-// description: A human-readable string describing the prerequisite being checked.
-// check: The callback function to execute for the prerequisite check.
-// Returns an error if the check function is nil.
-func NewPrerequisiteCheckAction(logger *slog.Logger, description string, check PrerequisiteCheckFunc) (*task_engine.Action[*PrerequisiteCheckAction], error) {
-	if check == nil {
-		return nil, ErrNilCheckFunction
+// NewPrerequisiteCheckAction creates a new PrerequisiteCheckAction with the provided logger
+func NewPrerequisiteCheckAction(logger *slog.Logger) *PrerequisiteCheckAction {
+	return &PrerequisiteCheckAction{
+		BaseAction: task_engine.BaseAction{Logger: logger},
+	}
+}
+
+// WithParameters sets the description and check function parameters
+func (a *PrerequisiteCheckAction) WithParameters(descriptionParam task_engine.ActionParameter, checkParam task_engine.ActionParameter) (*task_engine.Action[*PrerequisiteCheckAction], error) {
+	if descriptionParam == nil {
+		return nil, fmt.Errorf("description parameter cannot be nil")
+	}
+	if checkParam == nil {
+		return nil, fmt.Errorf("check parameter cannot be nil")
 	}
 
-	id := fmt.Sprintf("prerequisite-check-%s-action", description)
+	a.DescriptionParam = descriptionParam
+	a.CheckParam = checkParam
 
 	return &task_engine.Action[*PrerequisiteCheckAction]{
-		ID: id,
-		Wrapped: &PrerequisiteCheckAction{
-			BaseAction:  task_engine.BaseAction{Logger: logger},
-			Check:       check,
-			Description: description,
-		},
+		ID:      "prerequisite-check-action",
+		Name:    "Prerequisite Check",
+		Wrapped: a,
 	}, nil
 }
 
@@ -53,13 +57,42 @@ func NewPrerequisiteCheckAction(logger *slog.Logger, description string, check P
 // it returns ErrPrerequisiteNotMet.
 // If the callback itself returns an error, that error is propagated.
 func (a *PrerequisiteCheckAction) Execute(ctx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve description and check from parameters if provided
+	if a.DescriptionParam != nil {
+		v, err := a.DescriptionParam.Resolve(ctx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve description parameter: %w", err)
+		}
+		s, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("description parameter is not a string, got %T", v)
+		}
+		a.Description = s
+	}
+	if a.CheckParam != nil {
+		v, err := a.CheckParam.Resolve(ctx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve check parameter: %w", err)
+		}
+		fn, ok := v.(PrerequisiteCheckFunc)
+		if !ok {
+			return fmt.Errorf("check parameter is not a PrerequisiteCheckFunc, got %T", v)
+		}
+		a.Check = fn
+	}
+
 	if a.Check == nil {
 		return fmt.Errorf("critical internal error: prerequisite check function for '%s' is not defined", a.Description)
 	}
 
 	a.Logger.Info("Performing prerequisite check", "description", a.Description)
 	abortTask, err := a.Check(ctx, a.Logger)
-
 	if err != nil {
 		a.Logger.Error("Prerequisite check callback failed", "description", a.Description, "error", err)
 		return fmt.Errorf("prerequisite check '%s' encountered an error: %w", a.Description, err)
@@ -72,4 +105,12 @@ func (a *PrerequisiteCheckAction) Execute(ctx context.Context) error {
 
 	a.Logger.Info("Prerequisite check passed", "description", a.Description)
 	return nil
+}
+
+// GetOutput returns the description of the check; success is true if no abort occurred
+func (a *PrerequisiteCheckAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"description": a.Description,
+		"success":     true,
+	}
 }

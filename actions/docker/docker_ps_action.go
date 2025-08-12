@@ -21,32 +21,6 @@ type Container struct {
 	Names       string
 }
 
-// NewDockerPsAction creates an action to list Docker containers
-func NewDockerPsAction(logger *slog.Logger, options ...DockerPsOption) *task_engine.Action[*DockerPsAction] {
-	action := &DockerPsAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		All:              false,
-		Filter:           "",
-		Format:           "",
-		Last:             0,
-		Latest:           false,
-		NoTrunc:          false,
-		Quiet:            false,
-		Size:             false,
-		CommandProcessor: command.NewDefaultCommandRunner(),
-	}
-
-	// Apply options
-	for _, option := range options {
-		option(action)
-	}
-
-	return &task_engine.Action[*DockerPsAction]{
-		ID:      "docker-ps-action",
-		Wrapped: action,
-	}
-}
-
 // DockerPsOption is a function type for configuring DockerPsAction
 type DockerPsOption func(*DockerPsAction)
 
@@ -120,6 +94,15 @@ type DockerPsAction struct {
 	CommandProcessor command.CommandRunner
 	Output           string
 	Containers       []Container // Stores the parsed containers
+
+	// Parameter-aware fields
+	FilterParam  task_engine.ActionParameter
+	AllParam     task_engine.ActionParameter
+	QuietParam   task_engine.ActionParameter
+	NoTruncParam task_engine.ActionParameter
+	SizeParam    task_engine.ActionParameter
+	LatestParam  task_engine.ActionParameter
+	LastParam    task_engine.ActionParameter
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
@@ -128,6 +111,106 @@ func (a *DockerPsAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerPsAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve filter parameter if it exists
+	if a.FilterParam != nil {
+		filterValue, err := a.FilterParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve filter parameter: %w", err)
+		}
+		if filterStr, ok := filterValue.(string); ok {
+			// Only override if a non-empty filter is provided via parameter
+			if strings.TrimSpace(filterStr) != "" {
+				a.Filter = filterStr
+			}
+		} else {
+			return fmt.Errorf("filter parameter is not a string, got %T", filterValue)
+		}
+	}
+
+	// Resolve all parameter if it exists
+	if a.AllParam != nil {
+		allValue, err := a.AllParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve all parameter: %w", err)
+		}
+		if allBool, ok := allValue.(bool); ok {
+			a.All = allBool
+		} else {
+			return fmt.Errorf("all parameter is not a bool, got %T", allValue)
+		}
+	}
+
+	// Resolve quiet parameter if it exists
+	if a.QuietParam != nil {
+		quietValue, err := a.QuietParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+		}
+		if quietBool, ok := quietValue.(bool); ok {
+			a.Quiet = quietBool
+		} else {
+			return fmt.Errorf("quiet parameter is not a bool, got %T", quietValue)
+		}
+	}
+
+	// Resolve noTrunc parameter if it exists
+	if a.NoTruncParam != nil {
+		noTruncValue, err := a.NoTruncParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve noTrunc parameter: %w", err)
+		}
+		if noTruncBool, ok := noTruncValue.(bool); ok {
+			a.NoTrunc = noTruncBool
+		} else {
+			return fmt.Errorf("noTrunc parameter is not a bool, got %T", noTruncValue)
+		}
+	}
+
+	// Resolve size parameter if it exists
+	if a.SizeParam != nil {
+		sizeValue, err := a.SizeParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve size parameter: %w", err)
+		}
+		if sizeBool, ok := sizeValue.(bool); ok {
+			a.Size = sizeBool
+		} else {
+			return fmt.Errorf("size parameter is not a bool, got %T", sizeValue)
+		}
+	}
+
+	// Resolve latest parameter if it exists
+	if a.LatestParam != nil {
+		latestValue, err := a.LatestParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve latest parameter: %w", err)
+		}
+		if latestBool, ok := latestValue.(bool); ok {
+			a.Latest = latestBool
+		} else {
+			return fmt.Errorf("latest parameter is not a bool, got %T", latestValue)
+		}
+	}
+
+	// Resolve last parameter if it exists
+	if a.LastParam != nil {
+		lastValue, err := a.LastParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve last parameter: %w", err)
+		}
+		if lastInt, ok := lastValue.(int); ok {
+			a.Last = lastInt
+		} else {
+			return fmt.Errorf("last parameter is not an int, got %T", lastValue)
+		}
+	}
+
 	args := []string{"ps"}
 
 	if a.All {
@@ -181,6 +264,16 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 	)
 
 	return nil
+}
+
+// GetOutput returns parsed container information and raw output metadata
+func (a *DockerPsAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"containers": a.Containers,
+		"count":      len(a.Containers),
+		"output":     a.Output,
+		"success":    true,
+	}
 }
 
 // parseContainers parses the docker ps output and populates the Containers slice
@@ -347,8 +440,6 @@ func (a *DockerPsAction) parseContainerLine(line string) *Container {
 			Names:       "",
 		}
 	}
-
-	// Check if the next field looks like a port mapping (contains "/" or "->")
 	ports := ""
 	namesStart := portsStart
 	if portsStart < len(remainingParts) {
@@ -404,4 +495,54 @@ func isNumeric(s string) bool {
 		}
 	}
 	return len(s) > 0
+}
+
+// DockerPsActionConstructor provides the new constructor pattern
+type DockerPsActionConstructor struct {
+	logger *slog.Logger
+}
+
+// NewDockerPsAction creates a new DockerPsAction constructor
+func NewDockerPsAction(logger *slog.Logger) *DockerPsActionConstructor {
+	return &DockerPsActionConstructor{
+		logger: logger,
+	}
+}
+
+// WithParameters creates a DockerPsAction with the specified parameters
+func (c *DockerPsActionConstructor) WithParameters(
+	filterParam task_engine.ActionParameter,
+	allParam task_engine.ActionParameter,
+	quietParam task_engine.ActionParameter,
+	noTruncParam task_engine.ActionParameter,
+	sizeParam task_engine.ActionParameter,
+	latestParam task_engine.ActionParameter,
+	lastParam task_engine.ActionParameter,
+) (*task_engine.Action[*DockerPsAction], error) {
+	action := &DockerPsAction{
+		BaseAction:       task_engine.NewBaseAction(c.logger),
+		All:              false,
+		Filter:           "",
+		Format:           "",
+		Last:             0,
+		Latest:           false,
+		NoTrunc:          false,
+		Quiet:            false,
+		Size:             false,
+		CommandProcessor: command.NewDefaultCommandRunner(),
+		FilterParam:      filterParam,
+		AllParam:         allParam,
+		QuietParam:       quietParam,
+		NoTruncParam:     noTruncParam,
+		SizeParam:        sizeParam,
+		LatestParam:      latestParam,
+		LastParam:        lastParam,
+	}
+
+	id := "docker-ps-action"
+	return &task_engine.Action[*DockerPsAction]{
+		ID:      id,
+		Name:    "Docker PS",
+		Wrapped: action,
+	}, nil
 }

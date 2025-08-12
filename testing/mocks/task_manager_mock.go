@@ -310,8 +310,6 @@ func (m *EnhancedTaskManagerMock) SetExpectedBehavior() {
 // VerifyAllExpectations verifies all expectations and returns detailed results
 func (m *EnhancedTaskManagerMock) VerifyAllExpectations() map[string]bool {
 	results := make(map[string]bool)
-
-	// Check if all expected calls were made
 	// We need to manually verify expectations since AssertExpectations doesn't clear ExpectedCalls
 	allExpectationsMet := true
 	for _, expectedCall := range m.ExpectedCalls {
@@ -321,8 +319,6 @@ func (m *EnhancedTaskManagerMock) VerifyAllExpectations() map[string]bool {
 		}
 	}
 	results["expectations_met"] = allExpectationsMet
-
-	// Check state consistency
 	state := m.GetCurrentState()
 	results["state_consistent"] = state["total_tasks"].(int) >= 0
 
@@ -346,4 +342,15 @@ func (m *EnhancedTaskManagerMock) ClearState() {
 	m.taskResults = make(map[string]interface{})
 	m.taskErrors = make(map[string]error)
 	m.taskTiming = make(map[string]time.Duration)
+}
+
+// GetGlobalContext mocks GetGlobalContext
+func (m *EnhancedTaskManagerMock) GetGlobalContext() *task_engine.GlobalContext {
+	args := m.Called()
+	return args.Get(0).(*task_engine.GlobalContext)
+}
+
+// ResetGlobalContext mocks ResetGlobalContext
+func (m *EnhancedTaskManagerMock) ResetGlobalContext() {
+	m.Called()
 }

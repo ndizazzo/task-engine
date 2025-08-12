@@ -11,18 +11,38 @@ import (
 	"github.com/ndizazzo/task-engine/command"
 )
 
-// NewDockerRunAction creates an action to run a docker container
-// Optionally accepts a buffer to write the command's stdout to.
-func NewDockerRunAction(logger *slog.Logger, image string, outputBuffer *bytes.Buffer, runArgs ...string) *task_engine.Action[*DockerRunAction] {
-	id := fmt.Sprintf("docker-run-%s-action", image)
+// DockerRunActionBuilder provides a fluent interface for building DockerRunAction
+type DockerRunActionBuilder struct {
+	logger       *slog.Logger
+	imageParam   task_engine.ActionParameter
+	outputBuffer *bytes.Buffer
+	runArgs      []string
+}
+
+// NewDockerRunAction creates a fluent builder for DockerRunAction
+func NewDockerRunAction(logger *slog.Logger) *DockerRunActionBuilder {
+	return &DockerRunActionBuilder{
+		logger: logger,
+	}
+}
+
+// WithParameters sets the parameters for image, output buffer, and run arguments
+func (b *DockerRunActionBuilder) WithParameters(imageParam task_engine.ActionParameter, outputBuffer *bytes.Buffer, runArgs ...string) *task_engine.Action[*DockerRunAction] {
+	b.imageParam = imageParam
+	b.outputBuffer = outputBuffer
+	b.runArgs = runArgs
+
+	id := "docker-run-action"
 	return &task_engine.Action[*DockerRunAction]{
-		ID: id,
+		ID:   id,
+		Name: "Docker Run",
 		Wrapped: &DockerRunAction{
-			BaseAction:    task_engine.BaseAction{Logger: logger},
-			Image:         image,
-			RunArgs:       runArgs,
-			OutputBuffer:  outputBuffer, // Store buffer pointer
+			BaseAction:    task_engine.NewBaseAction(b.logger),
+			Image:         "",
+			RunArgs:       b.runArgs,
+			OutputBuffer:  b.outputBuffer,
 			commandRunner: command.NewDefaultCommandRunner(),
+			ImageParam:    b.imageParam,
 		},
 	}
 }
@@ -33,8 +53,9 @@ type DockerRunAction struct {
 	Image         string
 	RunArgs       []string
 	commandRunner command.CommandRunner
-	Output        string        // Stores trimmed output regardless of buffer
-	OutputBuffer  *bytes.Buffer // Optional buffer to write output to
+	Output        string                      // Stores trimmed output regardless of buffer
+	OutputBuffer  *bytes.Buffer               // Optional buffer to write output to
+	ImageParam    task_engine.ActionParameter // optional parameter for image
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
@@ -43,10 +64,30 @@ func (a *DockerRunAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerRunAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve image via parameter if provided
+	effectiveImage := a.Image
+	if a.ImageParam != nil {
+		v, err := a.ImageParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image parameter: %w", err)
+		}
+		if s, ok := v.(string); ok {
+			effectiveImage = s
+		} else {
+			return fmt.Errorf("resolved image parameter is not a string: %T", v)
+		}
+	}
+
 	args := []string{"run"}
 	args = append(args, a.RunArgs...)
 
-	a.Logger.Info("Executing docker run", "image", a.Image, "args", a.RunArgs)
+	a.Logger.Info("Executing docker run", "image", effectiveImage, "args", a.RunArgs)
 	output, err := a.commandRunner.RunCommand("docker", args...)
 	a.Output = strings.TrimSpace(output) // Store trimmed output internally
 
@@ -66,4 +107,14 @@ func (a *DockerRunAction) Execute(execCtx context.Context) error {
 	a.Logger.Info("Docker run finished successfully", "output", a.Output)
 
 	return nil
+}
+
+// GetOutput returns information about the docker run execution
+func (a *DockerRunAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"image":   a.Image,
+		"args":    a.RunArgs,
+		"output":  a.Output,
+		"success": a.Output != "",
+	}
 }

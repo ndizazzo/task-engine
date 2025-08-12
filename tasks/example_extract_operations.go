@@ -30,15 +30,18 @@ func NewExtractOperationsTask(logger *slog.Logger) *engine.Task {
 				},
 			},
 			// Extract the tar archive
-			&engine.Action[*fileActions.ExtractFileAction]{
-				ID: "extract-tar",
-				Wrapped: &fileActions.ExtractFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "testdata.tar",
-					DestinationPath: "extracted-tar",
-					ArchiveType:     fileActions.TarArchive,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewExtractFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "testdata.tar"},
+					engine.StaticParameter{Value: "extracted-tar"},
+					fileActions.TarArchive,
+				)
+				if err != nil {
+					logger.Error("Failed to create extract file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 			// Create a zip archive
 			&engine.Action[*CreateArchiveAction]{
 				ID: "create-zip-archive",
@@ -50,15 +53,18 @@ func NewExtractOperationsTask(logger *slog.Logger) *engine.Task {
 				},
 			},
 			// Extract the zip archive
-			&engine.Action[*fileActions.ExtractFileAction]{
-				ID: "extract-zip",
-				Wrapped: &fileActions.ExtractFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "testdata.zip",
-					DestinationPath: "extracted-zip",
-					ArchiveType:     fileActions.ZipArchive,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewExtractFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "testdata.zip"},
+					engine.StaticParameter{Value: "extracted-zip"},
+					fileActions.ZipArchive,
+				)
+				if err != nil {
+					logger.Error("Failed to create extract file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 	}
 }
@@ -77,15 +83,18 @@ func NewExtractWithDirectoriesTask(logger *slog.Logger) *engine.Task {
 				},
 			},
 			// Extract the complex tar archive
-			&engine.Action[*fileActions.ExtractFileAction]{
-				ID: "extract-complex-tar",
-				Wrapped: &fileActions.ExtractFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "complex-data.tar",
-					DestinationPath: "extracted-complex",
-					ArchiveType:     fileActions.TarArchive,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewExtractFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "complex-data.tar"},
+					engine.StaticParameter{Value: "extracted-complex"},
+					fileActions.TarArchive,
+				)
+				if err != nil {
+					logger.Error("Failed to create extract file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 	}
 }
@@ -106,35 +115,44 @@ func NewExtractCompressedArchivesTask(logger *slog.Logger) *engine.Task {
 				},
 			},
 			// Compress the tar file with gzip
-			&engine.Action[*fileActions.CompressFileAction]{
-				ID: "compress-tar",
-				Wrapped: &fileActions.CompressFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "testdata.tar",
-					DestinationPath: "testdata.tar.gz",
-					CompressionType: fileActions.GzipCompression,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewCompressFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "testdata.tar"},
+					engine.StaticParameter{Value: "testdata.tar.gz"},
+					fileActions.GzipCompression,
+				)
+				if err != nil {
+					logger.Error("Failed to create compress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 			// Step 1: Decompress the .tar.gz file
-			&engine.Action[*fileActions.DecompressFileAction]{
-				ID: "decompress-tar-gz",
-				Wrapped: &fileActions.DecompressFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "testdata.tar.gz",
-					DestinationPath: "testdata-decompressed.tar",
-					CompressionType: fileActions.GzipCompression,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewDecompressFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "testdata.tar.gz"},
+					engine.StaticParameter{Value: "testdata-decompressed.tar"},
+					fileActions.GzipCompression,
+				)
+				if err != nil {
+					logger.Error("Failed to create decompress file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 			// Step 2: Extract the decompressed tar file
-			&engine.Action[*fileActions.ExtractFileAction]{
-				ID: "extract-decompressed-tar",
-				Wrapped: &fileActions.ExtractFileAction{
-					BaseAction:      engine.BaseAction{Logger: logger},
-					SourcePath:      "testdata-decompressed.tar",
-					DestinationPath: "extracted-tar-gz",
-					ArchiveType:     fileActions.TarArchive,
-				},
-			},
+			func() engine.ActionWrapper {
+				action, err := fileActions.NewExtractFileAction(logger).WithParameters(
+					engine.StaticParameter{Value: "testdata-decompressed.tar"},
+					engine.StaticParameter{Value: "extracted-tar-gz"},
+					fileActions.TarArchive,
+				)
+				if err != nil {
+					logger.Error("Failed to create extract file action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 	}
 }
@@ -149,7 +167,7 @@ type CreateArchiveAction struct {
 
 func (a CreateArchiveAction) BeforeExecute(ctx context.Context) error {
 	// Create test data directory if it doesn't exist
-	if err := os.MkdirAll(a.SourceDir, 0750); err != nil {
+	if err := os.MkdirAll(a.SourceDir, 0o750); err != nil {
 		return err
 	}
 
@@ -163,12 +181,10 @@ func (a CreateArchiveAction) BeforeExecute(ctx context.Context) error {
 	for _, file := range testFiles {
 		// Create directory if needed
 		dir := filepath.Dir(file)
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
-
-		// Create test file
-		if err := os.WriteFile(file, []byte("Test content for "+file), 0600); err != nil {
+		if err := os.WriteFile(file, []byte("Test content for "+file), 0o600); err != nil {
 			return err
 		}
 	}
@@ -195,7 +211,6 @@ func (a CreateArchiveAction) AfterExecute(ctx context.Context) error {
 }
 
 func (a CreateArchiveAction) createTarArchive() error {
-	// Create tar file
 	tarFile, err := os.Create(a.DestPath)
 	if err != nil {
 		return err
@@ -252,7 +267,6 @@ func (a CreateArchiveAction) createTarArchive() error {
 }
 
 func (a CreateArchiveAction) createZipArchive() error {
-	// Create zip file
 	zipFile, err := os.Create(a.DestPath)
 	if err != nil {
 		return err
@@ -331,11 +345,11 @@ func (a CreateComplexTarAction) BeforeExecute(ctx context.Context) error {
 		fullPath := filepath.Join("testing", "testdata", path)
 		dir := filepath.Dir(fullPath)
 
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
 
-		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 			return err
 		}
 	}
@@ -345,8 +359,6 @@ func (a CreateComplexTarAction) BeforeExecute(ctx context.Context) error {
 
 func (a CreateComplexTarAction) Execute(ctx context.Context) error {
 	a.Logger.Info("Creating complex tar archive", "dest", a.DestPath)
-
-	// Create tar file
 	tarFile, err := os.Create(a.DestPath)
 	if err != nil {
 		return err

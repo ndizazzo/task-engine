@@ -11,40 +11,73 @@ import (
 	task_engine "github.com/ndizazzo/task-engine"
 )
 
+// NewCopyFileAction creates a new CopyFileAction with the given logger
+func NewCopyFileAction(logger *slog.Logger) *CopyFileAction {
+	return &CopyFileAction{
+		BaseAction: task_engine.NewBaseAction(logger),
+	}
+}
+
 type CopyFileAction struct {
 	task_engine.BaseAction
 
+	// Parameters
+	SourceParam      task_engine.ActionParameter
+	DestinationParam task_engine.ActionParameter
+	CreateDir        bool
+	Recursive        bool
+
+	// Runtime resolved values
 	Source      string
 	Destination string
-	CreateDir   bool
-	Recursive   bool
 }
 
-func NewCopyFileAction(source, destination string, createDir, recursive bool, logger *slog.Logger) (*task_engine.Action[*CopyFileAction], error) {
-	if err := ValidateSourcePath(source); err != nil {
-		return nil, fmt.Errorf("invalid source path: %w", err)
-	}
-	if err := ValidateDestinationPath(destination); err != nil {
-		return nil, fmt.Errorf("invalid destination path: %w", err)
-	}
-	if source == destination {
-		return nil, fmt.Errorf("invalid parameter: source and destination cannot be the same")
-	}
+// WithParameters sets the parameters for source, destination, create directory flag, and recursive flag and returns a wrapped Action
+func (a *CopyFileAction) WithParameters(sourceParam, destinationParam task_engine.ActionParameter, createDir, recursive bool) (*task_engine.Action[*CopyFileAction], error) {
+	a.SourceParam = sourceParam
+	a.DestinationParam = destinationParam
+	a.CreateDir = createDir
+	a.Recursive = recursive
 
+	id := "copy-file-action"
 	return &task_engine.Action[*CopyFileAction]{
-		ID: "copy-file-action",
-		Wrapped: &CopyFileAction{
-			BaseAction:  task_engine.NewBaseAction(logger),
-			Source:      source,
-			Destination: destination,
-			CreateDir:   createDir,
-			Recursive:   recursive,
-		},
+		ID:      id,
+		Name:    "Copy File",
+		Wrapped: a,
 	}, nil
 }
 
 func (a *CopyFileAction) Execute(execCtx context.Context) error {
-	// Check if source exists
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters if they exist
+	if a.SourceParam != nil {
+		sourceValue, err := a.SourceParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve source parameter: %w", err)
+		}
+		if sourceStr, ok := sourceValue.(string); ok {
+			a.Source = sourceStr
+		} else {
+			return fmt.Errorf("source parameter is not a string, got %T", sourceValue)
+		}
+	}
+
+	if a.DestinationParam != nil {
+		destValue, err := a.DestinationParam.Resolve(execCtx, globalContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve destination parameter: %w", err)
+		}
+		if destStr, ok := destValue.(string); ok {
+			a.Destination = destStr
+		} else {
+			return fmt.Errorf("destination parameter is not a string, got %T", destValue)
+		}
+	}
 	if _, err := os.Stat(a.Source); os.IsNotExist(err) {
 		a.Logger.Error("Source path does not exist", "source", a.Source)
 		return err
@@ -73,7 +106,7 @@ func (a *CopyFileAction) executeRecursiveCopy() error {
 
 	// For directories, create destination directory and copy contents recursively
 	if a.CreateDir {
-		if err := os.MkdirAll(a.Destination, 0750); err != nil {
+		if err := os.MkdirAll(a.Destination, 0o750); err != nil {
 			a.Logger.Debug("Failed to create destination directory", "error", err, "directory", a.Destination)
 			return err
 		}
@@ -151,7 +184,7 @@ func (a *CopyFileAction) copyFile(src, dst string, mode os.FileMode) error {
 
 	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(sanitizedDst)
-	if err := os.MkdirAll(destDir, 0750); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return err
 	}
 
@@ -162,8 +195,6 @@ func (a *CopyFileAction) copyFile(src, dst string, mode os.FileMode) error {
 		return err
 	}
 	defer srcFile.Close()
-
-	// Create destination file
 	// nosec G304 - Path is sanitized by SanitizePath function
 	dstFile, err := os.Create(sanitizedDst)
 	if err != nil {
@@ -199,7 +230,7 @@ func (a *CopyFileAction) copySymlink(src, dst string) error {
 
 	// Create the destination directory if it doesn't exist
 	destDir := filepath.Dir(sanitizedDst)
-	if err := os.MkdirAll(destDir, 0750); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return err
 	}
 
@@ -210,7 +241,7 @@ func (a *CopyFileAction) copySymlink(src, dst string) error {
 func (a *CopyFileAction) executeFileCopy() error {
 	if a.CreateDir {
 		destDir := filepath.Dir(a.Destination)
-		if err := os.MkdirAll(destDir, 0750); err != nil {
+		if err := os.MkdirAll(destDir, 0o750); err != nil {
 			a.Logger.Debug("Failed to create destination directory", "error", err, "directory", destDir)
 			return err
 		}
@@ -237,4 +268,15 @@ func (a *CopyFileAction) executeFileCopy() error {
 	}
 
 	return nil
+}
+
+// GetOutput returns metadata about the copy operation
+func (a *CopyFileAction) GetOutput() interface{} {
+	return map[string]interface{}{
+		"source":      a.Source,
+		"destination": a.Destination,
+		"createDir":   a.CreateDir,
+		"recursive":   a.Recursive,
+		"success":     true,
+	}
 }
