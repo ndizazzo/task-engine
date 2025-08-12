@@ -2,6 +2,29 @@
 
 Working examples for the Task Engine.
 
+## Quick Examples
+
+### File Operations
+
+```go
+task := tasks.NewFileOperationsTask(logger, "/tmp/project")
+err := task.Run(context.Background())
+```
+
+### Docker Setup
+
+```go
+task := tasks.NewDockerSetupTask(logger, "/path/to/compose")
+err := task.Run(context.Background())
+```
+
+### Package Management
+
+```go
+task := tasks.NewPackageManagementTask(logger, []string{"git", "curl"})
+err := task.Run(context.Background())
+```
+
 ## Parameter Passing
 
 [parameter_passing_examples.md](parameter_passing_examples.md) - Complete examples of action parameter passing:
