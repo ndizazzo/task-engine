@@ -1,17 +1,9 @@
 # Task Engine
 
 [![CI/CD Pipeline](https://github.com/ndizazzo/task-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/ndizazzo/task-engine/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/ndizazzo/task-engine/graph/badge.svg?token=O020V4C6TV)](https://codecov.io/gh/ndizazzo/task-engine)
+[![codecov](https://codecov.io/gh/ndizazzo/task-engine/graph/badge.svg?token=O020V4C6TV)](https://codecov.io/gh/ndizazzo/task-engine/graph/badge.svg?token=O020V4C6TV)
 
-A powerful, type-safe Go task execution framework with built-in actions for file operations, Docker management, system administration, and more.
-
-## Installation
-
-Add the module to your Go project:
-
-```bash
-go get github.com/ndizazzo/task-engine
-```
+A Go task execution framework with built-in actions for file operations, Docker management, and system administration.
 
 ## Quick Start
 
@@ -30,94 +22,57 @@ import (
 func main() {
     logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-    // Create a simple task using the file operations example
+    // Create and run a task
     task := tasks.NewFileOperationsTask(logger, "/tmp/myproject")
-
-    // Execute the task
     if err := task.Run(context.Background()); err != nil {
         logger.Error("Task failed", "error", err)
         os.Exit(1)
     }
-
-    logger.Info("Task completed successfully!")
 }
 ```
 
-## Features
+## Core Concepts
 
-- **Type-Safe Actions**: Generic-based architecture with compile-time safety
-- **24+ Built-in Actions**: File operations, Docker management, system commands, package management
-- **Action Parameter Passing**: Seamless data flow between actions and tasks using declarative parameter references
-- **Lifecycle Management**: Before/Execute/After hooks with proper error handling
-- **Context Support**: Cancellation and timeout handling
-- **Comprehensive Logging**: Structured logging with configurable output
-- **Easy Testing**: Built-in mocking support for all actions
+- **Tasks**: Collections of actions that execute sequentially
+- **Actions**: Individual operations (file, Docker, system)
+- **Parameters**: Pass data between actions using `ActionOutput()` and `TaskOutput()`
+- **Context**: Share data across tasks with `TaskManager`
 
 ## Built-in Actions
 
-The Task Engine includes 19+ built-in actions for file operations, Docker management, system administration, and utilities. See [ACTIONS.md](ACTIONS.md) for complete documentation.
+24+ actions for common operations:
+
+- **File**: Create, read, write, copy, compress, extract
+- **Docker**: Run, compose, health checks, image management
+- **System**: Service management, package installation
+- **Utilities**: Network info, prerequisites, timing
+
+See [ACTIONS.md](ACTIONS.md) for complete list.
+
+## Parameter Passing
+
+Actions can reference outputs from previous actions:
 
 ```go
-import "github.com/ndizazzo/task-engine/tasks"
-
-// Common task examples
-dockerTask := tasks.NewDockerSetupTask(logger, "/path/to/project")
-fileTask := tasks.NewFileOperationsTask(logger, "/path/to/project")
-packageTask := tasks.NewPackageManagementTask(logger, []string{"git", "curl"})
-```
-
-## Action Parameter Passing
-
-Actions can reference outputs from previous actions and tasks using declarative parameters:
-
-```go
-// Action-to-action parameter passing
+// Reference action output
 file.NewReplaceLinesAction(
-    "input.txt",
+    "config.txt",
     map[*regexp.Regexp]string{
-        regexp.MustCompile("{{content}}"):
-            task_engine.ActionOutput("read-file", "content"),
+        regexp.MustCompile("{{version}}"):
+            task_engine.ActionOutput("read-file", "version"),
     },
     logger,
 )
 
-// Cross-task parameter passing
+// Reference task output
 docker.NewDockerRunAction(
-    task_engine.TaskOutput("build-app", "imageID"),
+    task_engine.TaskOutput("build", "imageID"),
     []string{"-p", "8080:8080"},
     logger,
 )
 ```
 
-See [docs/parameter_passing.md](docs/parameter_passing.md) for complete documentation.
-
-## Creating Custom Actions
-
-```go
-type MyAction struct {
-    task_engine.BaseAction
-    Message string
-}
-
-func (a *MyAction) Execute(ctx context.Context) error {
-    a.Logger.Info("Executing custom action", "message", a.Message)
-    return nil
-}
-
-func NewMyAction(message string, logger *slog.Logger) *task_engine.Action[*MyAction] {
-    return &task_engine.Action[*MyAction]{
-        ID: "my-custom-action",
-        Wrapped: &MyAction{
-            BaseAction: task_engine.BaseAction{Logger: logger},
-            Message:    message,
-        },
-    }
-}
-```
-
 ## Task Management
-
-Use the `TaskManager` for advanced task orchestration:
 
 ```go
 manager := task_engine.NewTaskManager(logger)
@@ -126,39 +81,63 @@ manager := task_engine.NewTaskManager(logger)
 taskID := manager.AddTask(task)
 err := manager.RunTask(context.Background(), taskID)
 
-// Stop running tasks
+// Stop tasks
 manager.StopTask(taskID)
 manager.StopAllTasks()
 ```
 
-## Error Handling
-
-Tasks automatically stop on first error and provide detailed error information:
+## Custom Actions
 
 ```go
-if err := task.Run(ctx); err != nil {
-    if errors.Is(err, task_engine.ErrPrerequisiteNotMet) {
-        logger.Warn("Prerequisites not met, skipping task")
-    } else {
-        logger.Error("Task execution failed", "error", err)
+type MyAction struct {
+    task_engine.BaseAction
+    Message string
+}
+
+func (a *MyAction) Execute(ctx context.Context) error {
+    a.Logger.Info("Executing", "message", a.Message)
+    return nil
+}
+
+func NewMyAction(message string, logger *slog.Logger) *task_engine.Action[*MyAction] {
+    return &task_engine.Action[*MyAction]{
+        ID: "my-action",
+        Wrapped: &MyAction{
+            BaseAction: task_engine.BaseAction{Logger: logger},
+            Message:    message,
+        },
     }
 }
 ```
 
-## Testing
+## Examples
 
-The module provides comprehensive testing support with mocks and performance testing:
+See `tasks/` directory for complete examples:
+
+- File operations workflow
+- Docker setup and management
+- Package installation
+- Archive extraction
+
+## Testing
 
 ```go
 import "github.com/ndizazzo/task-engine/testing/mocks"
 
-// Mock implementations
 mockManager := mocks.NewEnhancedTaskManagerMock()
 mockRunner := &mocks.MockCommandRunner{}
 ```
 
-See [testing/README.md](testing/README.md) for complete testing documentation.
+## Documentation
+
+- [Quick Start](docs/QUICKSTART.md) - Get up and running in minutes
+- [Architecture](docs/ARCHITECTURE.md) - Core concepts and structure
+- [API Reference](docs/API.md) - Complete API documentation
+- [Actions](ACTIONS.md) - Built-in actions reference
+- [Examples](docs/examples/) - Usage examples and patterns
+- [Testing](testing/README.md) - Testing utilities
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 ## License
 
-This project is available under the MIT License.
+MIT License
