@@ -19,11 +19,6 @@ const (
 	LongActionTime   = 500 * time.Millisecond
 )
 
-// Explicit reusable context
-func testContext() context.Context {
-	return context.Background()
-}
-
 // NewDiscardLogger creates a new logger that discards all output
 // This is useful for tests to prevent log output from cluttering test results
 func NewDiscardLogger() *slog.Logger {
