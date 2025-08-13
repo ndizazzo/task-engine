@@ -37,7 +37,7 @@ func NewDockerComposeLsAction(logger *slog.Logger) *DockerComposeLsActionBuilder
 }
 
 // WithParameters sets the parameters for working directory and configuration
-func (b *DockerComposeLsActionBuilder) WithParameters(workingDirParam task_engine.ActionParameter, config DockerComposeLsConfig) *task_engine.Action[*DockerComposeLsAction] {
+func (b *DockerComposeLsActionBuilder) WithParameters(workingDirParam task_engine.ActionParameter, config DockerComposeLsConfig) (*task_engine.Action[*DockerComposeLsAction], error) {
 	// Determine whether to treat the provided parameter as active
 	// - Non-empty static string: active (resolve at runtime)
 	// - Non-string static parameter: active (so Execute will error as tests expect)
@@ -79,7 +79,7 @@ func (b *DockerComposeLsActionBuilder) WithParameters(workingDirParam task_engin
 		ID:      id,
 		Name:    "Docker Compose LS",
 		Wrapped: action,
-	}
+	}, nil
 }
 
 // DockerComposeLsOption is a function type for configuring DockerComposeLsAction

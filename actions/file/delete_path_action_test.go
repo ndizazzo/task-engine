@@ -27,7 +27,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_Success() {
 	err := os.WriteFile(filePath, []byte("test content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -38,8 +39,9 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_Success() {
 func (suite *DeletePathActionTestSuite) TestDeletePath_FileNotExists() {
 	filePath := filepath.Join(suite.tempDir, "nonexistent.txt")
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
-	err := deleteAction.Execute(context.Background())
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	suite.NoError(err)
+	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 }
 
@@ -48,7 +50,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_PermissionDenied() {
 	err := os.WriteFile(filePath, []byte("content"), 0o400)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	// os.RemoveAll can delete read-only files, so this should succeed
 	suite.NoError(err)
@@ -62,7 +65,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DirectoryWithoutRecursive
 	err := os.MkdirAll(dirPath, 0o750)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, false, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, false, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.Error(err)
 }
@@ -77,7 +81,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DirectoryWithRecursive() 
 	err = os.WriteFile(filePath, []byte("content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -103,7 +108,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithNestedDirect
 	err = os.WriteFile(file2, []byte("content2"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -122,7 +128,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithSymlinks() {
 	err = os.Symlink(filePath, symlinkPath)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -140,7 +147,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithBrokenSymlin
 	err = os.Symlink("/nonexistent/path", brokenLink)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -156,7 +164,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithSpecialFiles
 	err = os.WriteFile(regularFile, []byte("regular content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -182,7 +191,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithHiddenFiles(
 	err = os.WriteFile(hiddenNestedFile, []byte("nested content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -208,7 +218,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithDeepNesting(
 		suite.NoError(err)
 	}
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -228,7 +239,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithPermissionEr
 	err = os.Chmod(dirPath, 0o555)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.Error(err)
 	os.Chmod(dirPath, 0o755)
@@ -247,7 +259,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithDirectoryDel
 	err = os.Chmod(dirPath, 0o555)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	// Note: os.RemoveAll can sometimes succeed even with permission issues
 	// This test may pass or fail depending on the system, which is acceptable
@@ -269,7 +282,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_RecursiveWithRootDirector
 	err = os.Chmod(dirPath, 0o555)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.Error(err)
 	os.Chmod(dirPath, 0o755)
@@ -280,7 +294,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_EmptyDirectory() {
 	err := os.MkdirAll(dirPath, 0o750)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -300,7 +315,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_LargeDirectory() {
 		suite.NoError(err)
 	}
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -310,8 +326,9 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_LargeDirectory() {
 
 func (suite *DeletePathActionTestSuite) TestNewDeletePathAction_InvalidParameters() {
 	logger := mocks.NewDiscardLogger()
-	action := file.NewDeletePathAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, false, false, false, nil)
-	err := action.Execute(context.Background())
+	action, err := file.NewDeletePathAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, false, false, false, nil)
+	suite.NoError(err)
+	err = action.Execute(context.Background())
 	suite.Error(err)
 }
 
@@ -321,7 +338,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_SpecialCharacters() {
 	err := os.WriteFile(filePath, []byte("content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, false, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -341,7 +359,7 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_ConcurrentAccess() {
 		suite.NoError(err)
 	}
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, false, false, nil)
 
 	// Simulate concurrent access by modifying files during deletion
 	// This is a basic test - in real scenarios, you might use goroutines
@@ -357,7 +375,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DryRunFile() {
 	err := os.WriteFile(filePath, []byte("test content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, true, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: filePath}, false, true, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -376,7 +395,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DryRunDirectory() {
 	err = os.WriteFile(filePath, []byte("content"), 0o600)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -410,7 +430,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DryRunWithNestedStructure
 	err = os.Symlink(file1, symlinkPath)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 
@@ -443,7 +464,8 @@ func (suite *DeletePathActionTestSuite) TestDeletePath_DryRunWithSymlinks() {
 	err = os.Symlink("/nonexistent/path", brokenLink)
 	suite.NoError(err)
 
-	deleteAction := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	deleteAction, err := file.NewDeletePathAction(nil).WithParameters(task_engine.StaticParameter{Value: dirPath}, true, true, false, nil)
+	suite.NoError(err)
 	err = deleteAction.Execute(context.Background())
 	suite.NoError(err)
 

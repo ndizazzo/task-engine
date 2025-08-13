@@ -40,12 +40,13 @@ func (suite *MoveFileTestSuite) TearDownTest() {
 func (suite *MoveFileTestSuite) TestNewMoveFileAction_ValidInputs() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "destination.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: destination},
 		false,
 	)
 
+	suite.NoError(err)
 	suite.NotNil(action)
 	suite.Equal("move-file-action", action.ID)
 }
@@ -55,34 +56,37 @@ func (suite *MoveFileTestSuite) TestNewMoveFileAction_InvalidInputs() {
 	destination := filepath.Join(suite.tempDir, "destination.txt")
 
 	{
-		action := file.NewMoveFileAction(logger).WithParameters(
+		action, err := file.NewMoveFileAction(logger).WithParameters(
 			task_engine.StaticParameter{Value: ""},
 			task_engine.StaticParameter{Value: destination},
 			false,
 		)
+		suite.NoError(err)
 		// Execute to trigger validation error
 		action.Wrapped.SetCommandRunner(suite.mockRunner)
-		err := action.Wrapped.Execute(context.Background())
+		err = action.Wrapped.Execute(context.Background())
 		suite.Error(err)
 	}
 	{
-		action := file.NewMoveFileAction(logger).WithParameters(
+		action, err := file.NewMoveFileAction(logger).WithParameters(
 			task_engine.StaticParameter{Value: suite.tempFile},
 			task_engine.StaticParameter{Value: ""},
 			false,
 		)
+		suite.NoError(err)
 		action.Wrapped.SetCommandRunner(suite.mockRunner)
-		err := action.Wrapped.Execute(context.Background())
+		err = action.Wrapped.Execute(context.Background())
 		suite.Error(err)
 	}
 	{
-		action := file.NewMoveFileAction(logger).WithParameters(
+		action, err := file.NewMoveFileAction(logger).WithParameters(
 			task_engine.StaticParameter{Value: suite.tempFile},
 			task_engine.StaticParameter{Value: suite.tempFile},
 			false,
 		)
+		suite.NoError(err)
 		action.Wrapped.SetCommandRunner(suite.mockRunner)
-		err := action.Wrapped.Execute(context.Background())
+		err = action.Wrapped.Execute(context.Background())
 		suite.Error(err)
 	}
 }
@@ -90,16 +94,17 @@ func (suite *MoveFileTestSuite) TestNewMoveFileAction_InvalidInputs() {
 func (suite *MoveFileTestSuite) TestExecute_SimpleMove() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "destination.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: destination},
 		false,
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
 	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -108,16 +113,17 @@ func (suite *MoveFileTestSuite) TestExecute_SimpleMove() {
 func (suite *MoveFileTestSuite) TestExecute_WithCreateDirs() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "subdir", "destination.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: destination},
 		true,
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
 	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())
@@ -129,14 +135,15 @@ func (suite *MoveFileTestSuite) TestExecute_WithCreateDirs() {
 func (suite *MoveFileTestSuite) TestExecute_NonExistentSource() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "destination.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/nonexistent/source.txt"},
 		task_engine.StaticParameter{Value: destination},
 		false,
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "source path does not exist")
@@ -145,16 +152,17 @@ func (suite *MoveFileTestSuite) TestExecute_NonExistentSource() {
 func (suite *MoveFileTestSuite) TestExecute_CommandFailure() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "destination.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: destination},
 		false,
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
 	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("permission denied", assert.AnError)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to move")
@@ -164,16 +172,17 @@ func (suite *MoveFileTestSuite) TestExecute_CommandFailure() {
 func (suite *MoveFileTestSuite) TestExecute_RenameFile() {
 	logger := command_mock.NewDiscardLogger()
 	destination := filepath.Join(suite.tempDir, "renamed.txt")
-	action := file.NewMoveFileAction(logger).WithParameters(
+	action, err := file.NewMoveFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: destination},
 		false,
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
 	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.mockRunner.AssertExpectations(suite.T())

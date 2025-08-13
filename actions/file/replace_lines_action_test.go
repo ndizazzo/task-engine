@@ -138,7 +138,8 @@ func (suite *ReplaceLinesTestSuite) TestWithParameters() {
 	patterns := make(map[*regexp.Regexp]engine.ActionParameter)
 	patterns[regexp.MustCompile(`test`)] = engine.StaticParameter{Value: "replacement"}
 
-	wrappedAction := action.WithParameters(filePath, patterns)
+	wrappedAction, err := action.WithParameters(filePath, patterns)
+	suite.NoError(err)
 	suite.NotNil(wrappedAction)
 	suite.Equal("replace-lines-action", wrappedAction.ID)
 	suite.Equal("Replace Lines", wrappedAction.Name)
@@ -150,7 +151,8 @@ func (suite *ReplaceLinesTestSuite) TestWithParametersNilParams() {
 	logger := command_mock.NewDiscardLogger()
 	action := file.NewReplaceLinesAction(logger)
 
-	wrappedAction := action.WithParameters(nil, nil)
+	wrappedAction, err := action.WithParameters(nil, nil)
+	suite.NoError(err)
 	suite.NotNil(wrappedAction)
 	suite.Nil(wrappedAction.Wrapped.FilePathParam)
 	suite.Nil(wrappedAction.Wrapped.ReplaceParamPatterns)
@@ -171,7 +173,8 @@ func (suite *ReplaceLinesTestSuite) TestExecuteWithFilePathParameter() {
 	patterns[regexp.MustCompile(`^interface=.*$`)] = engine.StaticParameter{Value: "interface=eth0"}
 	patterns[regexp.MustCompile(`^server=.*$`)] = engine.StaticParameter{Value: "server=new"}
 
-	wrappedAction := action.WithParameters(filePathParam, patterns)
+	wrappedAction, err := action.WithParameters(filePathParam, patterns)
+	suite.NoError(err)
 
 	// Create context with global context for parameter resolution
 	gc := &engine.GlobalContext{}

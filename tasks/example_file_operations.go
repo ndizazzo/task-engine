@@ -75,23 +75,31 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 5: Replace placeholder text in the source file
 			func() engine.ActionWrapper {
-				action := file.NewReplaceLinesAction(logger).WithParameters(
+				action, err := file.NewReplaceLinesAction(logger).WithParameters(
 					engine.StaticParameter{Value: workingDir + "/src/main.go"},
 					map[*regexp.Regexp]engine.ActionParameter{
 						regexp.MustCompile("TODO: implement main logic"): engine.StaticParameter{Value: "fmt.Println(\"Hello, Task Engine!\")"},
 					},
 				)
+				if err != nil {
+					logger.Error("Failed to create replace lines action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 
 			// Step 6: Replace configuration values
 			func() engine.ActionWrapper {
-				action := file.NewReplaceLinesAction(logger).WithParameters(
+				action, err := file.NewReplaceLinesAction(logger).WithParameters(
 					engine.StaticParameter{Value: workingDir + "/config.json"},
 					map[*regexp.Regexp]engine.ActionParameter{
 						regexp.MustCompile("\"development\""): engine.StaticParameter{Value: "\"production\""},
 					},
 				)
+				if err != nil {
+					logger.Error("Failed to create replace lines action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 
@@ -127,13 +135,17 @@ func NewFileOperationsTask(logger *slog.Logger, workingDir string) *engine.Task 
 
 			// Step 9: Clean up temporary file
 			func() engine.ActionWrapper {
-				action := file.NewDeletePathAction(logger).WithParameters(
+				action, err := file.NewDeletePathAction(logger).WithParameters(
 					engine.StaticParameter{Value: workingDir + "/tmp/test.txt"},
 					false,
 					false,
 					false,
 					nil,
 				)
+				if err != nil {
+					logger.Error("Failed to create delete path action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 		},

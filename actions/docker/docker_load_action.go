@@ -25,7 +25,7 @@ func NewDockerLoadAction(logger *slog.Logger) *DockerLoadActionBuilder {
 }
 
 // WithParameters sets the parameters for tar file path
-func (b *DockerLoadActionBuilder) WithParameters(tarFilePathParam task_engine.ActionParameter) *task_engine.Action[*DockerLoadAction] {
+func (b *DockerLoadActionBuilder) WithParameters(tarFilePathParam task_engine.ActionParameter) (*task_engine.Action[*DockerLoadAction], error) {
 	b.tarFilePathParam = tarFilePathParam
 
 	action := &DockerLoadAction{
@@ -62,7 +62,7 @@ func (b *DockerLoadActionBuilder) WithParameters(tarFilePathParam task_engine.Ac
 		ID:      id,
 		Name:    "Docker Load",
 		Wrapped: action,
-	}
+	}, nil
 }
 
 // WithOptions adds options to the builder

@@ -26,13 +26,14 @@ func (suite *DockerRunTestSuite) TestExecuteSuccess() {
 	image := "hello-world:latest"
 	runArgs := []string{"--rm", image}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	action, err := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "Hello from Docker! ...some more output..."
 	suite.mockProcessor.On("RunCommand", "docker", "run", "--rm", image).Return(expectedOutput+"\n  ", nil) // Simulate untrimmed output
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -43,13 +44,14 @@ func (suite *DockerRunTestSuite) TestExecuteSuccessWithCommand() {
 	image := "busybox:latest"
 	runArgs := []string{"--rm", image, "echo", "hello from busybox"}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	action, err := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "hello from busybox"
 	suite.mockProcessor.On("RunCommand", "docker", "run", "--rm", image, "echo", "hello from busybox").Return(expectedOutput+"\n", nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -60,13 +62,14 @@ func (suite *DockerRunTestSuite) TestExecuteCommandFailure() {
 	image := "nonexistent-image:latest"
 	runArgs := []string{"--rm", image}
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	action, err := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, nil, runArgs...)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "Error: image not found..."
 	suite.mockProcessor.On("RunCommand", "docker", "run", "--rm", image).Return(expectedOutput+" ", assert.AnError)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to run docker container")
@@ -80,13 +83,14 @@ func (suite *DockerRunTestSuite) TestExecuteSuccessWithBuffer() {
 	logger := command_mock.NewDiscardLogger()
 	var buffer bytes.Buffer // Create buffer
 
-	action := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, &buffer, runArgs...)
+	action, err := docker.NewDockerRunAction(logger).WithParameters(task_engine.StaticParameter{Value: image}, &buffer, runArgs...)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
 
 	expectedOutput := "buffer test"
 	suite.mockProcessor.On("RunCommand", "docker", "run", "--rm", image, "echo", "-n", "buffer test").Return(expectedOutput, nil)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
 	suite.Equal(expectedOutput, action.Wrapped.Output)

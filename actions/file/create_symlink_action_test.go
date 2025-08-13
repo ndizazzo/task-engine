@@ -32,7 +32,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_Success() {
 
 	// Create symlink
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
@@ -53,7 +54,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_WithCreateDirs() {
 
 	// Create symlink in a subdirectory that doesn't exist
 	linkPath := filepath.Join(suite.tempDir, "subdir", "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, true)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, true)
+	suite.Require().NoError(err)
 
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
@@ -74,7 +76,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_OverwriteExisting()
 
 	// Create initial symlink
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
@@ -83,7 +86,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_OverwriteExisting()
 	suite.Require().NoError(err)
 
 	// Overwrite the symlink
-	action = NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: newTargetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err = NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: newTargetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	suite.Require().NoError(err)
 
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
@@ -100,7 +104,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_RelativeTarget() {
 	// Create symlink with relative target
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
 	relativeTarget := "target.txt"
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: relativeTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: relativeTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 	info, err := os.Lstat(linkPath)
@@ -123,7 +128,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ToDirectory() {
 
 	// Create symlink to directory
 	linkPath := filepath.Join(suite.tempDir, "dir_link")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetDir}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetDir}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 	info, err := os.Lstat(linkPath)
@@ -141,8 +147,9 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ToNonExistentTarget
 	// Create symlink to non-existent target
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
 	nonExistentTarget := filepath.Join(suite.tempDir, "nonexistent.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: nonExistentTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
-	err := action.Execute(context.Background())
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: nonExistentTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 	info, err := os.Lstat(linkPath)
 
@@ -156,8 +163,9 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_InvalidTargetPath()
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
 	invalidTarget := ""
 
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: invalidTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
-	err := action.Execute(context.Background())
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: invalidTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 	suite.Require().Error(err)
 }
 
@@ -167,7 +175,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_InvalidLinkPath() {
 	suite.Require().NoError(err)
 	invalidLinkPath := ""
 
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: invalidLinkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: invalidLinkPath}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().Error(err)
 }
@@ -177,7 +186,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_SameTargetAndLink()
 	err := os.WriteFile(targetFile, []byte("content"), 0o600)
 	suite.Require().NoError(err)
 
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: targetFile}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: targetFile}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().Error(err)
 }
@@ -188,12 +198,12 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ExistingSymlinkNoOv
 
 	// Create initial symlink
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 
 	// Try to create symlink again without overwrite
-	action = NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err = NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 }
@@ -207,7 +217,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ExistingFileNoOverw
 	err = os.WriteFile(linkPath, []byte("existing file"), 0o600)
 
 	// Try to create symlink without overwrite
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 }
@@ -221,7 +231,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ExistingFileWithOve
 	err = os.WriteFile(linkPath, []byte("existing file"), 0o600)
 
 	// Create symlink with overwrite
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
 	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	info, err := os.Lstat(linkPath)
@@ -238,7 +248,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_WithoutCreateDirs()
 
 	// Try to create symlink in non-existent directory without createDirs
 	linkPath := filepath.Join(suite.tempDir, "nonexistent", "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 }
@@ -246,8 +256,9 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_WithoutCreateDirs()
 func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_CircularSymlink() {
 	// Create a circular symlink (this should work, but accessing it will fail)
 	linkPath := filepath.Join(suite.tempDir, "circular")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: linkPath}, task_engine.StaticParameter{Value: linkPath}, false, false)
-	err := action.Execute(context.Background())
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: linkPath}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 }
 
@@ -262,7 +273,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_ComplexRelativePath
 	// Create symlink with complex relative path
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
 	relativeTarget := "target_dir/target.txt"
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: relativeTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: relativeTarget}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 	info, err := os.Lstat(linkPath)
@@ -279,7 +291,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkCreati
 
 	// Create symlink
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().NoError(err)
 	info, err := os.Lstat(linkPath)
@@ -293,8 +306,9 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkCreati
 
 func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_EmptyTarget() {
 	linkPath := filepath.Join(suite.tempDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: ""}, task_engine.StaticParameter{Value: linkPath}, false, false)
-	err := action.Execute(context.Background())
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: ""}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	suite.Require().NoError(err)
+	err = action.Execute(context.Background())
 	suite.Require().Error(err)
 }
 
@@ -302,7 +316,8 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_EmptyLinkPath() {
 	targetFile := filepath.Join(suite.tempDir, "target.txt")
 	err := os.WriteFile(targetFile, []byte("content"), 0o600)
 
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: ""}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: ""}, false, false)
+	suite.Require().NoError(err)
 	err = action.Execute(context.Background())
 	suite.Require().Error(err)
 }
@@ -318,7 +333,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_StatError() {
 	err = os.MkdirAll(linkDir, 0o400) // Read-only directory
 
 	linkPath := filepath.Join(linkDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 
 	// This should fail due to permission issues when trying to stat
@@ -335,7 +350,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_DirectoryCreationFa
 
 	// Try to create symlink in a subdirectory of the read-only directory
 	linkPath := filepath.Join(readonlyDir, "subdir", "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, true)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, true)
 	suite.Require().NoError(err)
 
 	// This should fail due to permission issues when creating directories
@@ -351,7 +366,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_SymlinkCreationFail
 	err = os.MkdirAll(linkDir, 0o400) // Read-only directory
 
 	linkPath := filepath.Join(linkDir, "link.txt")
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, false, false)
 	suite.Require().NoError(err)
 
 	// This should fail due to permission issues
@@ -368,7 +383,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkTarget
 	err = os.Symlink(wrongTarget, linkPath)
 
 	// Try to create a symlink with the correct target
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
 	suite.Require().NoError(err)
 
 	// This should succeed because overwrite is true
@@ -388,7 +403,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkRelati
 	err = os.Symlink(relativeTarget, linkPath)
 
 	// Try to create a symlink with absolute target
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
 	suite.Require().NoError(err)
 
 	// This should succeed and the verification should handle the path resolution
@@ -412,7 +427,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkComple
 	err = os.Symlink(complexRelativeTarget, linkPath)
 
 	// Try to create a symlink with absolute target
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
 	suite.Require().NoError(err)
 
 	// This should succeed and the verification should handle the complex path resolution
@@ -434,7 +449,7 @@ func (suite *CreateSymlinkActionTestSuite) TestCreateSymlink_VerifySymlinkPathRe
 	suite.Require().NoError(err)
 
 	// Try to create a symlink with the correct target
-	action := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
+	action, err := NewCreateSymlinkAction(nil).WithParameters(task_engine.StaticParameter{Value: targetFile}, task_engine.StaticParameter{Value: linkPath}, true, false)
 	suite.Require().NoError(err)
 
 	// This should succeed because overwrite is true
