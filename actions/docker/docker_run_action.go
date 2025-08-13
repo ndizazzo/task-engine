@@ -27,7 +27,7 @@ func NewDockerRunAction(logger *slog.Logger) *DockerRunActionBuilder {
 }
 
 // WithParameters sets the parameters for image, output buffer, and run arguments
-func (b *DockerRunActionBuilder) WithParameters(imageParam task_engine.ActionParameter, outputBuffer *bytes.Buffer, runArgs ...string) *task_engine.Action[*DockerRunAction] {
+func (b *DockerRunActionBuilder) WithParameters(imageParam task_engine.ActionParameter, outputBuffer *bytes.Buffer, runArgs ...string) (*task_engine.Action[*DockerRunAction], error) {
 	b.imageParam = imageParam
 	b.outputBuffer = outputBuffer
 	b.runArgs = runArgs
@@ -44,7 +44,7 @@ func (b *DockerRunActionBuilder) WithParameters(imageParam task_engine.ActionPar
 			commandRunner: command.NewDefaultCommandRunner(),
 			ImageParam:    b.imageParam,
 		},
-	}
+	}, nil
 }
 
 // NOTE: Command arguments for inside the container should be part of RunArgs

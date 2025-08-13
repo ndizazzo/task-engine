@@ -21,16 +21,17 @@ func (suite *DockerStatusActionTestSuite) SetupTest() {
 	suite.mockProcessor = new(command_mock.MockCommandRunner)
 }
 
-func (suite *DockerStatusActionTestSuite) TestGetSpecificContainerState() {
+func (suite *DockerStatusActionTestSuite) TestGetSingleContainerState() {
 	containerName := "test-container"
 	expectedOutput := `{"ID":"abc123","Names":"test-container","Image":"nginx:latest","Status":"Up 2 hours"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerName})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerName})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -48,12 +49,13 @@ func (suite *DockerStatusActionTestSuite) TestGetMultipleContainerStates() {
 	expectedOutput := `{"ID":"abc123","Names":"container1","Image":"nginx:latest","Status":"Up 2 hours"}
 {"ID":"def456","Names":"container2","Image":"redis:alpine","Status":"Exited (0) 1 hour ago"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerNames})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerNames})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=container1", "--filter", "name=container2").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -78,12 +80,13 @@ func (suite *DockerStatusActionTestSuite) TestGetAllContainersState() {
 {"ID":"def456","Names":"container2","Image":"redis:alpine","Status":"Exited (0) 1 hour ago"}
 {"ID":"ghi789","Names":"container3","Image":"postgres:13","Status":"Paused"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -113,12 +116,13 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithMultipleNames() {
 	containerName := "test-container"
 	expectedOutput := `{"ID":"abc123","Names":"test-container,my-container,alias1","Image":"nginx:latest","Status":"Up 2 hours"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerName})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: containerName})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -133,12 +137,13 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithMultipleNames() {
 
 func (suite *DockerStatusActionTestSuite) TestEmptyOutput() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return("", nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -147,12 +152,13 @@ func (suite *DockerStatusActionTestSuite) TestEmptyOutput() {
 
 func (suite *DockerStatusActionTestSuite) TestWhitespaceOnlyOutput() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return("   \n  \t  ", nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -165,12 +171,13 @@ func (suite *DockerStatusActionTestSuite) TestMalformedJSONLine() {
 {"ID":"ghi789","Names":"container3","Image":"postgres:13","Status":"Paused"}
 {"ID":"jkl012","Names":"container4","Image":"invalid-json","Status":"Up 1 hour`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -192,12 +199,13 @@ func (suite *DockerStatusActionTestSuite) TestMalformedJSONLine() {
 
 func (suite *DockerStatusActionTestSuite) TestCommandFailure() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return("", assert.AnError)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to get container state")
@@ -207,12 +215,13 @@ func (suite *DockerStatusActionTestSuite) TestCommandFailure() {
 func (suite *DockerStatusActionTestSuite) TestContainerWithEmptyNames() {
 	expectedOutput := `{"ID":"abc123","Names":"","Image":"nginx:latest","Status":"Up 2 hours"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -228,12 +237,13 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithEmptyNames() {
 func (suite *DockerStatusActionTestSuite) TestContainerWithWhitespaceInNames() {
 	expectedOutput := `{"ID":"abc123","Names":"  container1  ,  container2  ,  container3  ","Image":"nginx:latest","Status":"Up 2 hours"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -249,12 +259,13 @@ func (suite *DockerStatusActionTestSuite) TestContainerWithWhitespaceInNames() {
 func (suite *DockerStatusActionTestSuite) TestContainerWithCommasInNames() {
 	expectedOutput := `{"ID":"abc123","Names":"container1,container2,container3","Image":"nginx:latest","Status":"Up 2 hours"}`
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -277,12 +288,13 @@ func (suite *DockerStatusActionTestSuite) TestAllContainerStates() {
 {"ID":"stu901","Names":"removing-container","Image":"nginx:latest","Status":"Removing"}`
 
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -319,12 +331,13 @@ func (suite *DockerStatusActionTestSuite) TestRealisticDockerOutput() {
 {"ID":"feedcafe5678","Names":"/temp-container","Image":"busybox:latest","Status":"Dead"}`
 
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json").Return(expectedOutput, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -355,13 +368,14 @@ func (suite *DockerStatusActionTestSuite) TestRealisticDockerOutput() {
 
 func (suite *DockerStatusActionTestSuite) TestNonExistentContainer() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "non-existent-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "non-existent-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Docker returns empty output for non-existent containers
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=non-existent-container").Return("", nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -370,7 +384,8 @@ func (suite *DockerStatusActionTestSuite) TestNonExistentContainer() {
 
 func (suite *DockerStatusActionTestSuite) TestContextCancellation() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -378,7 +393,7 @@ func (suite *DockerStatusActionTestSuite) TestContextCancellation() {
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return("", context.Canceled)
 
-	err := action.Execute(ctx)
+	err = action.Execute(ctx)
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to get container state")
@@ -387,7 +402,8 @@ func (suite *DockerStatusActionTestSuite) TestContextCancellation() {
 
 func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingRequiredFields() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Output with missing ID field
@@ -396,7 +412,7 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingReq
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(outputWithMissingID, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -406,7 +422,8 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingReq
 
 func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingStatusField() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Output with missing Status field
@@ -415,7 +432,7 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingSta
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(outputWithMissingStatus, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())
@@ -425,7 +442,8 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMissingSta
 
 func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithAllInvalidLines() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Output with all invalid lines (missing required fields)
@@ -435,7 +453,7 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithAllInvalid
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(outputWithAllInvalid, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to parse any valid containers")
@@ -445,7 +463,8 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithAllInvalid
 
 func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithTooManyErrors() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Output with more than 50% invalid lines (5 invalid, 3 valid = 62.5% error rate)
@@ -460,7 +479,7 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithTooManyErr
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(outputWithTooManyErrors, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "too many parsing errors")
@@ -470,7 +489,8 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithTooManyErr
 
 func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMixedValidAndInvalid() {
 	logger := command_mock.NewDiscardLogger()
-	action := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "test-container"})
+	suite.NoError(err)
 	action.Wrapped.SetCommandProcessor(suite.mockProcessor)
 
 	// Output with some valid and some invalid lines (less than 50% errors)
@@ -482,7 +502,7 @@ func (suite *DockerStatusActionTestSuite) TestParseContainerOutputWithMixedValid
 
 	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "docker", "ps", "-a", "--format", "json", "--filter", "name=test-container").Return(outputWithMixed, nil)
 
-	err := action.Execute(suite.T().Context())
+	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
 	suite.mockProcessor.AssertExpectations(suite.T())

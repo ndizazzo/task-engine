@@ -38,7 +38,7 @@ func NewDeletePathAction(logger *slog.Logger) *DeletePathAction {
 }
 
 // WithParameters sets the parameters for path, recursive flag, dry run flag, include hidden flag, and exclude patterns
-func (a *DeletePathAction) WithParameters(pathParam task_engine.ActionParameter, recursive, dryRun, includeHidden bool, excludePatterns []string) *task_engine.Action[*DeletePathAction] {
+func (a *DeletePathAction) WithParameters(pathParam task_engine.ActionParameter, recursive, dryRun, includeHidden bool, excludePatterns []string) (*task_engine.Action[*DeletePathAction], error) {
 	a.PathParam = pathParam
 	a.Recursive = recursive
 	a.DryRun = dryRun
@@ -49,7 +49,7 @@ func (a *DeletePathAction) WithParameters(pathParam task_engine.ActionParameter,
 		ID:      "delete-path-action",
 		Name:    "Delete Path",
 		Wrapped: a,
-	}
+	}, nil
 }
 
 func (a *DeletePathAction) Execute(execCtx context.Context) error {

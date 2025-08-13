@@ -16,12 +16,40 @@ func NewDockerStatusTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Container State Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Example 1: Get state of all containers (empty param -> all)
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 			// Example 2: Get state of specific containers by name (run twice)
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "nginx"}),
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "redis"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "nginx"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "redis"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 			// Example 3: Get state of a single container
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "my-app"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "my-app"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -57,7 +85,14 @@ func NewDockerStatusFilteringTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Status Filtering Example",
 		Actions: []task_engine.ActionWrapper{
 			// Get all containers
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: ""})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -90,9 +125,30 @@ func NewDockerStatusMonitoringTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Status Monitoring Example",
 		Actions: []task_engine.ActionWrapper{
 			// Get state of critical containers
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "web-server"}),
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "database"}),
-			docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "cache"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "web-server"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "database"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewGetContainerStateAction(logger).WithParameters(task_engine.StaticParameter{Value: "cache"})
+				if err != nil {
+					logger.Error("Failed to create docker status action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}

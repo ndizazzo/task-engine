@@ -26,12 +26,16 @@ func ExampleSymlinkOperations() {
 		return
 	}
 
-	createSymlinkAction := file.NewCreateSymlinkAction(logger).WithParameters(
+	createSymlinkAction, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		task_engine.StaticParameter{Value: "/tmp/link.txt"},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// builder returns action only; errors occur at execution
 
 	// Example 2: Create a symlink to a directory
@@ -44,39 +48,55 @@ func ExampleSymlinkOperations() {
 		return
 	}
 
-	createDirSymlinkAction := file.NewCreateSymlinkAction(logger).WithParameters(
+	createDirSymlinkAction, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source_dir"},
 		task_engine.StaticParameter{Value: "/tmp/dir_link"},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// builder returns action only; errors occur at execution
 
 	// Example 3: Create a symlink with overwrite
-	createOverwriteSymlinkAction := file.NewCreateSymlinkAction(logger).WithParameters(
+	createOverwriteSymlinkAction, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		task_engine.StaticParameter{Value: "/tmp/overwrite_link.txt"},
 		true,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// builder returns action only; errors occur at execution
 
 	// Example 4: Create a symlink with directory creation
-	createSymlinkWithDirsAction := file.NewCreateSymlinkAction(logger).WithParameters(
+	createSymlinkWithDirsAction, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		task_engine.StaticParameter{Value: "/tmp/nested/dirs/link.txt"},
 		false,
 		true,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// builder returns action only; errors occur at execution
 
 	// Example 5: Create a relative symlink
-	createRelativeSymlinkAction := file.NewCreateSymlinkAction(logger).WithParameters(
+	createRelativeSymlinkAction, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "source.txt"},
 		task_engine.StaticParameter{Value: "/tmp/relative_link.txt"},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// builder returns action only; errors occur at execution
 
 	// Create a task
@@ -116,35 +136,47 @@ func ExampleSymlinkErrorHandling() {
 	logger := slog.Default()
 
 	// Example 1: Try to create symlink with empty target (should fail)
-	_ = file.NewCreateSymlinkAction(logger).WithParameters(
+	_, err := file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
 		task_engine.StaticParameter{Value: "/tmp/link.txt"},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// execution-time error expected, not at build time
 
 	// Example 2: Try to create symlink with empty link path (should fail)
-	_ = file.NewCreateSymlinkAction(logger).WithParameters(
+	_, err = file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		task_engine.StaticParameter{Value: ""},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// execution-time error expected, not at build time
 
 	// Example 3: Try to create symlink with same target and link (should fail)
-	_ = file.NewCreateSymlinkAction(logger).WithParameters(
+	_, err = file.NewCreateSymlinkAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		task_engine.StaticParameter{Value: "/tmp/source.txt"},
 		false,
 		false,
 	)
+	if err != nil {
+		logger.Error("Failed to create symlink action", "error", err)
+		return
+	}
 	// execution-time error expected, not at build time
 
 	// Example 4: Try to create symlink without overwrite when target exists
 	// First create a file
-	_, err := file.NewWriteFileAction(logger).WithParameters(
+	_, err = file.NewWriteFileAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "/tmp/existing.txt"},
 		task_engine.StaticParameter{Value: []byte("content")},
 		false,
@@ -152,12 +184,16 @@ func ExampleSymlinkErrorHandling() {
 	)
 	if err == nil {
 		// Then try to create a symlink at the same location without overwrite
-		_ = file.NewCreateSymlinkAction(logger).WithParameters(
+		_, err = file.NewCreateSymlinkAction(logger).WithParameters(
 			task_engine.StaticParameter{Value: "/tmp/source.txt"},
 			task_engine.StaticParameter{Value: "/tmp/existing.txt"},
 			false,
 			false,
 		)
+		if err != nil {
+			logger.Error("Failed to create symlink action", "error", err)
+			return
+		}
 		// This will fail during execution if run
 	}
 

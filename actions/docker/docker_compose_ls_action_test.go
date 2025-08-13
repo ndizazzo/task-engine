@@ -25,7 +25,8 @@ func TestDockerComposeLsActionTestSuite(t *testing.T) {
 func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsAction() {
 	logger := slog.Default()
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
 	suite.NotNil(action)
 	suite.Equal("docker-compose-ls-action", action.ID)
@@ -39,7 +40,7 @@ func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsAction() {
 func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsActionWithOptions() {
 	logger := slog.Default()
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
 		docker.NewDockerComposeLsConfig(
 			docker.WithComposeAll(),
@@ -49,6 +50,7 @@ func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsActionWithOpt
 			docker.WithWorkingDir("/path/to/compose"),
 		),
 	)
+	suite.NoError(err)
 
 	suite.NotNil(action)
 	suite.True(action.Wrapped.All)
@@ -67,10 +69,11 @@ testapp             stopped             /path/to/compose.yml,/path/to/override.y
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -94,10 +97,11 @@ testapp             stopped             /path/to/compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls", "--all").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeAll()))
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeAll()))
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -113,10 +117,11 @@ myapp               running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls", "--filter", "name=myapp").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFilter("name=myapp")))
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFilter("name=myapp")))
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -131,12 +136,13 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_W
 myapp               running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--format", "table {{.Name}}\t{{.Status}}").Return(expectedOutput, nil)
+	mockRunner.On("RunCommand", "docker", "compose", "ls", "--format", "table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFormat("table {{.Name}}\t{{.Status}}")))
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFormat("table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}")))
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -152,10 +158,11 @@ testapp`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls", "--quiet").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeLsQuiet()))
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeLsQuiet()))
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -172,10 +179,11 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_C
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return("", expectedError)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "docker compose command failed", "Error should contain the command failure message")
@@ -192,10 +200,11 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_C
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return("", context.Canceled)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(ctx)
+	err = action.Wrapped.Execute(ctx)
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "context canceled", "Error should contain the context cancellation message")
@@ -215,11 +224,12 @@ devapp              created             /path/to/dev-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(output, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	// Execute the action to trigger parseStacks internally
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 	suite.NoError(err)
 
 	suite.Len(action.Wrapped.Stacks, 3)
@@ -245,10 +255,11 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_E
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -265,10 +276,11 @@ testapp             stopped             /path/to/compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal(expectedOutput, action.Wrapped.Output)
@@ -281,7 +293,8 @@ func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsActionWithPar
 	logger := slog.Default()
 	workingDirParam := task_engine.StaticParameter{Value: "/tmp/test-dir"}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
 	suite.NotNil(action)
 	suite.Equal("docker-compose-ls-with-params-action", action.ID)
@@ -294,7 +307,7 @@ func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsActionWithPar
 	logger := slog.Default()
 	workingDirParam := task_engine.StaticParameter{Value: "/tmp/test-dir"}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(
 		workingDirParam,
 		docker.NewDockerComposeLsConfig(
 			docker.WithComposeAll(),
@@ -303,6 +316,7 @@ func (suite *DockerComposeLsActionTestSuite) TestNewDockerComposeLsActionWithPar
 			docker.WithComposeLsQuiet(),
 		),
 	)
+	suite.NoError(err)
 
 	suite.NotNil(action)
 	suite.True(action.Wrapped.All)
@@ -323,10 +337,11 @@ myapp               running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
 	suite.Equal("/tmp/test-dir", action.Wrapped.WorkingDir)
@@ -356,10 +371,11 @@ api-service         running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.NoError(err)
 	suite.Equal("/tmp/from-action", action.Wrapped.WorkingDir)
@@ -389,10 +405,11 @@ frontend-service    running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.NoError(err)
 	suite.Equal("/tmp/from-task", action.Wrapped.WorkingDir)
@@ -423,10 +440,11 @@ cache-service       running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.NoError(err)
 	suite.Equal("/tmp/from-build", action.Wrapped.WorkingDir)
@@ -449,9 +467,10 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithInvalidActionOutput
 		OutputKey: "workingDir",
 	}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to resolve working directory parameter")
@@ -471,9 +490,10 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithInvalidOutputKey() 
 		OutputKey: "workingDir", // This key doesn't exist
 	}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to resolve working directory parameter")
@@ -487,9 +507,10 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithEmptyActionID() {
 		OutputKey: "workingDir",
 	}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to resolve working directory parameter")
@@ -507,9 +528,10 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithNonMapOutput() {
 		OutputKey: "workingDir",
 	}
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "failed to resolve working directory parameter")
@@ -520,9 +542,10 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithNonStringWorkingDir
 	logger := slog.Default()
 	workingDirParam := task_engine.StaticParameter{Value: 123} // Not a string
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
 	suite.Contains(err.Error(), "working directory parameter is not a string, got int")
@@ -546,16 +569,17 @@ static-service      running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls", "--all", "--filter", "name=static-service").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(
 		workingDirParam,
 		docker.NewDockerComposeLsConfig(
 			docker.WithComposeAll(),
 			docker.WithComposeFilter("name=static-service"),
 		),
 	)
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
+	err = action.Wrapped.Execute(context.WithValue(context.Background(), task_engine.GlobalContextKey, globalContext))
 
 	suite.NoError(err)
 	suite.Equal("/tmp/from-action", action.Wrapped.WorkingDir) // From action output
@@ -572,7 +596,8 @@ func (suite *DockerComposeLsActionTestSuite) TestBackwardCompatibility_OriginalC
 	logger := slog.Default()
 	workingDir := "/tmp/test-dir"
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithWorkingDir(workingDir)))
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithWorkingDir(workingDir)))
+	suite.NoError(err)
 
 	suite.NotNil(action)
 	suite.Equal(workingDir, action.Wrapped.WorkingDir)
@@ -588,12 +613,12 @@ myapp               running             /path/to/docker-compose.yml`
 	mockRunner := &mocks.MockCommandRunner{}
 	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
 
-	action := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
+	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
-	err := action.Wrapped.Execute(context.Background())
+	err = action.Wrapped.Execute(context.Background())
 
-	suite.NoError(err)
 	suite.NoError(err)
 	suite.Equal("/tmp/test-dir", action.Wrapped.WorkingDir)
 	suite.Equal(expectedOutput, action.Wrapped.Output)

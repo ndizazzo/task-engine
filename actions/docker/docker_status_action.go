@@ -33,7 +33,7 @@ func NewGetContainerStateAction(logger *slog.Logger) *GetContainerStateActionBui
 }
 
 // WithParameters sets the parameters for container name
-func (b *GetContainerStateActionBuilder) WithParameters(containerNameParam task_engine.ActionParameter) *task_engine.Action[*GetContainerStateAction] {
+func (b *GetContainerStateActionBuilder) WithParameters(containerNameParam task_engine.ActionParameter) (*task_engine.Action[*GetContainerStateAction], error) {
 	b.containerNameParam = containerNameParam
 
 	id := "get-container-state-action"
@@ -46,7 +46,7 @@ func (b *GetContainerStateActionBuilder) WithParameters(containerNameParam task_
 			CommandProcessor:   command.NewDefaultCommandRunner(),
 			ContainerNameParam: b.containerNameParam,
 		},
-	}
+	}, nil
 }
 
 // GetContainerStateAction retrieves the state of Docker containers

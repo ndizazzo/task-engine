@@ -30,7 +30,7 @@ func NewReplaceLinesAction(logger *slog.Logger) *ReplaceLinesAction {
 }
 
 // WithParameters sets the parameters for file path and replacement patterns
-func (a *ReplaceLinesAction) WithParameters(filePathParam task_engine.ActionParameter, replaceParamPatterns map[*regexp.Regexp]task_engine.ActionParameter) *task_engine.Action[*ReplaceLinesAction] {
+func (a *ReplaceLinesAction) WithParameters(filePathParam task_engine.ActionParameter, replaceParamPatterns map[*regexp.Regexp]task_engine.ActionParameter) (*task_engine.Action[*ReplaceLinesAction], error) {
 	a.FilePathParam = filePathParam
 	a.ReplaceParamPatterns = replaceParamPatterns
 
@@ -38,7 +38,7 @@ func (a *ReplaceLinesAction) WithParameters(filePathParam task_engine.ActionPara
 		ID:      "replace-lines-action",
 		Name:    "Replace Lines",
 		Wrapped: a,
-	}
+	}, nil
 }
 
 func (a *ReplaceLinesAction) Execute(ctx context.Context) error {

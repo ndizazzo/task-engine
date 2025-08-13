@@ -17,28 +17,44 @@ func NewDockerLoadTask(logger *slog.Logger) *task_engine.Task {
 		Actions: []task_engine.ActionWrapper{
 			// Example 1: Basic image load from tar file
 			func() task_engine.ActionWrapper {
-				action := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/path/to/nginx.tar"})
+				action, err := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/path/to/nginx.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 
 			// Example 2: Load with platform specification
 			func() task_engine.ActionWrapper {
-				action := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/path/to/multi-platform.tar"})
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/path/to/multi-platform.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 
 			// Example 3: Load with quiet mode
 			func() task_engine.ActionWrapper {
-				action := docker.NewDockerLoadAction(logger).WithOptions(docker.WithQuiet()).WithParameters(task_engine.StaticParameter{Value: "/path/to/redis.tar"})
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithQuiet()).WithParameters(task_engine.StaticParameter{Value: "/path/to/redis.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 
 			// Example 4: Load with both platform and quiet options
 			func() task_engine.ActionWrapper {
-				action := docker.NewDockerLoadAction(logger).WithOptions(
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(
 					docker.WithPlatform("linux/arm64"),
 					docker.WithQuiet(),
 				).WithParameters(task_engine.StaticParameter{Value: "/path/to/postgres.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
 				return action
 			}(),
 		},
@@ -73,10 +89,38 @@ func NewDockerLoadBatchTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Load Batch Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Load multiple images in sequence
-			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/nginx.tar"}),
-			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/redis.tar"}),
-			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/postgres.tar"}),
-			docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/node.tar"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/nginx.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/redis.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/postgres.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithParameters(task_engine.StaticParameter{Value: "/images/node.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}
@@ -109,12 +153,40 @@ func NewDockerLoadPlatformSpecificTask(logger *slog.Logger) *task_engine.Task {
 		Name: "Docker Load Platform-Specific Operations Example",
 		Actions: []task_engine.ActionWrapper{
 			// Load AMD64 images
-			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/nginx.tar"}),
-			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/redis.tar"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/nginx.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/amd64")).WithParameters(task_engine.StaticParameter{Value: "/images/amd64/redis.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 
 			// Load ARM64 images
-			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/nginx.tar"}),
-			docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/redis.tar"}),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/nginx.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
+			func() task_engine.ActionWrapper {
+				action, err := docker.NewDockerLoadAction(logger).WithOptions(docker.WithPlatform("linux/arm64")).WithParameters(task_engine.StaticParameter{Value: "/images/arm64/redis.tar"})
+				if err != nil {
+					logger.Error("Failed to create docker load action", "error", err)
+					return nil
+				}
+				return action
+			}(),
 		},
 		Logger: logger,
 	}

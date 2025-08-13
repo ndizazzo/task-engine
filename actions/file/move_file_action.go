@@ -24,7 +24,7 @@ func NewMoveFileAction(logger *slog.Logger) *MoveFileAction {
 }
 
 // WithParameters sets the parameters for source, destination, and create directories flag
-func (a *MoveFileAction) WithParameters(sourceParam, destinationParam task_engine.ActionParameter, createDirs bool) *task_engine.Action[*MoveFileAction] {
+func (a *MoveFileAction) WithParameters(sourceParam, destinationParam task_engine.ActionParameter, createDirs bool) (*task_engine.Action[*MoveFileAction], error) {
 	a.SourceParam = sourceParam
 	a.DestinationParam = destinationParam
 	a.CreateDirs = createDirs
@@ -33,7 +33,7 @@ func (a *MoveFileAction) WithParameters(sourceParam, destinationParam task_engin
 		ID:      "move-file-action",
 		Name:    "Move File",
 		Wrapped: a,
-	}
+	}, nil
 }
 
 type MoveFileAction struct {

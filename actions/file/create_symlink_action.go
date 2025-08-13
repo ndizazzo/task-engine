@@ -31,7 +31,7 @@ func NewCreateSymlinkAction(logger *slog.Logger) *CreateSymlinkAction {
 }
 
 // WithParameters sets the parameters for target, link path, overwrite flag, and create directories flag
-func (a *CreateSymlinkAction) WithParameters(targetParam, linkPathParam task_engine.ActionParameter, overwrite, createDirs bool) *task_engine.Action[*CreateSymlinkAction] {
+func (a *CreateSymlinkAction) WithParameters(targetParam, linkPathParam task_engine.ActionParameter, overwrite, createDirs bool) (*task_engine.Action[*CreateSymlinkAction], error) {
 	a.TargetParam = targetParam
 	a.LinkPathParam = linkPathParam
 	a.Overwrite = overwrite
@@ -41,7 +41,7 @@ func (a *CreateSymlinkAction) WithParameters(targetParam, linkPathParam task_eng
 		ID:      "create-symlink-action",
 		Name:    "Create Symlink",
 		Wrapped: a,
-	}
+	}, nil
 }
 
 func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
