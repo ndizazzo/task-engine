@@ -150,7 +150,7 @@ func (p TaskOutputParameter) Resolve(ctx context.Context, globalContext *GlobalC
 
 // EntityOutputParameter references output from any entity (action or task)
 type EntityOutputParameter struct {
-    EntityType string // Required: "action" or "task"
+	EntityType string // Required: "action" or "task"
 	EntityID   string // Required: ID of the entity to reference
 	OutputKey  string // Optional: specific output field to extract
 }
@@ -160,13 +160,13 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 		return nil, fmt.Errorf("EntityOutputParameter: EntityType and EntityID cannot be empty")
 	}
 
-    const (
-        entityTypeAction = "action"
-        entityTypeTask   = "task"
-    )
+	const (
+		entityTypeAction = "action"
+		entityTypeTask   = "task"
+	)
 
-    switch p.EntityType {
-    case entityTypeAction:
+	switch p.EntityType {
+	case entityTypeAction:
 		// Try ActionOutputs first
 		if output, exists := globalContext.ActionOutputs[p.EntityID]; exists {
 			if p.OutputKey != "" {
@@ -196,7 +196,7 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 		}
 		return nil, fmt.Errorf("EntityOutputParameter: action '%s' not found in context", p.EntityID)
 
-    case entityTypeTask:
+	case entityTypeTask:
 		// Try TaskOutputs first
 		if output, exists := globalContext.TaskOutputs[p.EntityID]; exists {
 			if p.OutputKey != "" {
