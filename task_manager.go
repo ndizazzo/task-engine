@@ -59,16 +59,20 @@ func (tm *TaskManager) RunTask(taskID string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	tm.runningTasks[taskID] = cancel
 
+	// Capture the current global context under lock to avoid races with ResetGlobalContext.
+	// Tasks will run against this snapshot even if the manager's global context is reset later.
+	gc := tm.globalContext
+
 	// Start every task in a goroutine
-	go func() {
+	go func(gcSnapshot *GlobalContext) {
 		defer func() {
 			tm.mu.Lock()
 			delete(tm.runningTasks, taskID)
 			tm.mu.Unlock()
 		}()
 
-		// Run task with the global context for parameter resolution
-		err := task.RunWithContext(ctx, tm.globalContext)
+		// Run task with the captured global context for parameter resolution
+		err := task.RunWithContext(ctx, gcSnapshot)
 		if err != nil {
 			if ctx.Err() != nil {
 				tm.Logger.Info("Task canceled", "taskID", taskID, "error", err)
@@ -78,7 +82,7 @@ func (tm *TaskManager) RunTask(taskID string) error {
 		} else {
 			tm.Logger.Info("Task completed", "taskID", taskID)
 		}
-	}()
+	}(gc)
 
 	return nil
 }

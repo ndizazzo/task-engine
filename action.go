@@ -279,7 +279,25 @@ func EntityValue(gc *GlobalContext, entityType, id, key string) (interface{}, er
 			}
 			return nil, fmt.Errorf("task '%s' not found in context", id)
 		}
-		return TaskOutputFieldAs[interface{}](gc, id, key)
+		// Try TaskOutputs key first
+		if v, err := TaskOutputFieldAs[interface{}](gc, id, key); err == nil {
+			return v, nil
+		}
+		// Fallback to TaskResults if present and result is a map
+		gc.mu.RLock()
+		rp, exists := gc.TaskResults[id]
+		gc.mu.RUnlock()
+		if exists && rp != nil {
+			res := rp.GetResult()
+			if m, ok := res.(map[string]interface{}); ok {
+				if val, ok := m[key]; ok {
+					return val, nil
+				}
+				return nil, fmt.Errorf("EntityValue: result key '%s' not found in task '%s'", key, id)
+			}
+			return nil, fmt.Errorf("EntityValue: task '%s' result is not a map, cannot extract key '%s'", id, key)
+		}
+		return nil, fmt.Errorf("task '%s' not found in context", id)
 	default:
 		return nil, fmt.Errorf("invalid entity type '%s'", entityType)
 	}

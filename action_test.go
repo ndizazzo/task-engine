@@ -731,6 +731,21 @@ func TestGenerateIDFromName(t *testing.T) {
 	}
 }
 
+// New tests to cover SetID and GetName methods
+func TestAction_SetIDAndGetName(t *testing.T) {
+	a := &Action[*MockAction]{
+		Wrapped: &MockAction{},
+	}
+	// SetID should update ID
+	a.SetID("manual-id")
+	assert.Equal(t, "manual-id", a.GetID())
+	// With empty Name, GetName should fallback to ID
+	assert.Equal(t, "manual-id", a.GetName())
+	// When Name is set, GetName should return it
+	a.Name = "Friendly Name"
+	assert.Equal(t, "Friendly Name", a.GetName())
+}
+
 // Helper types for testing
 type testStringer struct{}
 
