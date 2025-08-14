@@ -4,6 +4,7 @@
 # Exclude example tasks and test files from coverage
 ignore:
   - "tasks/example_*.go"
+  - "**/example_*.go"
   - "**/*_test.go"
   - "mocks/"
   - ".github/"

@@ -19,11 +19,7 @@ const (
 	LongActionTime   = 500 * time.Millisecond
 )
 
-// NewDiscardLogger creates a new logger that discards all output
-// This is useful for tests to prevent log output from cluttering test results
-func NewDiscardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
+// duplicate NewDiscardLogger removed (defined earlier in file)
 
 type TestAction struct {
 	task_engine.BaseAction
@@ -86,11 +82,25 @@ type testResultProvider struct{ v interface{} }
 func (p testResultProvider) GetResult() interface{} { return p.v }
 func (p testResultProvider) GetError() error        { return nil }
 
-func (a *AfterExecuteFailingAction) AfterExecute(ctx context.Context) error {
-	if a.ShouldFailAfter {
-		return errors.New("simulated AfterExecute failure")
+// CancelAwareAction returns context error if canceled, otherwise completes after Delay
+type CancelAwareAction struct {
+	task_engine.BaseAction
+	Delay time.Duration
+}
+
+func (a *CancelAwareAction) Execute(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(a.Delay):
+		return nil
 	}
-	return nil
+}
+
+// NewDiscardLogger creates a new logger that discards all output
+// This is useful for tests to prevent log output from cluttering test results
+func NewDiscardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 var (
@@ -372,6 +382,179 @@ func TestResolveAsGeneric(t *testing.T) {
 	if err != nil || count != 5 {
 		t.Fatalf("expected 5, got %v, err=%v", count, err)
 	}
+}
+
+func TestEntityValueNegativePaths(t *testing.T) {
+	gc := task_engine.NewGlobalContext()
+
+	if _, err := task_engine.EntityValue(gc, "invalid", "id", ""); err == nil {
+		t.Fatalf("expected error for invalid entity type")
+	}
+	if _, err := task_engine.EntityValue(gc, "action", "missing", ""); err == nil {
+		t.Fatalf("expected error for missing action")
+	}
+	gc.StoreActionOutput("a1", map[string]interface{}{"k": 1})
+	if _, err := task_engine.ActionOutputFieldAs[string](gc, "a1", "k"); err == nil {
+		t.Fatalf("expected type error for wrong cast")
+	}
+}
+
+func TestResolveAsNegative(t *testing.T) {
+	gc := task_engine.NewGlobalContext()
+	gc.StoreActionOutput("a", map[string]interface{}{"x": "str"})
+	// wrong type
+	if _, err := task_engine.ResolveAs[int](context.Background(), task_engine.ActionOutputField("a", "x"), gc); err == nil {
+		t.Fatalf("expected type error for ResolveAs")
+	}
+}
+
+func TestIDHelpers(t *testing.T) {
+	if out := task_engine.SanitizeIDPart(" Hello/World _! "); out == "" {
+		t.Fatalf("expected sanitized non-empty id")
+	}
+	id := task_engine.BuildActionID("prefix", " Part A ", "B/C")
+	if id == "" || id == "action-action" {
+		t.Fatalf("unexpected id: %s", id)
+	}
+}
+
+// Task cancellation should still store task output and task result
+func TestTaskCancellationStoresOutputAndResult(t *testing.T) {
+	logger := NewDiscardLogger()
+	gc := task_engine.NewGlobalContext()
+
+	// Task with a quick action and a cancel-aware long-running action
+	task := &task_engine.Task{
+		ID:   "cancel-task",
+		Name: "Cancellation Test",
+		Actions: []task_engine.ActionWrapper{
+			&task_engine.Action[*DelayAction]{
+				ID:      "quick",
+				Wrapped: &DelayAction{BaseAction: task_engine.BaseAction{Logger: logger}, Delay: 1 * time.Millisecond},
+				Logger:  logger,
+			},
+			&task_engine.Action[*CancelAwareAction]{
+				ID:      "slow",
+				Wrapped: &CancelAwareAction{BaseAction: task_engine.BaseAction{Logger: logger}, Delay: 2 * time.Second},
+				Logger:  logger,
+			},
+		},
+		Logger: logger,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		// cancel shortly after start
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
+	_ = task.RunWithContext(ctx, gc)
+
+	// Verify task output and result stored
+	if _, ok := gc.TaskOutputs[task.ID]; !ok {
+		t.Fatalf("expected TaskOutputs to contain task output on cancellation")
+	}
+	if _, ok := gc.TaskResults[task.ID]; !ok {
+		t.Fatalf("expected TaskResults to contain task result provider on cancellation")
+	}
+	// Check outputs map for success=false
+	out := gc.TaskOutputs[task.ID].(map[string]interface{})
+	if out["success"].(bool) {
+		t.Fatalf("expected success=false on cancellation")
+	}
+}
+
+// ResultBuilder error should set task error and mark success=false in outputs
+func TestTaskResultBuilderErrorPath(t *testing.T) {
+	logger := NewDiscardLogger()
+	gc := task_engine.NewGlobalContext()
+
+	errSentinel := errors.New("builder failed")
+	builderTask := &task_engine.Task{
+		ID:   "builder-error",
+		Name: "Builder Error",
+		Actions: []task_engine.ActionWrapper{
+			&task_engine.Action[*DelayAction]{ID: "noop", Wrapped: &DelayAction{}, Logger: logger},
+		},
+		Logger: logger,
+		ResultBuilder: func(ctx *task_engine.TaskContext) (interface{}, error) {
+			return nil, errSentinel
+		},
+	}
+
+	_ = builderTask.RunWithContext(context.Background(), gc)
+	out, ok := gc.TaskOutputs[builderTask.ID]
+	if !ok {
+		t.Fatalf("expected TaskOutputs to contain output")
+	}
+	outMap := out.(map[string]interface{})
+	if outMap["success"].(bool) {
+		t.Fatalf("expected success=false when builder fails")
+	}
+	// Result should be from task provider with error surfaced in GetResult map
+	res, ok := task_engine.TaskResultAs[map[string]interface{}](gc, builderTask.ID)
+	if !ok {
+		t.Fatalf("expected typed task result from task provider")
+	}
+	if res["success"].(bool) {
+		t.Fatalf("expected task result success=false when builder fails")
+	}
+}
+
+// Typed helper does not fallback from outputs to results for tasks; verify error
+func TestTypedHelperNoFallbackForTaskOutputFieldAs(t *testing.T) {
+	gc := task_engine.NewGlobalContext()
+	// Only set task result, no task output
+	gc.StoreTaskResult("t1", testResultProvider{v: map[string]interface{}{"v": 1}})
+	if _, err := task_engine.TaskOutputFieldAs[int](gc, "t1", "v"); err == nil {
+		t.Fatalf("expected error since TaskOutputFieldAs should not fallback to results")
+	}
+	// But EntityValue should fallback to results and succeed (full result)
+	if v, err := task_engine.EntityValue(gc, "task", "t1", ""); err != nil {
+		t.Fatalf("expected EntityValue to return fallback result, err=%v", err)
+	} else {
+		if m, ok := v.(map[string]interface{}); !ok || m["v"].(int) != 1 {
+			t.Fatalf("unexpected result fallback: %v", v)
+		}
+	}
+	// And with a key, EntityValue should read from result map
+	if v, err := task_engine.EntityValue(gc, "task", "t1", "v"); err != nil || v.(int) != 1 {
+		t.Fatalf("expected EntityValue with key to read from result map, got %v, err=%v", v, err)
+	}
+}
+
+// TaskManager timeout and ResetGlobalContext behavior
+func TestTaskManagerTimeoutAndResetGlobalContext(t *testing.T) {
+	logger := NewDiscardLogger()
+	tm := task_engine.NewTaskManager(logger)
+
+	// Long-running task
+	task := &task_engine.Task{
+		ID:   "timeout-task",
+		Name: "Timeout Task",
+		Actions: []task_engine.ActionWrapper{
+			&task_engine.Action[*DelayAction]{ID: "slow", Wrapped: &DelayAction{Delay: 2 * time.Second}, Logger: logger},
+		},
+		Logger: logger,
+	}
+	_ = tm.AddTask(task)
+	_ = tm.RunTask("timeout-task")
+	// Expect timeout quickly
+	if err := tm.WaitForAllTasksToComplete(10 * time.Millisecond); err == nil {
+		t.Fatalf("expected timeout error")
+	}
+
+	// Store something in current global context
+	gc := tm.GetGlobalContext()
+	gc.StoreActionOutput("a", "x")
+	// Reset and verify cleared
+	tm.ResetGlobalContext()
+	gc2 := tm.GetGlobalContext()
+	if gc2 == gc || len(gc2.ActionOutputs) != 0 || len(gc2.TaskOutputs) != 0 || len(gc2.ActionResults) != 0 || len(gc2.TaskResults) != 0 {
+		t.Fatalf("expected a fresh global context after reset")
+	}
+	// Stop to clean up
+	_ = tm.StopTask("timeout-task")
 }
 
 func TestTaskWithParameterPassing(t *testing.T) {
