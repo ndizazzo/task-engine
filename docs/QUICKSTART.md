@@ -109,7 +109,7 @@ task := &task_engine.Task{
             action := file.NewReplaceLinesAction(logger).WithParameters(
                 task_engine.StaticParameter{Value: "/tmp/output.txt"},
                 map[*regexp.Regexp]task_engine.ActionParameter{
-                    regexp.MustCompile("old"): task_engine.ActionOutput("read-file", "content"),
+                    regexp.MustCompile("old"): task_engine.ActionOutputField("read-file", "content"),
                 },
             )
             return action

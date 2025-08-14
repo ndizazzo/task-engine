@@ -35,7 +35,7 @@ func main() {
 
 - **Tasks**: Collections of actions that execute sequentially
 - **Actions**: Individual operations (file, Docker, system)
-- **Parameters**: Pass data between actions using `ActionOutput()` and `TaskOutput()`
+- **Parameters**: Pass data between actions using `ActionOutput()` and `TaskOutput()`, and fetch rich results using `ActionResult()` and `TaskResult()`
 - **Context**: Share data across tasks with `TaskManager`
 
 ## Built-in Actions
@@ -51,7 +51,7 @@ See [ACTIONS.md](ACTIONS.md) for complete list.
 
 ## Parameter Passing
 
-Actions can reference outputs from previous actions:
+Actions can reference outputs from previous actions, results from actions, and results from tasks:
 
 ```go
 // Reference action output
@@ -70,6 +70,12 @@ docker.NewDockerRunAction(
     []string{"-p", "8080:8080"},
     logger,
 )
+
+// Reference action result (from an action implementing ResultProvider)
+useChecksum := task_engine.ActionResultField("download-artifact", "checksum")
+
+// Reference task result (from a task implementing ResultProvider or using ResultBuilder)
+preflightMode := task_engine.TaskResultField("preflight", "UpdateMode")
 ```
 
 ## Task Management

@@ -36,8 +36,8 @@ err := task.Run(context.Background())
 
 ## Key Concepts
 
-- **Parameters**: `task_engine.ActionOutput()`, `task_engine.TaskOutput()`
+- **Parameters**: `task_engine.ActionOutput()`, `task_engine.TaskOutput()`, `task_engine.ActionResult()`, `task_engine.TaskResult()`
 - **Global Context**: Share data between tasks using `TaskManager`
-- **Output Methods**: Implement `GetOutput()` in actions
+- **Output Methods & Results**: Implement `GetOutput()` in actions; implement `ResultProvider` or define a task `ResultBuilder` for rich results
 
 See [README.md](../../README.md) for quick start and [ACTIONS.md](../../ACTIONS.md) for available actions.

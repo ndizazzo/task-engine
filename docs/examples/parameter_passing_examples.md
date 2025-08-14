@@ -85,35 +85,19 @@ type ContentProcessorAction struct {
 }
 
 func (a *ContentProcessorAction) Execute(ctx context.Context) error {
-    // Get global context
+    // Resolve content directly using parameter helper instead of manual map parsing
     globalCtx, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
     if !ok {
         return fmt.Errorf("global context not found")
     }
-
-    // Get content from read action
-    readOutput, exists := globalCtx.ActionOutputs["read-source-file"]
-    if !exists {
-        return fmt.Errorf("read action output not found")
+    v, err := task_engine.ActionOutputField("read-source-file", "content").Resolve(ctx, globalCtx)
+    if err != nil {
+        return err
     }
-
-    // Extract content
-    readOutputMap, ok := readOutput.(map[string]interface{})
-    if !ok {
-        return fmt.Errorf("read action output is not a map")
-    }
-
-    content, exists := readOutputMap["content"]
-    if !exists {
-        return fmt.Errorf("content field not found")
-    }
-
-    // Process content (convert to uppercase)
-    contentBytes, ok := content.([]byte)
+    contentBytes, ok := v.([]byte)
     if !ok {
         return fmt.Errorf("content is not []byte")
     }
-
     a.processedContent = bytes.ToUpper(contentBytes)
     return nil
 }

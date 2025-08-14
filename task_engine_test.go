@@ -80,6 +80,12 @@ func (a *AfterExecuteFailingAction) Execute(ctx context.Context) error {
 	return nil
 }
 
+// testResultProvider is a minimal ResultProvider for tests
+type testResultProvider struct{ v interface{} }
+
+func (p testResultProvider) GetResult() interface{} { return p.v }
+func (p testResultProvider) GetError() error        { return nil }
+
 func (a *AfterExecuteFailingAction) AfterExecute(ctx context.Context) error {
 	if a.ShouldFailAfter {
 		return errors.New("simulated AfterExecute failure")
@@ -292,6 +298,80 @@ func TestGlobalContext(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestTypedGlobalContextHelpers(t *testing.T) {
+	gc := task_engine.NewGlobalContext()
+
+	// Prepare action output and result
+	gc.StoreActionOutput("act1", map[string]interface{}{"k": 123, "s": "abc"})
+
+	// Simple ResultProviders
+	gc.StoreActionResult("actRes", testResultProvider{v: map[string]interface{}{"sum": 7}})
+	gc.StoreTaskOutput("task1", map[string]interface{}{"ok": true, "n": 9})
+	gc.StoreTaskResult("taskRes", testResultProvider{v: "done"})
+
+	// ActionOutputFieldAs
+	vInt, err := task_engine.ActionOutputFieldAs[int](gc, "act1", "k")
+	if err != nil || vInt != 123 {
+		t.Fatalf("expected 123, got %v, err=%v", vInt, err)
+	}
+	vStr, err := task_engine.ActionOutputFieldAs[string](gc, "act1", "s")
+	if err != nil || vStr != "abc" {
+		t.Fatalf("expected 'abc', got %v, err=%v", vStr, err)
+	}
+
+	// TaskOutputFieldAs
+	vBool, err := task_engine.TaskOutputFieldAs[bool](gc, "task1", "ok")
+	if err != nil || vBool != true {
+		t.Fatalf("expected true, got %v, err=%v", vBool, err)
+	}
+	vNum, err := task_engine.TaskOutputFieldAs[int](gc, "task1", "n")
+	if err != nil || vNum != 9 {
+		t.Fatalf("expected 9, got %v, err=%v", vNum, err)
+	}
+
+	// ActionResultAs / TaskResultAs
+	rmap, ok := task_engine.ActionResultAs[map[string]interface{}](gc, "actRes")
+	if !ok || rmap["sum"].(int) != 7 {
+		t.Fatalf("expected action result sum=7, got %v", rmap)
+	}
+	rstr, ok := task_engine.TaskResultAs[string](gc, "taskRes")
+	if !ok || rstr != "done" {
+		t.Fatalf("expected task result 'done', got %v", rstr)
+	}
+
+	// EntityValue / EntityValueAs
+	if v, err := task_engine.EntityValue(gc, "action", "act1", "k"); err != nil || v.(int) != 123 {
+		t.Fatalf("EntityValue action k expected 123, got %v, err=%v", v, err)
+	}
+	if v, err := task_engine.EntityValue(gc, "task", "task1", "ok"); err != nil || v.(bool) != true {
+		t.Fatalf("EntityValue task ok expected true, got %v, err=%v", v, err)
+	}
+	if v, err := task_engine.EntityValue(gc, "action", "actRes", ""); err != nil {
+		t.Fatalf("EntityValue action result expected no error, got err=%v", err)
+	} else {
+		if vm, ok := v.(map[string]interface{}); !ok || vm["sum"].(int) != 7 {
+			t.Fatalf("EntityValue action result expected map with sum=7, got %v", v)
+		}
+	}
+	if s, err := task_engine.EntityValueAs[string](gc, "task", "taskRes", ""); err != nil || s != "done" {
+		t.Fatalf("EntityValueAs task result expected 'done', got %v, err=%v", s, err)
+	}
+}
+
+func TestResolveAsGeneric(t *testing.T) {
+	gc := task_engine.NewGlobalContext()
+	gc.StoreActionOutput("act", map[string]interface{}{"name": "demo", "count": 5})
+
+	name, err := task_engine.ResolveAs[string](context.Background(), task_engine.ActionOutputField("act", "name"), gc)
+	if err != nil || name != "demo" {
+		t.Fatalf("expected 'demo', got %v, err=%v", name, err)
+	}
+	count, err := task_engine.ResolveAs[int](context.Background(), task_engine.ActionOutputField("act", "count"), gc)
+	if err != nil || count != 5 {
+		t.Fatalf("expected 5, got %v, err=%v", count, err)
+	}
 }
 
 func TestTaskWithParameterPassing(t *testing.T) {
