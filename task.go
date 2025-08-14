@@ -25,6 +25,11 @@ type Task struct {
 	TotalTime      time.Duration
 	CompletedTasks int
 	mu             sync.Mutex // protects concurrent access to TotalTime and CompletedTasks
+	// ResultProvider support
+	executionError error
+	customResult   interface{}
+	// Optional: build a custom task result from accumulated action outputs
+	ResultBuilder func(ctx *TaskContext) (interface{}, error)
 }
 
 // TaskContext maintains execution context for a single task
@@ -76,6 +81,10 @@ func (t *Task) RunWithContext(ctx context.Context, globalContext *GlobalContext)
 		select {
 		case <-ctx.Done():
 			t.log("Task canceled", "taskID", t.ID, "runID", runID, "reason", ctx.Err())
+			t.SetError(ctx.Err())
+			// Ensure task output and result provider are stored even on cancellation
+			t.storeTaskOutput(globalContext)
+			t.storeTaskResultIfAbsent(globalContext)
 			return ctx.Err()
 		default:
 			// Execute action
@@ -88,9 +97,17 @@ func (t *Task) RunWithContext(ctx context.Context, globalContext *GlobalContext)
 			if execErr != nil {
 				if errors.Is(execErr, ErrPrerequisiteNotMet) {
 					t.log("Task aborted: prerequisite not met", "taskID", t.ID, "runID", runID, "actionID", action.GetID(), "error", execErr)
+					t.SetError(execErr)
+					// Store task output and result provider on failure
+					t.storeTaskOutput(globalContext)
+					t.storeTaskResultIfAbsent(globalContext)
 					return fmt.Errorf("task %s (run %s) aborted: prerequisite not met in action %s: %w", t.ID, runID, action.GetID(), execErr)
 				} else {
 					t.log("Task failed: action execution error", "taskID", t.ID, "runID", runID, "actionID", action.GetID(), "error", execErr)
+					t.SetError(execErr)
+					// Store task output and result provider on failure
+					t.storeTaskOutput(globalContext)
+					t.storeTaskResultIfAbsent(globalContext)
 					return fmt.Errorf("task %s (run %s) failed at action %s: %w", t.ID, runID, action.GetID(), execErr)
 				}
 			}
@@ -108,8 +125,19 @@ func (t *Task) RunWithContext(ctx context.Context, globalContext *GlobalContext)
 		t.mu.Unlock()
 	}
 
-	// Store task output in global context
+	// Build custom result if a ResultBuilder is provided
+	if t.ResultBuilder != nil {
+		res, buildErr := t.ResultBuilder(taskContext)
+		if buildErr != nil {
+			t.SetError(buildErr)
+		} else if res != nil {
+			t.SetResult(res)
+		}
+	}
+
+	// Store task output and result provider in global context on success
 	t.storeTaskOutput(globalContext)
+	t.storeTaskResultIfAbsent(globalContext)
 
 	t.log("Task completed", "taskID", t.ID, "runID", runID, "totalDuration", t.GetTotalTime())
 	return nil
@@ -154,7 +182,10 @@ func (t *Task) storeTaskOutput(globalContext *GlobalContext) {
 		"name":           t.Name,
 		"totalTime":      t.TotalTime,
 		"completedTasks": t.CompletedTasks,
-		"success":        true,
+		"success":        t.GetError() == nil,
+	}
+	if err := t.GetError(); err != nil {
+		taskOutput["error"] = err.Error()
 	}
 
 	globalContext.StoreTaskOutput(t.ID, taskOutput)
@@ -209,4 +240,68 @@ func (t *Task) GetID() string {
 // GetName returns the task name in a thread-safe manner
 func (t *Task) GetName() string {
 	return t.Name
+}
+
+// storeTaskResultIfAbsent stores this task as the task-level ResultProvider only
+// if a TaskResult has not already been set by an action during execution.
+func (t *Task) storeTaskResultIfAbsent(globalContext *GlobalContext) {
+	globalContext.mu.RLock()
+	_, exists := globalContext.TaskResults[t.ID]
+	globalContext.mu.RUnlock()
+	if exists {
+		return
+	}
+	globalContext.StoreTaskResult(t.ID, t)
+}
+
+// SetResult allows setting a custom result payload for this task
+func (t *Task) SetResult(result interface{}) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.customResult = result
+}
+
+// GetResult returns either a custom result if provided, or a default summary
+// of the task execution as a map[string]interface{}.
+func (t *Task) GetResult() interface{} {
+	t.mu.Lock()
+	result := t.customResult
+	runID := t.RunID
+	id := t.ID
+	name := t.Name
+	total := t.TotalTime
+	completed := t.CompletedTasks
+	err := t.executionError
+	t.mu.Unlock()
+
+	if result != nil {
+		return result
+	}
+
+	out := map[string]interface{}{
+		"taskID":         id,
+		"runID":          runID,
+		"name":           name,
+		"totalTime":      total,
+		"completedTasks": completed,
+		"success":        err == nil,
+	}
+	if err != nil {
+		out["error"] = err.Error()
+	}
+	return out
+}
+
+// SetError stores an execution error for the task
+func (t *Task) SetError(err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.executionError = err
+}
+
+// GetError returns the stored execution error for the task
+func (t *Task) GetError() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.executionError
 }

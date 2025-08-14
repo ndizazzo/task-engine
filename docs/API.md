@@ -13,6 +13,8 @@ type Task struct {
     Logger         *slog.Logger
     TotalTime      time.Duration
     CompletedTasks int
+    // Optional builder to produce a structured task result at the end
+    ResultBuilder  func(ctx *TaskContext) (interface{}, error)
 }
 
 func (t *Task) Run(ctx context.Context) error
@@ -21,6 +23,10 @@ func (t *Task) GetID() string
 func (t *Task) GetName() string
 func (t *Task) GetCompletedTasks() int
 func (t *Task) GetTotalTime() time.Duration
+// If the task provides results
+func (t *Task) SetResult(result interface{})
+func (t *Task) GetResult() interface{}
+func (t *Task) GetError() error
 ```
 
 ### Action
@@ -67,16 +73,17 @@ func (tm *TaskManager) ResetGlobalContext()
 ```go
 type GlobalContext struct {
     ActionOutputs map[string]interface{}
-    TaskOutputs   map[string]interface{}
     ActionResults map[string]ResultProvider
+    TaskOutputs   map[string]interface{}
+    TaskResults   map[string]ResultProvider
     mu            sync.RWMutex
 }
 
 func NewGlobalContext() *GlobalContext
-func (gc *GlobalContext) SetActionOutput(actionID string, output interface{})
-func (gc *GlobalContext) SetTaskOutput(taskID string, output interface{})
-func (gc *GlobalContext) GetActionOutput(actionID string) (interface{}, bool)
-func (gc *GlobalContext) GetTaskOutput(taskID string) (interface{}, bool)
+func (gc *GlobalContext) StoreActionOutput(actionID string, output interface{})
+func (gc *GlobalContext) StoreActionResult(actionID string, resultProvider ResultProvider)
+func (gc *GlobalContext) StoreTaskOutput(taskID string, output interface{})
+func (gc *GlobalContext) StoreTaskResult(taskID string, resultProvider ResultProvider)
 ```
 
 ## Parameter Types
@@ -129,20 +136,52 @@ func (p ActionResultParameter) Resolve(ctx context.Context, globalContext *Globa
 ### ActionOutput
 
 ```go
-func ActionOutput(actionID string, outputKey string) ActionOutputParameter
+func ActionOutput(actionID string) ActionOutputParameter
+func ActionOutputField(actionID, field string) ActionOutputParameter
 ```
 
 ### TaskOutput
 
 ```go
-func TaskOutput(taskID string, outputKey string) TaskOutputParameter
+func TaskOutput(taskID string) TaskOutputParameter
+func TaskOutputField(taskID, field string) TaskOutputParameter
 ```
 
 ### ActionResult
 
+````go
+func ActionResult(actionID string) ActionResultParameter
+func ActionResultField(actionID, field string) ActionResultParameter
+
+### TaskResult
+
 ```go
-func ActionResult(actionID string, resultKey string) ActionResultParameter
+func TaskResult(taskID string) TaskResultParameter
+func TaskResultField(taskID, field string) TaskResultParameter
 ```
+
+### Simple Typed Helpers (Recommended)
+
+```go
+func ActionResultAs[T any](gc *GlobalContext, actionID string) (T, bool)
+func TaskResultAs[T any](gc *GlobalContext, taskID string) (T, bool)
+func ActionOutputFieldAs[T any](gc *GlobalContext, actionID, key string) (T, error)
+func TaskOutputFieldAs[T any](gc *GlobalContext, taskID, key string) (T, error)
+func EntityValue(gc *GlobalContext, entityType, id, key string) (interface{}, error)
+func EntityValueAs[T any](gc *GlobalContext, entityType, id, key string) (T, error)
+
+// Generic parameter resolver
+func ResolveAs[T any](ctx context.Context, p ActionParameter, gc *GlobalContext) (T, error)
+```
+
+### EntityOutput
+
+```go
+func EntityOutput(entityType, entityID string) EntityOutputParameter
+func EntityOutputField(entityType, entityID, field string) EntityOutputParameter
+```
+
+````
 
 ## Interfaces
 
@@ -159,7 +198,7 @@ type ActionInterface interface {
 
 ### TaskInterface
 
-```go
+````go
 type TaskInterface interface {
     GetID() string
     GetName() string
@@ -168,7 +207,17 @@ type TaskInterface interface {
     GetCompletedTasks() int
     GetTotalTime() time.Duration
 }
-```
+
+### TaskWithResults
+
+```go
+type TaskWithResults interface {
+    TaskInterface
+    ResultProvider
+}
+````
+
+````
 
 ### TaskManagerInterface
 
@@ -183,7 +232,7 @@ type TaskManagerInterface interface {
     GetGlobalContext() *GlobalContext
     ResetGlobalContext()
 }
-```
+````
 
 ### ResultProvider
 

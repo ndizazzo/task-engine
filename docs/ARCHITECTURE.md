@@ -12,6 +12,8 @@ type Task struct {
     Name    string
     Actions []ActionWrapper
     Logger  *slog.Logger
+    // Optional: build a structured result at the end of execution
+    ResultBuilder func(ctx *TaskContext) (interface{}, error)
 }
 ```
 
@@ -62,8 +64,25 @@ engine.ActionOutput("read-action", "content")
 
 Reference outputs from other tasks using the global context.
 
-```go
+````go
 engine.TaskOutput("build-task", "imageID")
+
+### Action Result Parameters
+
+Use rich results from actions that implement `ResultProvider`.
+
+```go
+engine.ActionResult("download-artifact")
+engine.ActionResultField("download-artifact", "checksum")
+````
+
+### Task Result Parameters
+
+Use rich results from tasks that implement `ResultProvider` or define a `ResultBuilder`.
+
+```go
+engine.TaskResult("preflight")
+engine.TaskResultField("preflight", "UpdateMode")
 ```
 
 ## Execution Flow
@@ -79,8 +98,9 @@ engine.TaskOutput("build-task", "imageID")
 The `GlobalContext` maintains:
 
 - `ActionOutputs`: Results from completed actions
-- `TaskOutputs`: Results from completed tasks
 - `ActionResults`: Rich results from actions implementing `ResultProvider`
+- `TaskOutputs`: Results from completed tasks
+- `TaskResults`: Rich results from tasks implementing `ResultProvider` (or using `ResultBuilder`)
 
 Context is shared across tasks via the `TaskManager` and embedded in the execution context.
 
@@ -95,3 +115,7 @@ Context is shared across tasks via the `TaskManager` and embedded in the executi
 - **Mocks**: Complete mock implementations for all interfaces
 - **Testable Manager**: Enhanced TaskManager with testing hooks
 - **Performance Testing**: Built-in benchmarking and load testing utilities
+
+```
+
+```

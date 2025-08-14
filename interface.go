@@ -32,3 +32,11 @@ type ResultProvider interface {
 	GetResult() interface{}
 	GetError() error
 }
+
+// TaskWithResults interface for tasks that can optionally provide rich results
+// Combines the task lifecycle with the ability to provide results and errors
+// after execution, mirroring ActionWithResults.
+type TaskWithResults interface {
+	TaskInterface
+	ResultProvider
+}
