@@ -101,7 +101,7 @@ func (suite *ReadMacActionTestSuite) TestExecuteInvalidParameterType() {
 
 	err := action.Execute(context.Background())
 	suite.Error(err)
-	suite.Contains(err.Error(), "interface name parameter is not a string")
+	suite.Contains(err.Error(), "interface name parameter resolved to non-string value")
 }
 
 func (suite *ReadMacActionTestSuite) TestExecuteParameterResolutionFailure() {

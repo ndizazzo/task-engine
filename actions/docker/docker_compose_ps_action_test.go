@@ -295,7 +295,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
-	suite.Contains(err.Error(), "all parameter is not a bool")
+	suite.Contains(err.Error(), "all parameter resolved to non-boolean value")
 	action, err = constructor.WithParameters(
 		task_engine.StaticParameter{Value: []string{}}, // services
 		task_engine.StaticParameter{Value: false},      // all
@@ -310,7 +310,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
-	suite.Contains(err.Error(), "quiet parameter is not a bool")
+	suite.Contains(err.Error(), "quiet parameter resolved to non-boolean value")
 }
 
 func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstructor_Execute_ServicesAsString() {

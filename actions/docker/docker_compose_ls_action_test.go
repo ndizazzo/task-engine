@@ -548,7 +548,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithNonStringWorkingDir
 	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
-	suite.Contains(err.Error(), "working directory parameter is not a string, got int")
+	suite.Contains(err.Error(), "working directory parameter resolved to non-string value")
 }
 
 // Complex scenario tests

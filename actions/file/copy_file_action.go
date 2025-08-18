@@ -9,17 +9,22 @@ import (
 	"path/filepath"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // NewCopyFileAction creates a new CopyFileAction with the given logger
 func NewCopyFileAction(logger *slog.Logger) *CopyFileAction {
 	return &CopyFileAction{
-		BaseAction: task_engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 type CopyFileAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 
 	// Parameters
 	SourceParam      task_engine.ActionParameter
@@ -32,52 +37,41 @@ type CopyFileAction struct {
 	Destination string
 }
 
-// WithParameters sets the parameters for source, destination, create directory flag, and recursive flag and returns a wrapped Action
-func (a *CopyFileAction) WithParameters(sourceParam, destinationParam task_engine.ActionParameter, createDir, recursive bool) (*task_engine.Action[*CopyFileAction], error) {
+// WithParameters sets the parameters for file copying and returns a wrapped Action
+func (a *CopyFileAction) WithParameters(
+	sourceParam task_engine.ActionParameter,
+	destinationParam task_engine.ActionParameter,
+	createDir bool,
+	recursive bool,
+) (*task_engine.Action[*CopyFileAction], error) {
 	a.SourceParam = sourceParam
 	a.DestinationParam = destinationParam
 	a.CreateDir = createDir
 	a.Recursive = recursive
 
-	id := "copy-file-action"
-	return &task_engine.Action[*CopyFileAction]{
-		ID:      id,
-		Name:    "Copy File",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*CopyFileAction](a.Logger)
+	return constructor.WrapAction(a, "Copy File", "copy-file-action"), nil
 }
 
 func (a *CopyFileAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.SourceParam != nil {
-		sourceValue, err := a.SourceParam.Resolve(execCtx, globalContext)
+		sourceValue, err := a.ResolveStringParameter(execCtx, a.SourceParam, "source")
 		if err != nil {
-			return fmt.Errorf("failed to resolve source parameter: %w", err)
+			return err
 		}
-		if sourceStr, ok := sourceValue.(string); ok {
-			a.Source = sourceStr
-		} else {
-			return fmt.Errorf("source parameter is not a string, got %T", sourceValue)
-		}
+		a.Source = sourceValue
 	}
 
 	if a.DestinationParam != nil {
-		destValue, err := a.DestinationParam.Resolve(execCtx, globalContext)
+		destValue, err := a.ResolveStringParameter(execCtx, a.DestinationParam, "destination")
 		if err != nil {
-			return fmt.Errorf("failed to resolve destination parameter: %w", err)
+			return err
 		}
-		if destStr, ok := destValue.(string); ok {
-			a.Destination = destStr
-		} else {
-			return fmt.Errorf("destination parameter is not a string, got %T", destValue)
-		}
+		a.Destination = destValue
 	}
+
 	if _, err := os.Stat(a.Source); os.IsNotExist(err) {
 		a.Logger.Error("Source path does not exist", "source", a.Source)
 		return err
@@ -272,11 +266,10 @@ func (a *CopyFileAction) executeFileCopy() error {
 
 // GetOutput returns metadata about the copy operation
 func (a *CopyFileAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"source":      a.Source,
 		"destination": a.Destination,
 		"createDir":   a.CreateDir,
 		"recursive":   a.Recursive,
-		"success":     true,
-	}
+	})
 }

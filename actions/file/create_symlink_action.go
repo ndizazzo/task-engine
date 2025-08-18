@@ -9,10 +9,13 @@ import (
 	"path/filepath"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 type CreateSymlinkAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	Target     string
 	LinkPath   string
 	Overwrite  bool
@@ -26,54 +29,45 @@ type CreateSymlinkAction struct {
 // NewCreateSymlinkAction creates a new CreateSymlinkAction with the given logger
 func NewCreateSymlinkAction(logger *slog.Logger) *CreateSymlinkAction {
 	return &CreateSymlinkAction{
-		BaseAction: task_engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 // WithParameters sets the parameters for target, link path, overwrite flag, and create directories flag
-func (a *CreateSymlinkAction) WithParameters(targetParam, linkPathParam task_engine.ActionParameter, overwrite, createDirs bool) (*task_engine.Action[*CreateSymlinkAction], error) {
+func (a *CreateSymlinkAction) WithParameters(
+	targetParam task_engine.ActionParameter,
+	linkPathParam task_engine.ActionParameter,
+	overwrite bool,
+	createDirs bool,
+) (*task_engine.Action[*CreateSymlinkAction], error) {
 	a.TargetParam = targetParam
 	a.LinkPathParam = linkPathParam
 	a.Overwrite = overwrite
 	a.CreateDirs = createDirs
 
-	return &task_engine.Action[*CreateSymlinkAction]{
-		ID:      "create-symlink-action",
-		Name:    "Create Symlink",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*CreateSymlinkAction](a.Logger)
+	return constructor.WrapAction(a, "Create Symlink", "create-symlink-action"), nil
 }
 
 func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.TargetParam != nil {
-		targetValue, err := a.TargetParam.Resolve(execCtx, globalContext)
+		targetValue, err := a.ResolveStringParameter(execCtx, a.TargetParam, "target")
 		if err != nil {
-			return fmt.Errorf("failed to resolve target parameter: %w", err)
+			return err
 		}
-		if targetStr, ok := targetValue.(string); ok {
-			a.Target = targetStr
-		} else {
-			return fmt.Errorf("target parameter is not a string, got %T", targetValue)
-		}
+		a.Target = targetValue
 	}
 
 	if a.LinkPathParam != nil {
-		linkPathValue, err := a.LinkPathParam.Resolve(execCtx, globalContext)
+		linkPathValue, err := a.ResolveStringParameter(execCtx, a.LinkPathParam, "link path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve link path parameter: %w", err)
+			return err
 		}
-		if linkPathStr, ok := linkPathValue.(string); ok {
-			a.LinkPath = linkPathStr
-		} else {
-			return fmt.Errorf("link path parameter is not a string, got %T", linkPathValue)
-		}
+		a.LinkPath = linkPathValue
 	}
 
 	// Sanitize paths to prevent path traversal attacks
@@ -130,13 +124,12 @@ func (a *CreateSymlinkAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns metadata about the created symlink
 func (a *CreateSymlinkAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"target":    a.Target,
 		"linkPath":  a.LinkPath,
 		"overwrite": a.Overwrite,
 		"created":   true,
-		"success":   true,
-	}
+	})
 }
 
 func (a *CreateSymlinkAction) verifySymlink(linkPath, expectedTarget string) error {

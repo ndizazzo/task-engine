@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -25,8 +26,10 @@ type ServiceStatus struct {
 // NewServiceStatusAction creates a new ServiceStatusAction with the given logger
 func NewServiceStatusAction(logger *slog.Logger) *ServiceStatusAction {
 	return &ServiceStatusAction{
-		BaseAction:       task_engine.NewBaseAction(logger),
-		CommandProcessor: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		CommandProcessor:  command.NewDefaultCommandRunner(),
 	}
 }
 
@@ -37,9 +40,11 @@ func NewGetAllServicesStatusAction(logger *slog.Logger) *task_engine.Action[*Ser
 		ID:   "get-all-services-status-action",
 		Name: "Get All Services Status",
 		Wrapped: &ServiceStatusAction{
-			BaseAction:       task_engine.NewBaseAction(logger),
-			ServiceNames:     []string{}, // Empty means get all - will cause error
-			CommandProcessor: command.NewDefaultCommandRunner(),
+			BaseAction:        task_engine.NewBaseAction(logger),
+			ParameterResolver: *common.NewParameterResolver(logger),
+			OutputBuilder:     *common.NewOutputBuilder(logger),
+			ServiceNames:      []string{}, // Empty means get all - will cause error
+			CommandProcessor:  command.NewDefaultCommandRunner(),
 		},
 	}
 }
@@ -47,9 +52,11 @@ func NewGetAllServicesStatusAction(logger *slog.Logger) *task_engine.Action[*Ser
 // ServiceStatusAction retrieves the status of systemd services
 type ServiceStatusAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 
 	// Parameters
-	ServiceNamesParam task_engine.ActionParameter
+	ServiceNameParam task_engine.ActionParameter
 
 	// Runtime resolved values
 	ServiceNames    []string
@@ -58,16 +65,15 @@ type ServiceStatusAction struct {
 	CommandProcessor command.CommandRunner
 }
 
-// WithParameters sets the service names parameter and returns a wrapped Action
-func (a *ServiceStatusAction) WithParameters(serviceNamesParam task_engine.ActionParameter) (*task_engine.Action[*ServiceStatusAction], error) {
-	a.ServiceNamesParam = serviceNamesParam
+// WithParameters sets the parameters for service status and returns a wrapped Action
+func (a *ServiceStatusAction) WithParameters(
+	serviceNameParam task_engine.ActionParameter,
+) (*task_engine.Action[*ServiceStatusAction], error) {
+	a.ServiceNameParam = serviceNameParam
 
-	id := "service-status-action"
-	return &task_engine.Action[*ServiceStatusAction]{
-		ID:      id,
-		Name:    "Service Status",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ServiceStatusAction](a.Logger)
+	return constructor.WrapAction(a, "Service Status", "service-status-action"), nil
 }
 
 // SetCommandProcessor allows injecting a mock or alternative CommandProcessor for testing
@@ -76,22 +82,19 @@ func (a *ServiceStatusAction) SetCommandProcessor(processor command.CommandRunne
 }
 
 func (a *ServiceStatusAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve service names parameter if it exists
-	if a.ServiceNamesParam != nil {
-		serviceNamesValue, err := a.ServiceNamesParam.Resolve(execCtx, globalContext)
+	// Resolve service names parameter using the ParameterResolver
+	if a.ServiceNameParam != nil {
+		serviceNameValue, err := a.ResolveParameter(execCtx, a.ServiceNameParam, "service name")
 		if err != nil {
-			return fmt.Errorf("failed to resolve service names parameter: %w", err)
+			return err
 		}
-		if serviceNamesSlice, ok := serviceNamesValue.([]string); ok {
+
+		if serviceNamesSlice, ok := serviceNameValue.([]string); ok {
 			a.ServiceNames = serviceNamesSlice
+		} else if serviceName, ok := serviceNameValue.(string); ok {
+			a.ServiceNames = []string{serviceName}
 		} else {
-			return fmt.Errorf("service names parameter is not a []string, got %T", serviceNamesValue)
+			return fmt.Errorf("service name parameter is not a []string or string, got %T", serviceNameValue)
 		}
 	}
 
@@ -124,11 +127,9 @@ func (a *ServiceStatusAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns the retrieved service statuses
 func (a *ServiceStatusAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildOutputWithCount(a.ServiceStatuses, true, map[string]interface{}{
 		"services": a.ServiceStatuses,
-		"count":    len(a.ServiceStatuses),
-		"success":  true,
-	}
+	})
 }
 
 // getServiceStatus gets the status of a single service using systemctl show

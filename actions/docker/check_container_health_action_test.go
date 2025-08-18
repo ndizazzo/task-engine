@@ -434,7 +434,7 @@ func (suite *CheckContainerHealthTestSuite) TestExecute_WithNonStringWorkingDirP
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "working directory parameter is not a string, got int")
+	suite.Contains(execErr.Error(), "working directory parameter resolved to non-string value")
 }
 
 func (suite *CheckContainerHealthTestSuite) TestExecute_WithNonStringServiceNameParameter() {
@@ -448,7 +448,7 @@ func (suite *CheckContainerHealthTestSuite) TestExecute_WithNonStringServiceName
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "service name parameter is not a string, got int")
+	suite.Contains(execErr.Error(), "service name parameter resolved to non-string value")
 }
 
 func (suite *CheckContainerHealthTestSuite) TestExecute_WithInvalidCheckCommandParameter() {

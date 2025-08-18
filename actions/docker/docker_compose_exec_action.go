@@ -7,19 +7,24 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
-// NewDockerComposeExecAction creates an action instance (modern constructor pattern)
+// NewDockerComposeExecAction creates a new DockerComposeExecAction with the given logger
 func NewDockerComposeExecAction(logger *slog.Logger) *DockerComposeExecAction {
 	return &DockerComposeExecAction{
-		BaseAction:    task_engine.BaseAction{Logger: logger},
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
 type DockerComposeExecAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	// Parameter-only inputs
 	WorkingDirParam  task_engine.ActionParameter
 	ServiceParam     task_engine.ActionParameter
@@ -39,59 +44,40 @@ func (a *DockerComposeExecAction) SetCommandRunner(runner command.CommandRunner)
 	a.commandRunner = runner
 }
 
-// WithParameters validates and attaches parameters, returning the wrapped action
+// WithParameters sets the parameters for compose exec and returns a wrapped Action
 func (a *DockerComposeExecAction) WithParameters(
 	workingDirParam task_engine.ActionParameter,
 	serviceParam task_engine.ActionParameter,
-	commandArgsParam task_engine.ActionParameter,
+	commandParam task_engine.ActionParameter,
 ) (*task_engine.Action[*DockerComposeExecAction], error) {
-	if workingDirParam == nil || serviceParam == nil || commandArgsParam == nil {
-		return nil, fmt.Errorf("parameters cannot be nil")
-	}
 	a.WorkingDirParam = workingDirParam
 	a.ServiceParam = serviceParam
-	a.CommandArgsParam = commandArgsParam
+	a.CommandArgsParam = commandParam
 
-	return &task_engine.Action[*DockerComposeExecAction]{
-		ID:      "docker-compose-exec-action",
-		Name:    "Docker Compose Exec",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*DockerComposeExecAction](a.Logger)
+	return constructor.WrapAction(a, "Docker Compose Exec", "docker-compose-exec-action"), nil
 }
 
 func (a *DockerComposeExecAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve working directory parameter
-	workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+	workingDirValue, err := a.ResolveStringParameter(execCtx, a.WorkingDirParam, "working directory")
 	if err != nil {
-		return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+		return err
 	}
-	if workingDirStr, ok := workingDirValue.(string); ok {
-		a.ResolvedWorkingDir = workingDirStr
-	} else {
-		return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
-	}
+	a.ResolvedWorkingDir = workingDirValue
 
 	// Resolve service parameter
-	serviceValue, err := a.ServiceParam.Resolve(execCtx, globalContext)
+	serviceValue, err := a.ResolveStringParameter(execCtx, a.ServiceParam, "service")
 	if err != nil {
-		return fmt.Errorf("failed to resolve service parameter: %w", err)
+		return err
 	}
-	if serviceStr, ok := serviceValue.(string); ok {
-		a.ResolvedService = serviceStr
-	} else {
-		return fmt.Errorf("service parameter is not a string, got %T", serviceValue)
-	}
+	a.ResolvedService = serviceValue
 
 	// Resolve command arguments parameter
-	commandArgsValue, err := a.CommandArgsParam.Resolve(execCtx, globalContext)
+	commandArgsValue, err := a.ResolveParameter(execCtx, a.CommandArgsParam, "command arguments")
 	if err != nil {
-		return fmt.Errorf("failed to resolve command arguments parameter: %w", err)
+		return err
 	}
 	if commandArgsSlice, ok := commandArgsValue.([]string); ok {
 		a.ResolvedCommandArgs = commandArgsSlice
@@ -123,10 +109,9 @@ func (a *DockerComposeExecAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns details about the compose exec execution
 func (a *DockerComposeExecAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"service":    a.ResolvedService,
 		"workingDir": a.ResolvedWorkingDir,
 		"command":    a.ResolvedCommandArgs,
-		"success":    true,
-	}
+	})
 }

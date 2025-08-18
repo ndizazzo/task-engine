@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // PrerequisiteCheckFunc defines the signature for a callback function that checks a prerequisite.
@@ -21,35 +22,30 @@ type PrerequisiteCheckAction struct {
 	// Parameter fields
 	DescriptionParam task_engine.ActionParameter
 	CheckParam       task_engine.ActionParameter
+	CommandsParam    task_engine.ActionParameter
 	// Result fields (resolved from parameters during execution)
 	Check       PrerequisiteCheckFunc
 	Description string // A human-readable description of what is being checked
 }
 
-// NewPrerequisiteCheckAction creates a new PrerequisiteCheckAction with the provided logger
+// NewPrerequisiteCheckAction creates a new PrerequisiteCheckAction with the given logger
 func NewPrerequisiteCheckAction(logger *slog.Logger) *PrerequisiteCheckAction {
 	return &PrerequisiteCheckAction{
-		BaseAction: task_engine.BaseAction{Logger: logger},
+		BaseAction: task_engine.NewBaseAction(logger),
 	}
 }
 
-// WithParameters sets the description and check function parameters
-func (a *PrerequisiteCheckAction) WithParameters(descriptionParam task_engine.ActionParameter, checkParam task_engine.ActionParameter) (*task_engine.Action[*PrerequisiteCheckAction], error) {
-	if descriptionParam == nil {
-		return nil, fmt.Errorf("description parameter cannot be nil")
-	}
-	if checkParam == nil {
-		return nil, fmt.Errorf("check parameter cannot be nil")
-	}
-
+// WithParameters sets the parameters for prerequisite checking and returns a wrapped Action
+func (a *PrerequisiteCheckAction) WithParameters(
+	descriptionParam task_engine.ActionParameter,
+	checkParam task_engine.ActionParameter,
+) (*task_engine.Action[*PrerequisiteCheckAction], error) {
 	a.DescriptionParam = descriptionParam
 	a.CheckParam = checkParam
 
-	return &task_engine.Action[*PrerequisiteCheckAction]{
-		ID:      "prerequisite-check-action",
-		Name:    "Prerequisite Check",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*PrerequisiteCheckAction](a.Logger)
+	return constructor.WrapAction(a, "Prerequisite Check", "prerequisite-check-action"), nil
 }
 
 // Execute runs the prerequisite check callback.

@@ -7,11 +7,14 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 type DockerComposeUpAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	// Parameter-only inputs
 	WorkingDirParam task_engine.ActionParameter
 	ServicesParam   task_engine.ActionParameter
@@ -32,8 +35,10 @@ func (a *DockerComposeUpAction) SetCommandRunner(runner command.CommandRunner) {
 // NewDockerComposeUpAction creates the action instance (modern constructor)
 func NewDockerComposeUpAction(logger *slog.Logger) *DockerComposeUpAction {
 	return &DockerComposeUpAction{
-		BaseAction:    task_engine.BaseAction{Logger: logger},
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
@@ -45,35 +50,23 @@ func (a *DockerComposeUpAction) WithParameters(workingDirParam, servicesParam ta
 	a.WorkingDirParam = workingDirParam
 	a.ServicesParam = servicesParam
 
-	return &task_engine.Action[*DockerComposeUpAction]{
-		ID:      "docker-compose-up-action",
-		Name:    "Docker Compose Up",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*DockerComposeUpAction](a.Logger)
+	return constructor.WrapAction(a, "Docker Compose Up", "docker-compose-up-action"), nil
 }
 
 func (a *DockerComposeUpAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve working directory parameter
-	workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+	workingDirValue, err := a.ResolveStringParameter(execCtx, a.WorkingDirParam, "working directory")
 	if err != nil {
-		return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+		return err
 	}
-	if workingDirStr, ok := workingDirValue.(string); ok {
-		a.ResolvedWorkingDir = workingDirStr
-	} else {
-		return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
-	}
+	a.ResolvedWorkingDir = workingDirValue
 
 	// Resolve services parameter
-	servicesValue, err := a.ServicesParam.Resolve(execCtx, globalContext)
+	servicesValue, err := a.ResolveParameter(execCtx, a.ServicesParam, "services")
 	if err != nil {
-		return fmt.Errorf("failed to resolve services parameter: %w", err)
+		return err
 	}
 	if servicesSlice, ok := servicesValue.([]string); ok {
 		a.ResolvedServices = servicesSlice
@@ -109,9 +102,8 @@ func (a *DockerComposeUpAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns details about the compose up execution
 func (a *DockerComposeUpAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"services":   a.ResolvedServices,
 		"workingDir": a.ResolvedWorkingDir,
-		"success":    true,
-	}
+	})
 }

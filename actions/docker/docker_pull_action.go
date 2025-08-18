@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -24,13 +25,13 @@ type MultiArchImageSpec struct {
 
 // DockerPullActionConstructor provides the new constructor pattern
 type DockerPullActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*DockerPullAction]
 }
 
 // NewDockerPullAction creates a new DockerPullAction constructor
 func NewDockerPullAction(logger *slog.Logger) *DockerPullActionConstructor {
 	return &DockerPullActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerPullAction](logger),
 	}
 }
 
@@ -43,13 +44,16 @@ func (c *DockerPullActionConstructor) WithParameters(
 	platformParam task_engine.ActionParameter,
 ) (*task_engine.Action[*DockerPullAction], error) {
 	action := &DockerPullAction{
-		BaseAction:           task_engine.NewBaseAction(c.logger),
+		BaseAction:           task_engine.NewBaseAction(c.GetLogger()),
 		Images:               make(map[string]ImageSpec),
 		MultiArchImages:      make(map[string]MultiArchImageSpec),
 		AllTags:              false,
 		Quiet:                false,
 		Platform:             "",
 		CommandProcessor:     command.NewDefaultCommandRunner(),
+		Output:               "",
+		PulledImages:         []string{},
+		FailedImages:         []string{},
 		ImagesParam:          imagesParam,
 		MultiArchImagesParam: multiArchImagesParam,
 		AllTagsParam:         allTagsParam,
@@ -57,12 +61,7 @@ func (c *DockerPullActionConstructor) WithParameters(
 		PlatformParam:        platformParam,
 	}
 
-	id := "docker-pull-action"
-	return &task_engine.Action[*DockerPullAction]{
-		ID:      id,
-		Name:    "Docker Pull",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Docker Pull", "docker-pull-action"), nil
 }
 
 // Backward compatibility functions
@@ -132,6 +131,8 @@ func WithPullPlatform(platform string) DockerPullOption {
 
 type DockerPullAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	Images           map[string]ImageSpec
 	MultiArchImages  map[string]MultiArchImageSpec
 	AllTags          bool
@@ -155,17 +156,11 @@ func (a *DockerPullAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerPullAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve images via parameter if provided
 	if a.ImagesParam != nil {
-		v, err := a.ImagesParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveParameter(execCtx, a.ImagesParam, "images")
 		if err != nil {
-			return fmt.Errorf("failed to resolve images parameter: %w", err)
+			return err
 		}
 		switch typed := v.(type) {
 		case map[string]ImageSpec:
@@ -196,9 +191,9 @@ func (a *DockerPullAction) Execute(execCtx context.Context) error {
 
 	// Resolve multiarch images via parameter if provided
 	if a.MultiArchImagesParam != nil {
-		v, err := a.MultiArchImagesParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveParameter(execCtx, a.MultiArchImagesParam, "multiarch images")
 		if err != nil {
-			return fmt.Errorf("failed to resolve multiarch images parameter: %w", err)
+			return err
 		}
 		switch typed := v.(type) {
 		case map[string]MultiArchImageSpec:
@@ -238,9 +233,9 @@ func (a *DockerPullAction) Execute(execCtx context.Context) error {
 
 	// Resolve AllTags parameter if provided
 	if a.AllTagsParam != nil {
-		v, err := a.AllTagsParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveParameter(execCtx, a.AllTagsParam, "allTags")
 		if err != nil {
-			return fmt.Errorf("failed to resolve allTags parameter: %w", err)
+			return err
 		}
 		if allTagsBool, ok := v.(bool); ok {
 			a.AllTags = allTagsBool
@@ -251,9 +246,9 @@ func (a *DockerPullAction) Execute(execCtx context.Context) error {
 
 	// Resolve Quiet parameter if provided
 	if a.QuietParam != nil {
-		v, err := a.QuietParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveParameter(execCtx, a.QuietParam, "quiet")
 		if err != nil {
-			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+			return err
 		}
 		if quietBool, ok := v.(bool); ok {
 			a.Quiet = quietBool
@@ -264,9 +259,9 @@ func (a *DockerPullAction) Execute(execCtx context.Context) error {
 
 	// Resolve Platform parameter if provided
 	if a.PlatformParam != nil {
-		v, err := a.PlatformParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveParameter(execCtx, a.PlatformParam, "platform")
 		if err != nil {
-			return fmt.Errorf("failed to resolve platform parameter: %w", err)
+			return err
 		}
 		if platformStr, ok := v.(string); ok {
 			if strings.TrimSpace(platformStr) != "" {

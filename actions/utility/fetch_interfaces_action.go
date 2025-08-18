@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // FetchNetInterfacesAction represents an action that fetches network interfaces
@@ -22,28 +23,24 @@ type FetchNetInterfacesAction struct {
 	Interfaces    []string // Discovered or provided interfaces
 }
 
-// NewFetchNetInterfacesAction creates a new FetchNetInterfacesAction with the provided logger
+// NewFetchNetInterfacesAction creates a new FetchNetInterfacesAction with the given logger
 func NewFetchNetInterfacesAction(logger *slog.Logger) *FetchNetInterfacesAction {
 	return &FetchNetInterfacesAction{
-		BaseAction: task_engine.BaseAction{Logger: logger},
+		BaseAction: task_engine.NewBaseAction(logger),
 	}
 }
 
-// WithParameters sets the parameters for device path and optional interfaces
-func (a *FetchNetInterfacesAction) WithParameters(netDevicePathParam task_engine.ActionParameter, interfacesParam task_engine.ActionParameter) (*task_engine.Action[*FetchNetInterfacesAction], error) {
-	if netDevicePathParam == nil {
-		return nil, fmt.Errorf("net device path parameter cannot be nil")
-	}
-	// interfacesParam can be nil - it's optional
-
+// WithParameters sets the parameters for interface fetching and returns a wrapped Action
+func (a *FetchNetInterfacesAction) WithParameters(
+	netDevicePathParam task_engine.ActionParameter,
+	interfacesParam task_engine.ActionParameter,
+) (*task_engine.Action[*FetchNetInterfacesAction], error) {
 	a.NetDevicePathParam = netDevicePathParam
 	a.InterfacesParam = interfacesParam
 
-	return &task_engine.Action[*FetchNetInterfacesAction]{
-		ID:      "fetch-interfaces-action",
-		Name:    "Fetch Network Interfaces",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*FetchNetInterfacesAction](a.Logger)
+	return constructor.WrapAction(a, "Fetch Network Interfaces", "fetch-interfaces-action"), nil
 }
 
 // gathers and sorts the network interfaces from the specified device path

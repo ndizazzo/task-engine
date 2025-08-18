@@ -9,10 +9,13 @@ import (
 	"regexp"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 type ReplaceLinesAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 
 	FilePath        string
 	ReplacePatterns map[*regexp.Regexp]string
@@ -25,7 +28,9 @@ type ReplaceLinesAction struct {
 // NewReplaceLinesAction creates a new ReplaceLinesAction with the given logger
 func NewReplaceLinesAction(logger *slog.Logger) *ReplaceLinesAction {
 	return &ReplaceLinesAction{
-		BaseAction: task_engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
@@ -42,21 +47,13 @@ func (a *ReplaceLinesAction) WithParameters(filePathParam task_engine.ActionPara
 }
 
 func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
-	// Resolve file path parameter if provided
+	// Resolve file path parameter if provided using the ParameterResolver
 	if a.FilePathParam != nil {
-		gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
-		if !ok || gc == nil {
-			return fmt.Errorf("global context not available for path parameter resolution")
-		}
-		val, err := a.FilePathParam.Resolve(ctx, gc)
+		pathValue, err := a.ResolveStringParameter(ctx, a.FilePathParam, "file path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve file path parameter: %w", err)
+			return err
 		}
-		if pathStr, ok := val.(string); ok {
-			a.FilePath = pathStr
-		} else {
-			return fmt.Errorf("file path parameter is not a string, got %T", val)
-		}
+		a.FilePath = pathValue
 	}
 
 	if a.FilePath == "" {
@@ -67,18 +64,14 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 	var resolvedReplacements map[*regexp.Regexp]string
 	if len(a.ReplaceParamPatterns) > 0 {
 		resolvedReplacements = make(map[*regexp.Regexp]string, len(a.ReplaceParamPatterns))
-		gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
-		if !ok || gc == nil {
-			return fmt.Errorf("global context not available for parameter resolution")
-		}
 		for pattern, param := range a.ReplaceParamPatterns {
 			if param == nil {
 				resolvedReplacements[pattern] = ""
 				continue
 			}
-			val, err := param.Resolve(ctx, gc)
+			val, err := a.ResolveParameter(ctx, param, "replacement")
 			if err != nil {
-				return fmt.Errorf("failed to resolve replacement parameter: %w", err)
+				return err
 			}
 			var replacement string
 			switch v := val.(type) {
@@ -162,9 +155,8 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 }
 
 func (a *ReplaceLinesAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"filePath": a.FilePath,
 		"patterns": len(a.ReplacePatterns),
-		"success":  true,
-	}
+	})
 }

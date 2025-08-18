@@ -10,12 +10,15 @@ import (
 	"path/filepath"
 
 	engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // NewWriteFileAction creates a new WriteFileAction with the given logger
 func NewWriteFileAction(logger *slog.Logger) *WriteFileAction {
 	return &WriteFileAction{
-		BaseAction: engine.NewBaseAction(logger),
+		BaseAction:        engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
@@ -43,6 +46,8 @@ func (a *WriteFileAction) WithParameters(pathParam, content engine.ActionParamet
 // If InputBuffer is set, its content will be used.
 type WriteFileAction struct {
 	engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	FilePath    string
 	Content     engine.ActionParameter // Now supports ActionParameter
 	Overwrite   bool
@@ -54,32 +59,15 @@ type WriteFileAction struct {
 }
 
 func (a *WriteFileAction) Execute(execCtx context.Context) error {
-	// Resolve path parameter if provided
+	// Resolve path parameter if provided using the ParameterResolver
 	effectivePath := a.FilePath
 	if a.PathParam != nil {
-		if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
-			v, err := a.PathParam.Resolve(execCtx, gc)
-			if err != nil {
-				a.writeError = fmt.Errorf("failed to resolve path parameter: %w", err)
-				return a.writeError
-			}
-			if s, ok := v.(string); ok {
-				effectivePath = s
-			} else {
-				a.writeError = fmt.Errorf("resolved path parameter is not a string: %T", v)
-				return a.writeError
-			}
-		} else if sp, ok := a.PathParam.(engine.StaticParameter); ok {
-			if s, ok2 := sp.Value.(string); ok2 {
-				effectivePath = s
-			} else {
-				a.writeError = fmt.Errorf("static path parameter is not a string: %T", sp.Value)
-				return a.writeError
-			}
-		} else {
-			a.writeError = fmt.Errorf("global context not available for dynamic path resolution")
+		pathValue, err := a.ResolveStringParameter(execCtx, a.PathParam, "path")
+		if err != nil {
+			a.writeError = err
 			return a.writeError
 		}
+		effectivePath = pathValue
 	}
 
 	// Sanitize path to prevent path traversal attacks
@@ -91,44 +79,27 @@ func (a *WriteFileAction) Execute(execCtx context.Context) error {
 
 	var contentToWrite []byte
 
-	// Resolve content parameter if provided
+	// Resolve content parameter if provided using the ParameterResolver
 	if a.Content != nil {
-		// For now, we'll need a global context to resolve parameters
-		// This will be enhanced in future iterations
-		if globalCtx, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
-			resolvedContent, err := a.Content.Resolve(execCtx, globalCtx)
-			if err != nil {
-				a.writeError = fmt.Errorf("failed to resolve content parameter: %w", err)
-				return a.writeError
-			}
+		resolvedContent, err := a.ResolveParameter(execCtx, a.Content, "content")
+		if err != nil {
+			a.writeError = err
+			return a.writeError
+		}
 
-			// Convert resolved content to bytes
-			switch v := resolvedContent.(type) {
-			case []byte:
-				contentToWrite = v
-			case string:
-				contentToWrite = []byte(v)
-			case *[]byte:
-				if v != nil {
-					contentToWrite = *v
-				}
-			default:
-				a.writeError = fmt.Errorf("unsupported content type: %T", resolvedContent)
-				return a.writeError
+		// Convert resolved content to bytes
+		switch v := resolvedContent.(type) {
+		case []byte:
+			contentToWrite = v
+		case string:
+			contentToWrite = []byte(v)
+		case *[]byte:
+			if v != nil {
+				contentToWrite = *v
 			}
-		} else {
-			// Fallback to static content if no global context
-			if staticParam, ok := a.Content.(engine.StaticParameter); ok {
-				switch v := staticParam.Value.(type) {
-				case []byte:
-					contentToWrite = v
-				case string:
-					contentToWrite = []byte(v)
-				default:
-					a.writeError = fmt.Errorf("unsupported static content type: %T", v)
-					return a.writeError
-				}
-			}
+		default:
+			a.writeError = fmt.Errorf("unsupported content type: %T", resolvedContent)
+			return a.writeError
 		}
 	}
 
@@ -180,11 +151,10 @@ func (a *WriteFileAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns information about the write operation
 func (a *WriteFileAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, a.writeError == nil, map[string]interface{}{
 		"filePath":      a.FilePath,
 		"contentLength": len(a.writtenContent),
 		"overwrite":     a.Overwrite,
-		"success":       a.writeError == nil,
 		"error":         a.writeError,
-	}
+	})
 }

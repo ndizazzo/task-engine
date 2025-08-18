@@ -7,11 +7,14 @@ import (
 	"time"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 type ShutdownAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	CommandProcessor command.CommandRunner
 
 	// Parameter-only fields
@@ -27,28 +30,27 @@ const (
 	ShutdownOperation_Sleep    ShutdownCommandOperation = "sleep"
 )
 
-// NewShutdownAction creates a ShutdownAction instance
+// NewShutdownAction creates a new ShutdownAction with the given logger
 func NewShutdownAction(logger *slog.Logger) *ShutdownAction {
 	return &ShutdownAction{
-		BaseAction:       task_engine.BaseAction{Logger: logger},
-		CommandProcessor: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		CommandProcessor:  command.NewDefaultCommandRunner(),
 	}
 }
 
-// WithParameters sets the parameters and returns a wrapped Action
-func (a *ShutdownAction) WithParameters(operationParam, delayParam task_engine.ActionParameter) (*task_engine.Action[*ShutdownAction], error) {
-	if operationParam == nil || delayParam == nil {
-		return nil, fmt.Errorf("operationParam and delayParam cannot be nil")
-	}
-
+// WithParameters sets the parameters for shutdown and returns a wrapped Action
+func (a *ShutdownAction) WithParameters(
+	operationParam task_engine.ActionParameter,
+	delayParam task_engine.ActionParameter,
+) (*task_engine.Action[*ShutdownAction], error) {
 	a.OperationParam = operationParam
 	a.DelayParam = delayParam
 
-	return &task_engine.Action[*ShutdownAction]{
-		ID:      "shutdown-action",
-		Name:    "Shutdown",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ShutdownAction](a.Logger)
+	return constructor.WrapAction(a, "Shutdown", "shutdown-action"), nil
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
@@ -57,49 +59,24 @@ func (a *ShutdownAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *ShutdownAction) Execute(ctx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve operation parameter
+	// Resolve operation parameter using the ParameterResolver
 	var operation ShutdownCommandOperation
 	if a.OperationParam != nil {
-		operationValue, err := a.OperationParam.Resolve(ctx, globalContext)
+		operationValue, err := a.ResolveStringParameter(ctx, a.OperationParam, "operation")
 		if err != nil {
-			return fmt.Errorf("failed to resolve operation parameter: %w", err)
+			return err
 		}
-		if operationStr, ok := operationValue.(string); ok {
-			operation = ShutdownCommandOperation(operationStr)
-		} else {
-			return fmt.Errorf("operation parameter is not a string, got %T", operationValue)
-		}
+		operation = ShutdownCommandOperation(operationValue)
 	}
 
-	// Resolve delay parameter
+	// Resolve delay parameter using the ParameterResolver
 	var delay time.Duration
 	if a.DelayParam != nil {
-		delayValue, err := a.DelayParam.Resolve(ctx, globalContext)
+		delayValue, err := a.ResolveDurationParameter(ctx, a.DelayParam, "delay")
 		if err != nil {
-			return fmt.Errorf("failed to resolve delay parameter: %w", err)
+			return err
 		}
-		switch v := delayValue.(type) {
-		case time.Duration:
-			delay = v
-		case int:
-			delay = time.Duration(v) * time.Second
-		case int64:
-			delay = time.Duration(v) * time.Second
-		case string:
-			parsed, parseErr := time.ParseDuration(v)
-			if parseErr != nil {
-				return fmt.Errorf("delay parameter could not be parsed as duration: %w", parseErr)
-			}
-			delay = parsed
-		default:
-			return fmt.Errorf("delay parameter is not a valid type, got %T", delayValue)
-		}
+		delay = delayValue
 	}
 
 	additionalFlags := shutdownArgs(operation, delay)
@@ -109,9 +86,7 @@ func (a *ShutdownAction) Execute(ctx context.Context) error {
 
 // GetOutput returns the requested shutdown operation and delay
 func (a *ShutdownAction) GetOutput() interface{} {
-	return map[string]interface{}{
-		"success": true,
-	}
+	return a.BuildSimpleOutput(true, "")
 }
 
 func shutdownArgs(operation ShutdownCommandOperation, duration time.Duration) []string {

@@ -8,10 +8,13 @@ import (
 	"path/filepath"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 type DeletePathAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	Path            string
 	Recursive       bool
 	DryRun          bool
@@ -33,43 +36,39 @@ type DeleteEntry struct {
 // NewDeletePathAction creates a new DeletePathAction with the given logger
 func NewDeletePathAction(logger *slog.Logger) *DeletePathAction {
 	return &DeletePathAction{
-		BaseAction: task_engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 // WithParameters sets the parameters for path, recursive flag, dry run flag, include hidden flag, and exclude patterns
-func (a *DeletePathAction) WithParameters(pathParam task_engine.ActionParameter, recursive, dryRun, includeHidden bool, excludePatterns []string) (*task_engine.Action[*DeletePathAction], error) {
+func (a *DeletePathAction) WithParameters(
+	pathParam task_engine.ActionParameter,
+	recursive bool,
+	dryRun bool,
+	includeHidden bool,
+	excludePatterns []string,
+) (*task_engine.Action[*DeletePathAction], error) {
 	a.PathParam = pathParam
 	a.Recursive = recursive
 	a.DryRun = dryRun
 	a.IncludeHidden = includeHidden
 	a.ExcludePatterns = excludePatterns
 
-	return &task_engine.Action[*DeletePathAction]{
-		ID:      "delete-path-action",
-		Name:    "Delete Path",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*DeletePathAction](a.Logger)
+	return constructor.WrapAction(a, "Delete Path", "delete-path-action"), nil
 }
 
 func (a *DeletePathAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve path parameter if it exists
+	// Resolve path parameter using the ParameterResolver
 	if a.PathParam != nil {
-		pathValue, err := a.PathParam.Resolve(execCtx, globalContext)
+		pathValue, err := a.ResolveStringParameter(execCtx, a.PathParam, "path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve path parameter: %w", err)
+			return err
 		}
-		if pathStr, ok := pathValue.(string); ok {
-			a.Path = pathStr
-		} else {
-			return fmt.Errorf("path parameter is not a string, got %T", pathValue)
-		}
+		a.Path = pathValue
 	}
 
 	if a.Path == "" {
@@ -268,10 +267,9 @@ func (a *DeletePathAction) executeFileDelete(sanitizedPath string) error {
 
 // GetOutput returns metadata about the delete operation
 func (a *DeletePathAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"path":      a.Path,
 		"recursive": a.Recursive,
 		"dryRun":    a.DryRun,
-		"success":   true,
-	}
+	})
 }

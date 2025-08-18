@@ -13,7 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	engine "github.com/ndizazzo/task-engine"
+	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // ArchiveType represents the type of archive to extract
@@ -31,12 +32,18 @@ const (
 // NewExtractFileAction creates a new ExtractFileAction with the given logger
 func NewExtractFileAction(logger *slog.Logger) *ExtractFileAction {
 	return &ExtractFileAction{
-		BaseAction: engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 // WithParameters sets the parameters for source and destination paths and archive type
-func (a *ExtractFileAction) WithParameters(sourcePathParam, destinationPathParam engine.ActionParameter, archiveType ArchiveType) (*engine.Action[*ExtractFileAction], error) {
+func (a *ExtractFileAction) WithParameters(
+	sourcePathParam task_engine.ActionParameter,
+	destinationPathParam task_engine.ActionParameter,
+	archiveType ArchiveType,
+) (*task_engine.Action[*ExtractFileAction], error) {
 	// Validate archive type if specified
 	if archiveType != "" {
 		switch archiveType {
@@ -51,55 +58,41 @@ func (a *ExtractFileAction) WithParameters(sourcePathParam, destinationPathParam
 	a.DestinationPathParam = destinationPathParam
 	a.ArchiveType = archiveType
 
-	return &engine.Action[*ExtractFileAction]{
-		ID:      "extract-file-action",
-		Name:    "Extract File",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ExtractFileAction](a.Logger)
+	return constructor.WrapAction(a, "Extract File", "extract-file-action"), nil
 }
 
 // ExtractFileAction extracts an archive to the specified destination
 type ExtractFileAction struct {
-	engine.BaseAction
+	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	SourcePath      string
 	DestinationPath string
 	ArchiveType     ArchiveType
 
 	// Parameter-aware fields
-	SourcePathParam      engine.ActionParameter
-	DestinationPathParam engine.ActionParameter
+	SourcePathParam      task_engine.ActionParameter
+	DestinationPathParam task_engine.ActionParameter
 }
 
 func (a *ExtractFileAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *engine.GlobalContext
-	if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.SourcePathParam != nil {
-		sourceValue, err := a.SourcePathParam.Resolve(execCtx, globalContext)
+		sourceValue, err := a.ResolveStringParameter(execCtx, a.SourcePathParam, "source path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve source path parameter: %w", err)
+			return err
 		}
-		if sourceStr, ok := sourceValue.(string); ok {
-			a.SourcePath = sourceStr
-		} else {
-			return fmt.Errorf("source path parameter is not a string, got %T", sourceValue)
-		}
+		a.SourcePath = sourceValue
 	}
 
 	if a.DestinationPathParam != nil {
-		destValue, err := a.DestinationPathParam.Resolve(execCtx, globalContext)
+		destValue, err := a.ResolveStringParameter(execCtx, a.DestinationPathParam, "destination path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve destination path parameter: %w", err)
+			return err
 		}
-		if destStr, ok := destValue.(string); ok {
-			a.DestinationPath = destStr
-		} else {
-			return fmt.Errorf("destination path parameter is not a string, got %T", destValue)
-		}
+		a.DestinationPath = destValue
 	}
 
 	if a.SourcePath == "" {
@@ -336,12 +329,11 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 
 // GetOutput returns metadata about the extraction operation
 func (a *ExtractFileAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"source":      a.SourcePath,
 		"destination": a.DestinationPath,
 		"archiveType": string(a.ArchiveType),
-		"success":     true,
-	}
+	})
 }
 
 // detectCompression checks if a file is compressed and returns the compression type

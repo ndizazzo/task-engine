@@ -7,27 +7,29 @@ import (
 	"os"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 // NewChangePermissionsAction creates a new ChangePermissionsAction with the given logger
 func NewChangePermissionsAction(logger *slog.Logger) *ChangePermissionsAction {
-	if logger == nil {
-		logger = slog.Default()
-	}
 	return &ChangePermissionsAction{
-		BaseAction:    task_engine.NewBaseAction(logger),
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
 type ChangePermissionsAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 
 	// Parameters
-	PathParam        task_engine.ActionParameter
-	PermissionsParam task_engine.ActionParameter
-	Recursive        bool
+	PathParam task_engine.ActionParameter
+	ModeParam task_engine.ActionParameter
+	Recursive bool
 
 	// Runtime resolved values
 	Path        string
@@ -36,18 +38,19 @@ type ChangePermissionsAction struct {
 	commandRunner command.CommandRunner
 }
 
-// WithParameters sets the parameters for path and permissions and returns a wrapped Action
-func (a *ChangePermissionsAction) WithParameters(pathParam, permissionsParam task_engine.ActionParameter, recursive bool) (*task_engine.Action[*ChangePermissionsAction], error) {
+// WithParameters sets the parameters for permission change and returns a wrapped Action
+func (a *ChangePermissionsAction) WithParameters(
+	pathParam task_engine.ActionParameter,
+	modeParam task_engine.ActionParameter,
+	recursive bool,
+) (*task_engine.Action[*ChangePermissionsAction], error) {
 	a.PathParam = pathParam
-	a.PermissionsParam = permissionsParam
+	a.ModeParam = modeParam
 	a.Recursive = recursive
 
-	id := "change-permissions-action"
-	return &task_engine.Action[*ChangePermissionsAction]{
-		ID:      id,
-		Name:    "Change Permissions",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ChangePermissionsAction](a.Logger)
+	return constructor.WrapAction(a, "Change Permissions", "change-permissions-action"), nil
 }
 
 func (a *ChangePermissionsAction) SetCommandRunner(runner command.CommandRunner) {
@@ -55,35 +58,21 @@ func (a *ChangePermissionsAction) SetCommandRunner(runner command.CommandRunner)
 }
 
 func (a *ChangePermissionsAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.PathParam != nil {
-		pathValue, err := a.PathParam.Resolve(execCtx, globalContext)
+		pathValue, err := a.ResolveStringParameter(execCtx, a.PathParam, "path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve path parameter: %w", err)
+			return err
 		}
-		if pathStr, ok := pathValue.(string); ok {
-			a.Path = pathStr
-		} else {
-			return fmt.Errorf("path parameter is not a string, got %T", pathValue)
-		}
+		a.Path = pathValue
 	}
 
-	if a.PermissionsParam != nil {
-		permissionsValue, err := a.PermissionsParam.Resolve(execCtx, globalContext)
+	if a.ModeParam != nil {
+		modeValue, err := a.ResolveStringParameter(execCtx, a.ModeParam, "permissions")
 		if err != nil {
-			return fmt.Errorf("failed to resolve permissions parameter: %w", err)
+			return err
 		}
-		if permissionsStr, ok := permissionsValue.(string); ok {
-			a.Permissions = permissionsStr
-		} else {
-			return fmt.Errorf("permissions parameter is not a string, got %T", permissionsValue)
-		}
+		a.Permissions = modeValue
 	}
 
 	if _, err := os.Stat(a.Path); os.IsNotExist(err) {
@@ -109,10 +98,9 @@ func (a *ChangePermissionsAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns metadata about the permission change
 func (a *ChangePermissionsAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"path":        a.Path,
 		"permissions": a.Permissions,
 		"recursive":   a.Recursive,
-		"success":     true,
-	}
+	})
 }

@@ -7,42 +7,24 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
-// NewDockerComposeDownAction creates a DockerComposeDownAction instance
-func NewDockerComposeDownAction(logger *slog.Logger) *DockerComposeDownAction {
-	return &DockerComposeDownAction{
-		BaseAction:    task_engine.BaseAction{Logger: logger},
-		commandRunner: command.NewDefaultCommandRunner(),
-	}
-}
-
-// DockerComposeDownAction runs docker compose down
-// It can target specific services or all services if none are provided.
 type DockerComposeDownAction struct {
 	task_engine.BaseAction
-	commandRunner command.CommandRunner
-
-	// Parameter-only fields
+	common.ParameterResolver
+	common.OutputBuilder
+	// Parameter-only inputs
 	WorkingDirParam task_engine.ActionParameter
 	ServicesParam   task_engine.ActionParameter
-}
 
-// WithParameters sets the parameters and returns a wrapped Action
-func (a *DockerComposeDownAction) WithParameters(workingDirParam, servicesParam task_engine.ActionParameter) (*task_engine.Action[*DockerComposeDownAction], error) {
-	if workingDirParam == nil || servicesParam == nil {
-		return nil, fmt.Errorf("parameters cannot be nil")
-	}
+	// Execution dependency
+	commandRunner command.CommandRunner
 
-	a.WorkingDirParam = workingDirParam
-	a.ServicesParam = servicesParam
-
-	return &task_engine.Action[*DockerComposeDownAction]{
-		ID:      "docker-compose-down-action",
-		Name:    "Docker Compose Down",
-		Wrapped: a,
-	}, nil
+	// Resolved/output fields
+	ResolvedWorkingDir string
+	ResolvedServices   []string
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
@@ -50,33 +32,46 @@ func (a *DockerComposeDownAction) SetCommandRunner(runner command.CommandRunner)
 	a.commandRunner = runner
 }
 
-func (a *DockerComposeDownAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
+// NewDockerComposeDownAction creates the action instance (modern constructor)
+func NewDockerComposeDownAction(logger *slog.Logger) *DockerComposeDownAction {
+	return &DockerComposeDownAction{
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
+}
 
+// WithParameters sets inputs and returns the wrapped action
+func (a *DockerComposeDownAction) WithParameters(workingDirParam, servicesParam task_engine.ActionParameter) (*task_engine.Action[*DockerComposeDownAction], error) {
+	if workingDirParam == nil || servicesParam == nil {
+		return nil, fmt.Errorf("parameters cannot be nil")
+	}
+	a.WorkingDirParam = workingDirParam
+	a.ServicesParam = servicesParam
+
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*DockerComposeDownAction](a.Logger)
+	return constructor.WrapAction(a, "Docker Compose Down", "docker-compose-down-action"), nil
+}
+
+func (a *DockerComposeDownAction) Execute(execCtx context.Context) error {
 	// Resolve working directory parameter
 	var workingDir string
 	if a.WorkingDirParam != nil {
-		workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+		workingDirValue, err := a.ResolveStringParameter(execCtx, a.WorkingDirParam, "working directory")
 		if err != nil {
-			return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+			return err
 		}
-		if workingDirStr, ok := workingDirValue.(string); ok {
-			workingDir = workingDirStr
-		} else {
-			return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
-		}
+		workingDir = workingDirValue
 	}
 
 	// Resolve services parameter
 	var services []string
 	if a.ServicesParam != nil {
-		servicesValue, err := a.ServicesParam.Resolve(execCtx, globalContext)
+		servicesValue, err := a.ResolveParameter(execCtx, a.ServicesParam, "services")
 		if err != nil {
-			return fmt.Errorf("failed to resolve services parameter: %w", err)
+			return err
 		}
 		if servicesSlice, ok := servicesValue.([]string); ok {
 			services = servicesSlice
@@ -118,7 +113,5 @@ func (a *DockerComposeDownAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns details about the compose down execution
 func (a *DockerComposeDownAction) GetOutput() interface{} {
-	return map[string]interface{}{
-		"success": true,
-	}
+	return a.BuildStandardOutput(nil, true, nil)
 }

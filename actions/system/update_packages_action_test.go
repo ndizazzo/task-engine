@@ -294,7 +294,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 
 	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
-	suite.Contains(err.Error(), "package manager parameter is not a string")
+	suite.Contains(err.Error(), "package manager parameter resolved to non-string value")
 }
 
 func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstructor_Execute_NilParameters() {

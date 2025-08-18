@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -18,34 +19,43 @@ func NewMoveFileAction(logger *slog.Logger) *MoveFileAction {
 		logger = slog.Default()
 	}
 	return &MoveFileAction{
-		BaseAction:    task_engine.NewBaseAction(logger),
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
 // WithParameters sets the parameters for source, destination, and create directories flag
-func (a *MoveFileAction) WithParameters(sourceParam, destinationParam task_engine.ActionParameter, createDirs bool) (*task_engine.Action[*MoveFileAction], error) {
+func (a *MoveFileAction) WithParameters(
+	sourceParam task_engine.ActionParameter,
+	destinationParam task_engine.ActionParameter,
+	createDirs bool,
+) (*task_engine.Action[*MoveFileAction], error) {
 	a.SourceParam = sourceParam
 	a.DestinationParam = destinationParam
 	a.CreateDirs = createDirs
 
-	return &task_engine.Action[*MoveFileAction]{
-		ID:      "move-file-action",
-		Name:    "Move File",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*MoveFileAction](a.Logger)
+	return constructor.WrapAction(a, "Move File", "move-file-action"), nil
 }
 
+// MoveFileAction moves a file from source to destination
 type MoveFileAction struct {
 	task_engine.BaseAction
-	Source        string
-	Destination   string
-	CreateDirs    bool
-	commandRunner command.CommandRunner
+	common.ParameterResolver
+	common.OutputBuilder
+	Source      string
+	Destination string
+	CreateDirs  bool
 
 	// Parameter-aware fields
 	SourceParam      task_engine.ActionParameter
 	DestinationParam task_engine.ActionParameter
+
+	// Execution dependency
+	commandRunner command.CommandRunner
 }
 
 func (a *MoveFileAction) SetCommandRunner(runner command.CommandRunner) {
@@ -53,35 +63,21 @@ func (a *MoveFileAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *MoveFileAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.SourceParam != nil {
-		sourceValue, err := a.SourceParam.Resolve(execCtx, globalContext)
+		sourceValue, err := a.ResolveStringParameter(execCtx, a.SourceParam, "source")
 		if err != nil {
-			return fmt.Errorf("failed to resolve source parameter: %w", err)
+			return err
 		}
-		if sourceStr, ok := sourceValue.(string); ok {
-			a.Source = sourceStr
-		} else {
-			return fmt.Errorf("source parameter is not a string, got %T", sourceValue)
-		}
+		a.Source = sourceValue
 	}
 
 	if a.DestinationParam != nil {
-		destValue, err := a.DestinationParam.Resolve(execCtx, globalContext)
+		destValue, err := a.ResolveStringParameter(execCtx, a.DestinationParam, "destination")
 		if err != nil {
-			return fmt.Errorf("failed to resolve destination parameter: %w", err)
+			return err
 		}
-		if destStr, ok := destValue.(string); ok {
-			a.Destination = destStr
-		} else {
-			return fmt.Errorf("destination parameter is not a string, got %T", destValue)
-		}
+		a.Destination = destValue
 	}
 
 	// Basic validations before any external calls
@@ -121,10 +117,9 @@ func (a *MoveFileAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns metadata about the move operation
 func (a *MoveFileAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"source":      a.Source,
 		"destination": a.Destination,
 		"createDirs":  a.CreateDirs,
-		"success":     true,
-	}
+	})
 }

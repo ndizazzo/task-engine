@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -83,19 +84,9 @@ func WithPsSize() DockerPsOption {
 // DockerPsAction lists Docker containers
 type DockerPsAction struct {
 	task_engine.BaseAction
-	All              bool
-	Filter           string
-	Format           string
-	Last             int
-	Latest           bool
-	NoTrunc          bool
-	Quiet            bool
-	Size             bool
-	CommandProcessor command.CommandRunner
-	Output           string
-	Containers       []Container // Stores the parsed containers
-
-	// Parameter-aware fields
+	common.ParameterResolver
+	common.OutputBuilder
+	// Parameter fields
 	FilterParam  task_engine.ActionParameter
 	AllParam     task_engine.ActionParameter
 	QuietParam   task_engine.ActionParameter
@@ -103,23 +94,26 @@ type DockerPsAction struct {
 	SizeParam    task_engine.ActionParameter
 	LatestParam  task_engine.ActionParameter
 	LastParam    task_engine.ActionParameter
+	// Runtime resolved values
+	Filter  string
+	All     bool
+	Quiet   bool
+	NoTrunc bool
+	Size    bool
+	Latest  bool
+	Last    int
+	Format  string
+	// Command execution
+	CommandProcessor command.CommandRunner
+	Output           string
+	Containers       []Container
 }
 
-// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
-func (a *DockerPsAction) SetCommandRunner(runner command.CommandRunner) {
-	a.CommandProcessor = runner
-}
-
-func (a *DockerPsAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
+// ResolveParameters resolves all parameters using the ParameterResolver
+func (a *DockerPsAction) ResolveParameters(ctx context.Context, globalContext *task_engine.GlobalContext) error {
 	// Resolve filter parameter if it exists
 	if a.FilterParam != nil {
-		filterValue, err := a.FilterParam.Resolve(execCtx, globalContext)
+		filterValue, err := a.FilterParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve filter parameter: %w", err)
 		}
@@ -135,7 +129,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve all parameter if it exists
 	if a.AllParam != nil {
-		allValue, err := a.AllParam.Resolve(execCtx, globalContext)
+		allValue, err := a.AllParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve all parameter: %w", err)
 		}
@@ -148,7 +142,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve quiet parameter if it exists
 	if a.QuietParam != nil {
-		quietValue, err := a.QuietParam.Resolve(execCtx, globalContext)
+		quietValue, err := a.QuietParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
 		}
@@ -161,7 +155,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve noTrunc parameter if it exists
 	if a.NoTruncParam != nil {
-		noTruncValue, err := a.NoTruncParam.Resolve(execCtx, globalContext)
+		noTruncValue, err := a.NoTruncParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve noTrunc parameter: %w", err)
 		}
@@ -174,7 +168,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve size parameter if it exists
 	if a.SizeParam != nil {
-		sizeValue, err := a.SizeParam.Resolve(execCtx, globalContext)
+		sizeValue, err := a.SizeParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve size parameter: %w", err)
 		}
@@ -187,7 +181,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve latest parameter if it exists
 	if a.LatestParam != nil {
-		latestValue, err := a.LatestParam.Resolve(execCtx, globalContext)
+		latestValue, err := a.LatestParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve latest parameter: %w", err)
 		}
@@ -200,7 +194,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 	// Resolve last parameter if it exists
 	if a.LastParam != nil {
-		lastValue, err := a.LastParam.Resolve(execCtx, globalContext)
+		lastValue, err := a.LastParam.Resolve(ctx, globalContext)
 		if err != nil {
 			return fmt.Errorf("failed to resolve last parameter: %w", err)
 		}
@@ -209,6 +203,26 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 		} else {
 			return fmt.Errorf("last parameter is not an int, got %T", lastValue)
 		}
+	}
+
+	return nil
+}
+
+// SetCommandRunner allows injecting a mock or alternative CommandRunner for testing
+func (a *DockerPsAction) SetCommandRunner(runner command.CommandRunner) {
+	a.CommandProcessor = runner
+}
+
+func (a *DockerPsAction) Execute(execCtx context.Context) error {
+	// Extract GlobalContext from context
+	var globalContext *task_engine.GlobalContext
+	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
+		globalContext = gc
+	}
+
+	// Resolve parameters using the ParameterResolver
+	if err := a.ResolveParameters(execCtx, globalContext); err != nil {
+		return fmt.Errorf("failed to resolve parameters: %w", err)
 	}
 
 	args := []string{"ps"}
@@ -268,12 +282,10 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns parsed container information and raw output metadata
 func (a *DockerPsAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildOutputWithCount(a.Containers, true, map[string]interface{}{
 		"containers": a.Containers,
-		"count":      len(a.Containers),
-		"output":     a.Output,
-		"success":    true,
-	}
+		"rawOutput":  a.Output,
+	})
 }
 
 // parseContainers parses the docker ps output and populates the Containers slice
@@ -499,13 +511,13 @@ func isNumeric(s string) bool {
 
 // DockerPsActionConstructor provides the new constructor pattern
 type DockerPsActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*DockerPsAction]
 }
 
 // NewDockerPsAction creates a new DockerPsAction constructor
 func NewDockerPsAction(logger *slog.Logger) *DockerPsActionConstructor {
 	return &DockerPsActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerPsAction](logger),
 	}
 }
 
@@ -520,29 +532,26 @@ func (c *DockerPsActionConstructor) WithParameters(
 	lastParam task_engine.ActionParameter,
 ) (*task_engine.Action[*DockerPsAction], error) {
 	action := &DockerPsAction{
-		BaseAction:       task_engine.NewBaseAction(c.logger),
-		All:              false,
-		Filter:           "",
-		Format:           "",
-		Last:             0,
-		Latest:           false,
-		NoTrunc:          false,
-		Quiet:            false,
-		Size:             false,
-		CommandProcessor: command.NewDefaultCommandRunner(),
-		FilterParam:      filterParam,
-		AllParam:         allParam,
-		QuietParam:       quietParam,
-		NoTruncParam:     noTruncParam,
-		SizeParam:        sizeParam,
-		LatestParam:      latestParam,
-		LastParam:        lastParam,
+		BaseAction:        task_engine.NewBaseAction(c.GetLogger()),
+		ParameterResolver: *common.NewParameterResolver(c.GetLogger()),
+		OutputBuilder:     *common.NewOutputBuilder(c.GetLogger()),
+		All:               false,
+		Filter:            "",
+		Format:            "",
+		Last:              0,
+		Latest:            false,
+		NoTrunc:           false,
+		Quiet:             false,
+		Size:              false,
+		CommandProcessor:  command.NewDefaultCommandRunner(),
+		FilterParam:       filterParam,
+		AllParam:          allParam,
+		QuietParam:        quietParam,
+		NoTruncParam:      noTruncParam,
+		SizeParam:         sizeParam,
+		LatestParam:       latestParam,
+		LastParam:         lastParam,
 	}
 
-	id := "docker-ps-action"
-	return &task_engine.Action[*DockerPsAction]{
-		ID:      id,
-		Name:    "Docker PS",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Docker PS", "docker-ps-action"), nil
 }

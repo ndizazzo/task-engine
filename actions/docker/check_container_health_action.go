@@ -8,11 +8,14 @@ import (
 	"time"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 type CheckContainerHealthAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	// Parameter-only inputs
 	WorkingDirParam   task_engine.ActionParameter
 	ServiceNameParam  task_engine.ActionParameter
@@ -31,15 +34,17 @@ type CheckContainerHealthAction struct {
 	ResolvedRetryDelay   time.Duration
 }
 
-// NewCheckContainerHealthAction creates the action instance (single builder pattern)
+// NewCheckContainerHealthAction creates a new CheckContainerHealthAction with the given logger
 func NewCheckContainerHealthAction(logger *slog.Logger) *CheckContainerHealthAction {
 	return &CheckContainerHealthAction{
-		BaseAction:    task_engine.BaseAction{Logger: logger},
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
-// WithParameters validates and attaches parameters, returning the wrapped action
+// WithParameters sets the parameters for container health check and returns a wrapped Action
 func (a *CheckContainerHealthAction) WithParameters(
 	workingDirParam task_engine.ActionParameter,
 	serviceNameParam task_engine.ActionParameter,
@@ -47,20 +52,15 @@ func (a *CheckContainerHealthAction) WithParameters(
 	maxRetriesParam task_engine.ActionParameter,
 	retryDelayParam task_engine.ActionParameter,
 ) (*task_engine.Action[*CheckContainerHealthAction], error) {
-	if workingDirParam == nil || serviceNameParam == nil || checkCommandParam == nil || maxRetriesParam == nil || retryDelayParam == nil {
-		return nil, fmt.Errorf("parameters cannot be nil")
-	}
 	a.WorkingDirParam = workingDirParam
 	a.ServiceNameParam = serviceNameParam
 	a.CheckCommandParam = checkCommandParam
 	a.MaxRetriesParam = maxRetriesParam
 	a.RetryDelayParam = retryDelayParam
 
-	return &task_engine.Action[*CheckContainerHealthAction]{
-		ID:      "check-container-health-action",
-		Name:    "Check Container Health",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*CheckContainerHealthAction](a.Logger)
+	return constructor.WrapAction(a, "Check Container Health", "check-container-health-action"), nil
 }
 
 // SetCommandRunner allows injecting a mock or alternative CommandRunner for testing.
@@ -69,38 +69,24 @@ func (a *CheckContainerHealthAction) SetCommandRunner(runner command.CommandRunn
 }
 
 func (a *CheckContainerHealthAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve working directory parameter
-	workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+	workingDirValue, err := a.ResolveStringParameter(execCtx, a.WorkingDirParam, "working directory")
 	if err != nil {
-		return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+		return err
 	}
-	if workingDirStr, ok := workingDirValue.(string); ok {
-		a.ResolvedWorkingDir = workingDirStr
-	} else {
-		return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
-	}
+	a.ResolvedWorkingDir = workingDirValue
 
 	// Resolve service name parameter
-	serviceNameValue, err := a.ServiceNameParam.Resolve(execCtx, globalContext)
+	serviceNameValue, err := a.ResolveStringParameter(execCtx, a.ServiceNameParam, "service name")
 	if err != nil {
-		return fmt.Errorf("failed to resolve service name parameter: %w", err)
+		return err
 	}
-	if serviceNameStr, ok := serviceNameValue.(string); ok {
-		a.ResolvedServiceName = serviceNameStr
-	} else {
-		return fmt.Errorf("service name parameter is not a string, got %T", serviceNameValue)
-	}
+	a.ResolvedServiceName = serviceNameValue
 
 	// Resolve check command parameter
-	checkCommandValue, err := a.CheckCommandParam.Resolve(execCtx, globalContext)
+	checkCommandValue, err := a.ResolveParameter(execCtx, a.CheckCommandParam, "check command")
 	if err != nil {
-		return fmt.Errorf("failed to resolve check command parameter: %w", err)
+		return err
 	}
 	if checkCommandSlice, ok := checkCommandValue.([]string); ok {
 		a.ResolvedCheckCommand = checkCommandSlice
@@ -111,9 +97,9 @@ func (a *CheckContainerHealthAction) Execute(execCtx context.Context) error {
 	}
 
 	// Resolve max retries parameter
-	maxRetriesValue, err := a.MaxRetriesParam.Resolve(execCtx, globalContext)
+	maxRetriesValue, err := a.ResolveParameter(execCtx, a.MaxRetriesParam, "max retries")
 	if err != nil {
-		return fmt.Errorf("failed to resolve max retries parameter: %w", err)
+		return err
 	}
 	switch v := maxRetriesValue.(type) {
 	case int:
@@ -138,9 +124,9 @@ func (a *CheckContainerHealthAction) Execute(execCtx context.Context) error {
 	}
 
 	// Resolve retry delay parameter
-	retryDelayValue, err := a.RetryDelayParam.Resolve(execCtx, globalContext)
+	retryDelayValue, err := a.ResolveParameter(execCtx, a.RetryDelayParam, "retry delay")
 	if err != nil {
-		return fmt.Errorf("failed to resolve retry delay parameter: %w", err)
+		return err
 	}
 	switch v := retryDelayValue.(type) {
 	case time.Duration:
@@ -188,12 +174,11 @@ func (a *CheckContainerHealthAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns details about the health check configuration
 func (a *CheckContainerHealthAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"service":    a.ResolvedServiceName,
 		"command":    a.ResolvedCheckCommand,
 		"maxRetries": a.ResolvedMaxRetries,
 		"retryDelay": a.ResolvedRetryDelay.String(),
 		"workingDir": a.ResolvedWorkingDir,
-		"success":    true,
-	}
+	})
 }
