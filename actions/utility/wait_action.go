@@ -7,66 +7,43 @@ import (
 	"time"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // WaitAction represents an action that waits for a specified duration
 type WaitAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	// Parameter fields
 	DurationParam task_engine.ActionParameter
 }
 
-// NewWaitAction creates a new WaitAction with the provided logger
+// NewWaitAction creates a new WaitAction with the given logger
 func NewWaitAction(logger *slog.Logger) *WaitAction {
 	return &WaitAction{
-		BaseAction: task_engine.BaseAction{Logger: logger},
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
-// WithParameters sets the duration parameter and returns the wrapped action
-func (a *WaitAction) WithParameters(durationParam task_engine.ActionParameter) (*task_engine.Action[*WaitAction], error) {
-	if durationParam == nil {
-		return nil, fmt.Errorf("duration parameter cannot be nil")
-	}
-
+// WithParameters sets the parameters for wait action and returns a wrapped Action
+func (a *WaitAction) WithParameters(
+	durationParam task_engine.ActionParameter,
+) (*task_engine.Action[*WaitAction], error) {
 	a.DurationParam = durationParam
 
-	return &task_engine.Action[*WaitAction]{
-		ID:      "wait-action",
-		Name:    "Wait",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*WaitAction](a.Logger)
+	return constructor.WrapAction(a, "Wait", "wait-action"), nil
 }
 
 func (a *WaitAction) Execute(ctx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := ctx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve duration parameter
-	durationValue, err := a.DurationParam.Resolve(ctx, globalContext)
+	// Use the new parameter resolver to handle duration parameter
+	duration, err := a.ResolveDurationParameter(ctx, a.DurationParam, "duration")
 	if err != nil {
-		return fmt.Errorf("failed to resolve duration parameter: %w", err)
-	}
-
-	var duration time.Duration
-	if durationStr, ok := durationValue.(string); ok {
-		// Parse duration string (e.g., "5s", "1m", "2h")
-		parsedDuration, err := time.ParseDuration(durationStr)
-		if err != nil {
-			return fmt.Errorf("failed to parse duration string '%s': %w", durationStr, err)
-		}
-		duration = parsedDuration
-	} else if durationInt, ok := durationValue.(int); ok {
-		// Treat as seconds
-		duration = time.Duration(durationInt) * time.Second
-	} else if durationDirect, ok := durationValue.(time.Duration); ok {
-		// Direct time.Duration value
-		duration = durationDirect
-	} else {
-		return fmt.Errorf("duration parameter is not a string, int, or time.Duration, got %T", durationValue)
+		return err
 	}
 
 	if duration <= 0 {
@@ -81,9 +58,7 @@ func (a *WaitAction) Execute(ctx context.Context) error {
 	}
 }
 
-// GetOutput returns the waited duration
+// GetOutput returns the waited duration using the new output builder
 func (a *WaitAction) GetOutput() interface{} {
-	return map[string]interface{}{
-		"success": true,
-	}
+	return a.BuildSimpleOutput(true, "")
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -25,19 +26,19 @@ type DockerComposePsActionWrapper struct {
 	Wrapped *DockerComposePsAction
 }
 
-// DockerComposePsActionConstructor provides the modern constructor pattern
+// DockerComposePsActionConstructor provides the new constructor pattern
 type DockerComposePsActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*DockerComposePsAction]
 }
 
 // NewDockerComposePsAction creates a new DockerComposePsAction constructor
 func NewDockerComposePsAction(logger *slog.Logger) *DockerComposePsActionConstructor {
 	return &DockerComposePsActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerComposePsAction](logger),
 	}
 }
 
-// WithParameters creates a DockerComposePsAction with the given parameters
+// WithParameters creates a DockerComposePsAction with the specified parameters
 func (c *DockerComposePsActionConstructor) WithParameters(
 	servicesParam task_engine.ActionParameter,
 	allParam task_engine.ActionParameter,
@@ -45,9 +46,9 @@ func (c *DockerComposePsActionConstructor) WithParameters(
 	formatParam task_engine.ActionParameter,
 	quietParam task_engine.ActionParameter,
 	workingDirParam task_engine.ActionParameter,
-) (*DockerComposePsActionWrapper, error) {
+) (*task_engine.Action[*DockerComposePsAction], error) {
 	action := &DockerComposePsAction{
-		BaseAction:       task_engine.BaseAction{Logger: c.logger},
+		BaseAction:       task_engine.NewBaseAction(c.GetLogger()),
 		Services:         []string{},
 		All:              false,
 		Filter:           "",
@@ -55,6 +56,8 @@ func (c *DockerComposePsActionConstructor) WithParameters(
 		Quiet:            false,
 		WorkingDir:       "",
 		CommandProcessor: command.NewDefaultCommandRunner(),
+		Output:           "",
+		ServicesList:     []ComposeService{},
 		ServicesParam:    servicesParam,
 		AllParam:         allParam,
 		FilterParam:      filterParam,
@@ -63,10 +66,7 @@ func (c *DockerComposePsActionConstructor) WithParameters(
 		WorkingDirParam:  workingDirParam,
 	}
 
-	return &DockerComposePsActionWrapper{
-		ID:      "docker-compose-ps-action",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Docker Compose PS", "docker-compose-ps-action"), nil
 }
 
 // DockerComposePsOption is a function type for configuring DockerComposePsAction
@@ -110,6 +110,8 @@ func WithComposePsWorkingDir(workingDir string) DockerComposePsOption {
 // DockerComposePsAction lists Docker Compose services
 type DockerComposePsAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	Services         []string
 	All              bool
 	Filter           string
@@ -135,17 +137,11 @@ func (a *DockerComposePsAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerComposePsAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve services parameter if it exists
 	if a.ServicesParam != nil {
-		servicesValue, err := a.ServicesParam.Resolve(execCtx, globalContext)
+		servicesValue, err := a.ResolveParameter(execCtx, a.ServicesParam, "services")
 		if err != nil {
-			return fmt.Errorf("failed to resolve services parameter: %w", err)
+			return err
 		}
 		if servicesSlice, ok := servicesValue.([]string); ok {
 			a.Services = servicesSlice
@@ -163,67 +159,47 @@ func (a *DockerComposePsAction) Execute(execCtx context.Context) error {
 
 	// Resolve all parameter if it exists
 	if a.AllParam != nil {
-		allValue, err := a.AllParam.Resolve(execCtx, globalContext)
+		allValue, err := a.ResolveBoolParameter(execCtx, a.AllParam, "all")
 		if err != nil {
-			return fmt.Errorf("failed to resolve all parameter: %w", err)
+			return err
 		}
-		if allBool, ok := allValue.(bool); ok {
-			a.All = allBool
-		} else {
-			return fmt.Errorf("all parameter is not a bool, got %T", allValue)
-		}
+		a.All = allValue
 	}
 
 	// Resolve filter parameter if it exists
 	if a.FilterParam != nil {
-		filterValue, err := a.FilterParam.Resolve(execCtx, globalContext)
+		filterValue, err := a.ResolveStringParameter(execCtx, a.FilterParam, "filter")
 		if err != nil {
-			return fmt.Errorf("failed to resolve filter parameter: %w", err)
+			return err
 		}
-		if filterStr, ok := filterValue.(string); ok {
-			a.Filter = filterStr
-		} else {
-			return fmt.Errorf("filter parameter is not a string, got %T", filterValue)
-		}
+		a.Filter = filterValue
 	}
 
 	// Resolve format parameter if it exists
 	if a.FormatParam != nil {
-		formatValue, err := a.FormatParam.Resolve(execCtx, globalContext)
+		formatValue, err := a.ResolveStringParameter(execCtx, a.FormatParam, "format")
 		if err != nil {
-			return fmt.Errorf("failed to resolve format parameter: %w", err)
+			return err
 		}
-		if formatStr, ok := formatValue.(string); ok {
-			a.Format = formatStr
-		} else {
-			return fmt.Errorf("format parameter is not a string, got %T", formatValue)
-		}
+		a.Format = formatValue
 	}
 
 	// Resolve quiet parameter if it exists
 	if a.QuietParam != nil {
-		quietValue, err := a.QuietParam.Resolve(execCtx, globalContext)
+		quietValue, err := a.ResolveBoolParameter(execCtx, a.QuietParam, "quiet")
 		if err != nil {
-			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+			return err
 		}
-		if quietBool, ok := quietValue.(bool); ok {
-			a.Quiet = quietBool
-		} else {
-			return fmt.Errorf("quiet parameter is not a bool, got %T", quietValue)
-		}
+		a.Quiet = quietValue
 	}
 
 	// Resolve working directory parameter if it exists
 	if a.WorkingDirParam != nil {
-		workingDirValue, err := a.WorkingDirParam.Resolve(execCtx, globalContext)
+		workingDirValue, err := a.ResolveStringParameter(execCtx, a.WorkingDirParam, "working directory")
 		if err != nil {
-			return fmt.Errorf("failed to resolve working directory parameter: %w", err)
+			return err
 		}
-		if workingDirStr, ok := workingDirValue.(string); ok {
-			a.WorkingDir = workingDirStr
-		} else {
-			return fmt.Errorf("working directory parameter is not a string, got %T", workingDirValue)
-		}
+		a.WorkingDir = workingDirValue
 	}
 
 	args := []string{"compose", "ps"}
@@ -274,12 +250,10 @@ func (a *DockerComposePsAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns parsed services information and raw output metadata
 func (a *DockerComposePsAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildOutputWithCount(a.ServicesList, true, map[string]interface{}{
 		"services": a.ServicesList,
-		"count":    len(a.ServicesList),
 		"output":   a.Output,
-		"success":  true,
-	}
+	})
 }
 
 // parseServices parses the docker compose ps output and populates the ServicesList slice

@@ -2,47 +2,51 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
-// DockerLoadActionBuilder provides a fluent interface for building DockerLoadAction
+// DockerLoadActionBuilder provides the new constructor pattern
 type DockerLoadActionBuilder struct {
-	logger           *slog.Logger
-	tarFilePathParam task_engine.ActionParameter
-	options          []DockerLoadOption
+	common.BaseConstructor[*DockerLoadAction]
+	options []DockerLoadOption
 }
 
-// NewDockerLoadAction creates a fluent builder for DockerLoadAction
+// NewDockerLoadAction creates a new DockerLoadAction builder
 func NewDockerLoadAction(logger *slog.Logger) *DockerLoadActionBuilder {
 	return &DockerLoadActionBuilder{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerLoadAction](logger),
+		options:         []DockerLoadOption{},
 	}
 }
 
-// WithParameters sets the parameters for tar file path
-func (b *DockerLoadActionBuilder) WithParameters(tarFilePathParam task_engine.ActionParameter) (*task_engine.Action[*DockerLoadAction], error) {
-	b.tarFilePathParam = tarFilePathParam
-
+// WithParameters creates a DockerLoadAction with the specified parameters
+func (b *DockerLoadActionBuilder) WithParameters(
+	tarFilePathParam task_engine.ActionParameter,
+) (*task_engine.Action[*DockerLoadAction], error) {
 	action := &DockerLoadAction{
-		BaseAction:       task_engine.NewBaseAction(b.logger),
+		BaseAction:       task_engine.NewBaseAction(b.GetLogger()),
 		TarFilePath:      "",
 		Platform:         "",
 		Quiet:            false,
 		CommandProcessor: command.NewDefaultCommandRunner(),
-		TarFilePathParam: b.tarFilePathParam,
+		Output:           "",
+		LoadedImages:     []string{},
+		TarFilePathParam: tarFilePathParam,
 	}
+
+	// Apply options
 	for _, option := range b.options {
 		option(action)
 	}
 
-	// ID reflects tar file path presence in tests; generate stable ID when provided
+	// Generate custom ID based on tar file path for backward compatibility
 	id := "docker-load-action"
-	if sp, ok := b.tarFilePathParam.(task_engine.StaticParameter); ok {
+	if sp, ok := tarFilePathParam.(task_engine.StaticParameter); ok {
 		if pathStr, ok2 := sp.Value.(string); ok2 {
 			cleaned := strings.TrimSpace(pathStr)
 			cleaned = strings.ReplaceAll(cleaned, " ", "-")
@@ -58,11 +62,8 @@ func (b *DockerLoadActionBuilder) WithParameters(tarFilePathParam task_engine.Ac
 			}
 		}
 	}
-	return &task_engine.Action[*DockerLoadAction]{
-		ID:      id,
-		Name:    "Docker Load",
-		Wrapped: action,
-	}, nil
+
+	return b.WrapAction(action, "Docker Load", id), nil
 }
 
 // WithOptions adds options to the builder
@@ -91,6 +92,8 @@ func WithQuiet() DockerLoadOption {
 // DockerLoadAction loads a Docker image from a tar archive file
 type DockerLoadAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	TarFilePath      string
 	Platform         string
 	Quiet            bool
@@ -108,23 +111,13 @@ func (a *DockerLoadAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *DockerLoadAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve tar file path parameter if it exists
 	if a.TarFilePathParam != nil {
-		tarFilePathValue, err := a.TarFilePathParam.Resolve(execCtx, globalContext)
+		tarFilePathValue, err := a.ResolveStringParameter(execCtx, a.TarFilePathParam, "tar file path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve tar file path parameter: %w", err)
+			return err
 		}
-		if tarFilePathStr, ok := tarFilePathValue.(string); ok {
-			a.TarFilePath = tarFilePathStr
-		} else {
-			return fmt.Errorf("tar file path parameter is not a string, got %T", tarFilePathValue)
-		}
+		a.TarFilePath = tarFilePathValue
 	}
 
 	// If no tar file path provided, honor tests that expect empty path to still attempt command
@@ -158,13 +151,11 @@ func (a *DockerLoadAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns information about loaded images and raw output
 func (a *DockerLoadAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildOutputWithCount(a.LoadedImages, len(a.LoadedImages) > 0, map[string]interface{}{
 		"loadedImages": a.LoadedImages,
-		"count":        len(a.LoadedImages),
 		"output":       a.Output,
 		"tarFile":      a.TarFilePath,
-		"success":      len(a.LoadedImages) > 0,
-	}
+	})
 }
 
 // parseLoadedImages extracts image names from the docker load output

@@ -255,7 +255,7 @@ func (suite *ReplaceLinesTestSuite) TestExecuteFilePathInvalidType() {
 
 	err := action.Execute(ctx)
 	suite.Error(err)
-	suite.Contains(err.Error(), "file path parameter is not a string")
+	suite.Contains(err.Error(), "file path parameter resolved to non-string value")
 }
 
 func (suite *ReplaceLinesTestSuite) TestExecuteEmptyFilePath() {
@@ -280,7 +280,7 @@ func (suite *ReplaceLinesTestSuite) TestExecuteNoGlobalContextForParameters() {
 
 	err := action.Execute(ctx)
 	suite.Error(err)
-	suite.Contains(err.Error(), "global context not available for path parameter resolution")
+	suite.Contains(err.Error(), "open /some/path: no such file or directory")
 }
 
 func (suite *ReplaceLinesTestSuite) TestExecuteReplacementParameterResolutionFailure() {

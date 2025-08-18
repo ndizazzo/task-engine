@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -21,13 +22,13 @@ type DockerImage struct {
 
 // DockerImageListActionConstructor provides the new constructor pattern
 type DockerImageListActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*DockerImageListAction]
 }
 
 // NewDockerImageListAction creates a new DockerImageListAction constructor
 func NewDockerImageListAction(logger *slog.Logger) *DockerImageListActionConstructor {
 	return &DockerImageListActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerImageListAction](logger),
 	}
 }
 
@@ -41,7 +42,7 @@ func (c *DockerImageListActionConstructor) WithParameters(
 	quietParam task_engine.ActionParameter,
 ) (*task_engine.Action[*DockerImageListAction], error) {
 	action := &DockerImageListAction{
-		BaseAction:       task_engine.NewBaseAction(c.logger),
+		BaseAction:       task_engine.NewBaseAction(c.GetLogger()),
 		All:              false,
 		Digests:          false,
 		Filter:           "",
@@ -49,6 +50,8 @@ func (c *DockerImageListActionConstructor) WithParameters(
 		NoTrunc:          false,
 		Quiet:            false,
 		CommandProcessor: command.NewDefaultCommandRunner(),
+		Output:           "",
+		Images:           []DockerImage{},
 		AllParam:         allParam,
 		DigestsParam:     digestsParam,
 		FilterParam:      filterParam,
@@ -57,12 +60,7 @@ func (c *DockerImageListActionConstructor) WithParameters(
 		QuietParam:       quietParam,
 	}
 
-	id := "docker-image-list-action"
-	return &task_engine.Action[*DockerImageListAction]{
-		ID:      id,
-		Name:    "Docker Image List",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Docker Image List", "docker-image-list-action"), nil
 }
 
 // DockerImageListOption is a function type for configuring DockerImageListAction
@@ -113,6 +111,8 @@ func WithQuietOutput() DockerImageListOption {
 // DockerImageListAction lists Docker images
 type DockerImageListAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	All              bool
 	Digests          bool
 	Filter           string
@@ -145,92 +145,62 @@ func (a *DockerImageListAction) SetOptions(options ...DockerImageListOption) {
 }
 
 func (a *DockerImageListAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve All parameter if provided
 	if a.AllParam != nil {
-		v, err := a.AllParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveBoolParameter(execCtx, a.AllParam, "all")
 		if err != nil {
-			return fmt.Errorf("failed to resolve all parameter: %w", err)
+			return err
 		}
-		if allBool, ok := v.(bool); ok {
-			a.All = allBool
-		} else {
-			return fmt.Errorf("all parameter is not a bool, got %T", v)
-		}
+		a.All = v
 	}
 
 	// Resolve Digests parameter if provided
 	if a.DigestsParam != nil {
-		v, err := a.DigestsParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveBoolParameter(execCtx, a.DigestsParam, "digests")
 		if err != nil {
-			return fmt.Errorf("failed to resolve digests parameter: %w", err)
+			return err
 		}
-		if digestsBool, ok := v.(bool); ok {
-			a.Digests = digestsBool
-		} else {
-			return fmt.Errorf("digests parameter is not a bool, got %T", v)
-		}
+		a.Digests = v
 	}
 
 	// Resolve Filter parameter if provided
 	if a.FilterParam != nil {
-		v, err := a.FilterParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveStringParameter(execCtx, a.FilterParam, "filter")
 		if err != nil {
-			return fmt.Errorf("failed to resolve filter parameter: %w", err)
+			return err
 		}
-		if filterStr, ok := v.(string); ok {
-			if strings.TrimSpace(filterStr) != "" {
-				a.Filter = filterStr
-			}
-		} else {
-			return fmt.Errorf("filter parameter is not a string, got %T", v)
+		if strings.TrimSpace(v) != "" {
+			a.Filter = v
 		}
 	}
 
 	// Resolve Format parameter if provided
 	if a.FormatParam != nil {
-		v, err := a.FormatParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveStringParameter(execCtx, a.FormatParam, "format")
 		if err != nil {
-			return fmt.Errorf("failed to resolve format parameter: %w", err)
+			return err
 		}
-		if formatStr, ok := v.(string); ok {
-			if strings.TrimSpace(formatStr) != "" {
-				a.Format = formatStr
-			}
-		} else {
-			return fmt.Errorf("format parameter is not a string, got %T", v)
+		if strings.TrimSpace(v) != "" {
+			a.Format = v
 		}
 	}
 
 	// Resolve NoTrunc parameter if provided
 	if a.NoTruncParam != nil {
-		v, err := a.NoTruncParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveBoolParameter(execCtx, a.NoTruncParam, "noTrunc")
 		if err != nil {
-			return fmt.Errorf("failed to resolve noTrunc parameter: %w", err)
+			return err
 		}
-		if noTruncBool, ok := v.(bool); ok {
-			a.NoTrunc = noTruncBool
-		} else {
-			return fmt.Errorf("noTrunc parameter is not a bool, got %T", v)
-		}
+		a.NoTrunc = v
 	}
 
 	// Resolve Quiet parameter if provided
 	if a.QuietParam != nil {
-		v, err := a.QuietParam.Resolve(execCtx, globalContext)
+		v, err := a.ResolveBoolParameter(execCtx, a.QuietParam, "quiet")
 		if err != nil {
-			return fmt.Errorf("failed to resolve quiet parameter: %w", err)
+			return err
 		}
-		if quietBool, ok := v.(bool); ok {
-			a.Quiet = quietBool
-		} else {
-			return fmt.Errorf("quiet parameter is not a bool, got %T", v)
-		}
+		a.Quiet = v
 	}
 
 	args := []string{"image", "ls"}
@@ -282,12 +252,10 @@ func (a *DockerImageListAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns parsed image information and raw output metadata
 func (a *DockerImageListAction) GetOutput() interface{} {
-	return map[string]interface{}{
-		"images":  a.Images,
-		"count":   len(a.Images),
-		"output":  a.Output,
-		"success": true,
-	}
+	return a.BuildOutputWithCount(a.Images, true, map[string]interface{}{
+		"images": a.Images,
+		"output": a.Output,
+	})
 }
 
 // parseImages parses the docker image ls output and populates the Images slice

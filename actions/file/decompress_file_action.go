@@ -11,18 +11,25 @@ import (
 	"path/filepath"
 	"strings"
 
-	engine "github.com/ndizazzo/task-engine"
+	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // NewDecompressFileAction creates a new DecompressFileAction with the given logger
 func NewDecompressFileAction(logger *slog.Logger) *DecompressFileAction {
 	return &DecompressFileAction{
-		BaseAction: engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 // WithParameters sets the parameters for source path, destination path, and compression type
-func (a *DecompressFileAction) WithParameters(sourcePathParam, destinationPathParam engine.ActionParameter, compressionType CompressionType) (*engine.Action[*DecompressFileAction], error) {
+func (a *DecompressFileAction) WithParameters(
+	sourcePathParam task_engine.ActionParameter,
+	destinationPathParam task_engine.ActionParameter,
+	compressionType CompressionType,
+) (*task_engine.Action[*DecompressFileAction], error) {
 	// Validate compression type if specified
 	if compressionType != "" {
 		switch compressionType {
@@ -37,55 +44,41 @@ func (a *DecompressFileAction) WithParameters(sourcePathParam, destinationPathPa
 	a.DestinationPathParam = destinationPathParam
 	a.CompressionType = compressionType
 
-	return &engine.Action[*DecompressFileAction]{
-		ID:      "decompress-file-action",
-		Name:    "Decompress File",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*DecompressFileAction](a.Logger)
+	return constructor.WrapAction(a, "Decompress File", "decompress-file-action"), nil
 }
 
 // DecompressFileAction decompresses a file using the specified compression algorithm
 type DecompressFileAction struct {
-	engine.BaseAction
+	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	SourcePath      string
 	DestinationPath string
 	CompressionType CompressionType
 
 	// Parameter-aware fields
-	SourcePathParam      engine.ActionParameter
-	DestinationPathParam engine.ActionParameter
+	SourcePathParam      task_engine.ActionParameter
+	DestinationPathParam task_engine.ActionParameter
 }
 
 func (a *DecompressFileAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *engine.GlobalContext
-	if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.SourcePathParam != nil {
-		sourceValue, err := a.SourcePathParam.Resolve(execCtx, globalContext)
+		sourceValue, err := a.ResolveStringParameter(execCtx, a.SourcePathParam, "source path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve source path parameter: %w", err)
+			return err
 		}
-		if sourceStr, ok := sourceValue.(string); ok {
-			a.SourcePath = sourceStr
-		} else {
-			return fmt.Errorf("source path parameter is not a string, got %T", sourceValue)
-		}
+		a.SourcePath = sourceValue
 	}
 
 	if a.DestinationPathParam != nil {
-		destValue, err := a.DestinationPathParam.Resolve(execCtx, globalContext)
+		destValue, err := a.ResolveStringParameter(execCtx, a.DestinationPathParam, "destination path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve destination path parameter: %w", err)
+			return err
 		}
-		if destStr, ok := destValue.(string); ok {
-			a.DestinationPath = destStr
-		} else {
-			return fmt.Errorf("destination path parameter is not a string, got %T", destValue)
-		}
+		a.DestinationPath = destValue
 	}
 
 	// Auto-detect compression type if not specified
@@ -190,12 +183,11 @@ func (a *DecompressFileAction) decompressGzip(source io.Reader, destination io.W
 
 // GetOutput returns metadata about the decompression operation
 func (a *DecompressFileAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"source":          a.SourcePath,
 		"destination":     a.DestinationPath,
 		"compressionType": string(a.CompressionType),
-		"success":         true,
-	}
+	})
 }
 
 // DetectCompressionType auto-detects the compression type from file extension

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -26,7 +27,7 @@ const (
 
 // UpdatePackagesActionConstructor provides the modern constructor pattern
 type UpdatePackagesActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*UpdatePackagesAction]
 }
 
 // NewUpdatePackagesAction creates a new UpdatePackagesAction constructor
@@ -35,7 +36,7 @@ func NewUpdatePackagesAction(logger *slog.Logger) *UpdatePackagesActionConstruct
 		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
 	return &UpdatePackagesActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*UpdatePackagesAction](logger),
 	}
 }
 
@@ -48,7 +49,9 @@ func (c *UpdatePackagesActionConstructor) WithParameters(
 	defaultPackageManager := detectPackageManager()
 
 	action := &UpdatePackagesAction{
-		BaseAction:          task_engine.NewBaseAction(c.logger),
+		BaseAction:          task_engine.NewBaseAction(c.GetLogger()),
+		ParameterResolver:   *common.NewParameterResolver(c.GetLogger()),
+		OutputBuilder:       *common.NewOutputBuilder(c.GetLogger()),
 		PackageNames:        []string{},
 		PackageManager:      defaultPackageManager, // May be overridden at runtime
 		CommandRunner:       command.NewDefaultCommandRunner(),
@@ -56,16 +59,14 @@ func (c *UpdatePackagesActionConstructor) WithParameters(
 		PackageManagerParam: packageManagerParam,
 	}
 
-	return &task_engine.Action[*UpdatePackagesAction]{
-		ID:      "update-packages-action",
-		Name:    "Update Packages",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Update Packages", "update-packages-action"), nil
 }
 
 // UpdatePackagesAction updates packages using the appropriate package manager
 type UpdatePackagesAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	PackageNames   []string
 	PackageManager PackageManager
 	CommandRunner  command.CommandRunner
@@ -81,18 +82,13 @@ func (a *UpdatePackagesAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *UpdatePackagesAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve package names parameter if it exists
+	// Resolve package names parameter using the ParameterResolver
 	if a.PackageNamesParam != nil {
-		packageNamesValue, err := a.PackageNamesParam.Resolve(execCtx, globalContext)
+		packageNamesValue, err := a.ResolveParameter(execCtx, a.PackageNamesParam, "package names")
 		if err != nil {
-			return fmt.Errorf("failed to resolve package names parameter: %w", err)
+			return err
 		}
+
 		if packageNamesSlice, ok := packageNamesValue.([]string); ok {
 			a.PackageNames = packageNamesSlice
 		} else if packageNamesStr, ok := packageNamesValue.(string); ok {
@@ -107,17 +103,13 @@ func (a *UpdatePackagesAction) Execute(execCtx context.Context) error {
 		}
 	}
 
-	// Resolve package manager parameter if it exists
+	// Resolve package manager parameter using the ParameterResolver
 	if a.PackageManagerParam != nil {
-		packageManagerValue, err := a.PackageManagerParam.Resolve(execCtx, globalContext)
+		packageManagerValue, err := a.ResolveStringParameter(execCtx, a.PackageManagerParam, "package manager")
 		if err != nil {
-			return fmt.Errorf("failed to resolve package manager parameter: %w", err)
+			return err
 		}
-		if packageManagerStr, ok := packageManagerValue.(string); ok {
-			a.PackageManager = PackageManager(packageManagerStr)
-		} else {
-			return fmt.Errorf("package manager parameter is not a string, got %T", packageManagerValue)
-		}
+		a.PackageManager = PackageManager(packageManagerValue)
 	}
 
 	a.Logger.Info("Attempting to update packages",
@@ -195,11 +187,10 @@ func (a *UpdatePackagesAction) installWithBrew(execCtx context.Context) error {
 
 // GetOutput returns information about attempted package installation
 func (a *UpdatePackagesAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"packages":       a.PackageNames,
 		"packageManager": string(a.PackageManager),
-		"success":        true,
-	}
+	})
 }
 
 // detectPackageManager detects the appropriate package manager based on the operating system

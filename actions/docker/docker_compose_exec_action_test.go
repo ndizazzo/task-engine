@@ -335,7 +335,7 @@ func (suite *DockerComposeExecTestSuite) TestExecute_WithNonStringWorkingDirPara
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "working directory parameter is not a string, got int")
+	suite.Contains(execErr.Error(), "working directory parameter resolved to non-string value")
 }
 
 func (suite *DockerComposeExecTestSuite) TestExecute_WithNonStringServiceParameter() {
@@ -349,7 +349,7 @@ func (suite *DockerComposeExecTestSuite) TestExecute_WithNonStringServiceParamet
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "service parameter is not a string, got int")
+	suite.Contains(execErr.Error(), "service parameter resolved to non-string value")
 }
 
 func (suite *DockerComposeExecTestSuite) TestExecute_WithInvalidCommandArgsParameter() {

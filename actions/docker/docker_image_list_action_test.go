@@ -251,7 +251,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 	err = action.Wrapped.Execute(context.Background())
 
 	suite.Error(err)
-	suite.Contains(err.Error(), "all parameter is not a bool")
+	suite.Contains(err.Error(), "all parameter resolved to non-boolean value")
 }
 
 func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstructor_Execute_CommandFailure() {

@@ -7,18 +7,24 @@ import (
 	"log/slog"
 	"os"
 
-	engine "github.com/ndizazzo/task-engine"
+	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 )
 
 // NewReadFileAction creates a new ReadFileAction with the given logger
 func NewReadFileAction(logger *slog.Logger) *ReadFileAction {
 	return &ReadFileAction{
-		BaseAction: engine.NewBaseAction(logger),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
 	}
 }
 
 // WithParameters sets the parameters for file path and output buffer
-func (a *ReadFileAction) WithParameters(pathParam engine.ActionParameter, outputBuffer *[]byte) (*engine.Action[*ReadFileAction], error) {
+func (a *ReadFileAction) WithParameters(
+	pathParam task_engine.ActionParameter,
+	outputBuffer *[]byte,
+) (*task_engine.Action[*ReadFileAction], error) {
 	if outputBuffer == nil {
 		return nil, fmt.Errorf("invalid parameter: outputBuffer cannot be nil")
 	}
@@ -26,46 +32,30 @@ func (a *ReadFileAction) WithParameters(pathParam engine.ActionParameter, output
 	a.PathParam = pathParam
 	a.OutputBuffer = outputBuffer
 
-	return &engine.Action[*ReadFileAction]{
-		ID:      "read-file-action",
-		Name:    "Read File",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ReadFileAction](a.Logger)
+	return constructor.WrapAction(a, "Read File", "read-file-action"), nil
 }
 
 // ReadFileAction reads content from a file and stores it in the provided buffer
 type ReadFileAction struct {
-	engine.BaseAction
+	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	FilePath     string
-	OutputBuffer *[]byte                // Pointer to buffer where file contents will be stored
-	PathParam    engine.ActionParameter // optional parameter to resolve path
+	OutputBuffer *[]byte                     // Pointer to buffer where file contents will be stored
+	PathParam    task_engine.ActionParameter // optional parameter to resolve path
 }
 
 func (a *ReadFileAction) Execute(execCtx context.Context) error {
-	// Resolve path parameter if provided
+	// Resolve path parameter if provided using the ParameterResolver
 	effectivePath := a.FilePath
 	if a.PathParam != nil {
-		if gc, ok := execCtx.Value(engine.GlobalContextKey).(*engine.GlobalContext); ok {
-			v, err := a.PathParam.Resolve(execCtx, gc)
-			if err != nil {
-				return fmt.Errorf("failed to resolve path parameter: %w", err)
-			}
-			if s, ok := v.(string); ok {
-				effectivePath = s
-			} else {
-				return fmt.Errorf("resolved path parameter is not a string: %T", v)
-			}
-		} else {
-			if sp, ok := a.PathParam.(engine.StaticParameter); ok {
-				if s, ok2 := sp.Value.(string); ok2 {
-					effectivePath = s
-				} else {
-					return fmt.Errorf("static path parameter is not a string: %T", sp.Value)
-				}
-			} else {
-				return fmt.Errorf("global context not available for dynamic path resolution")
-			}
+		pathValue, err := a.ResolveStringParameter(execCtx, a.PathParam, "path")
+		if err != nil {
+			return err
 		}
+		effectivePath = pathValue
 	}
 
 	// Sanitize path to prevent path traversal attacks
@@ -109,18 +99,16 @@ func (a *ReadFileAction) Execute(execCtx context.Context) error {
 // GetOutput returns the file content and metadata
 func (a *ReadFileAction) GetOutput() interface{} {
 	if a.OutputBuffer == nil {
-		return map[string]interface{}{
+		return a.BuildStandardOutput(nil, false, map[string]interface{}{
 			"content":  nil,
 			"fileSize": 0,
 			"filePath": a.FilePath,
-			"success":  false,
-		}
+		})
 	}
 
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"content":  *a.OutputBuffer,
 		"fileSize": len(*a.OutputBuffer),
 		"filePath": a.FilePath,
-		"success":  true,
-	}
+	})
 }

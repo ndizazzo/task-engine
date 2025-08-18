@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
 )
@@ -567,15 +568,18 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WhitespaceOnlyO
 
 func (suite *DockerPsActionTestSuite) TestDockerPsAction_GetOutput() {
 	action := &DockerPsAction{
-		Output:     "raw output",
-		Containers: []Container{{ContainerID: "abc123", Image: "nginx:latest"}},
+		BaseAction:        task_engine.NewBaseAction(slog.Default()),
+		ParameterResolver: *common.NewParameterResolver(slog.Default()),
+		OutputBuilder:     *common.NewOutputBuilder(slog.Default()),
+		Output:            "raw output",
+		Containers:        []Container{{ContainerID: "abc123", Image: "nginx:latest"}},
 	}
 
 	out := action.GetOutput()
 	suite.IsType(map[string]interface{}{}, out)
 	m := out.(map[string]interface{})
 	suite.Equal(1, m["count"])
-	suite.Equal("raw output", m["output"])
+	suite.Equal("raw output", m["rawOutput"])
 	suite.Equal(true, m["success"])
 	suite.Len(m["containers"], 1)
 }

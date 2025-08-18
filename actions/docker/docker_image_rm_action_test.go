@@ -923,7 +923,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithNonStringImageNamePar
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.ErrorContains(execErr, "image name parameter is not a string, got int")
+	suite.ErrorContains(execErr, "image name parameter resolved to non-string value")
 }
 
 func (suite *DockerImageRmActionTestSuite) TestExecute_WithNonStringImageIDParameter() {
@@ -937,7 +937,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithNonStringImageIDParam
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.ErrorContains(execErr, "image ID parameter is not a string, got int")
+	suite.ErrorContains(execErr, "image ID parameter resolved to non-string value")
 }
 
 // ===== COMPLEX PARAMETER SCENARIOS =====

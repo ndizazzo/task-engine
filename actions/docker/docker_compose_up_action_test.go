@@ -408,7 +408,7 @@ func (suite *DockerComposeUpTestSuite) TestExecute_WithNonStringWorkingDirParame
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "working directory parameter is not a string, got int")
+	suite.Contains(execErr.Error(), "working directory parameter resolved to non-string value")
 }
 
 func (suite *DockerComposeUpTestSuite) TestExecute_WithInvalidServicesParameter() {

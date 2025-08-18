@@ -7,18 +7,19 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 // DockerGenericActionConstructor provides the new constructor pattern
 type DockerGenericActionConstructor struct {
-	logger *slog.Logger
+	common.BaseConstructor[*DockerGenericAction]
 }
 
 // NewDockerGenericAction creates a new DockerGenericAction constructor
 func NewDockerGenericAction(logger *slog.Logger) *DockerGenericActionConstructor {
 	return &DockerGenericActionConstructor{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*DockerGenericAction](logger),
 	}
 }
 
@@ -27,18 +28,13 @@ func (c *DockerGenericActionConstructor) WithParameters(
 	dockerCmdParam task_engine.ActionParameter,
 ) (*task_engine.Action[*DockerGenericAction], error) {
 	action := &DockerGenericAction{
-		BaseAction:       task_engine.NewBaseAction(c.logger),
+		BaseAction:       task_engine.NewBaseAction(c.GetLogger()),
 		DockerCmd:        []string{},
 		CommandProcessor: command.NewDefaultCommandRunner(),
 		DockerCmdParam:   dockerCmdParam,
 	}
 
-	id := "docker-generic-action"
-	return &task_engine.Action[*DockerGenericAction]{
-		ID:      id,
-		Name:    "Docker Generic",
-		Wrapped: action,
-	}, nil
+	return c.WrapAction(action, "Docker Generic", "docker-generic-action"), nil
 }
 
 // DockerGenericAction runs a generic docker command and stores its output
@@ -46,6 +42,8 @@ func (c *DockerGenericActionConstructor) WithParameters(
 // should be separate actions
 type DockerGenericAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	DockerCmd        []string
 	CommandProcessor command.CommandRunner
 	Output           string
@@ -55,17 +53,11 @@ type DockerGenericAction struct {
 }
 
 func (a *DockerGenericAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
 	// Resolve docker command parameter if it exists
 	if a.DockerCmdParam != nil {
-		dockerCmdValue, err := a.DockerCmdParam.Resolve(execCtx, globalContext)
+		dockerCmdValue, err := a.ResolveParameter(execCtx, a.DockerCmdParam, "docker command")
 		if err != nil {
-			return fmt.Errorf("failed to resolve docker command parameter: %w", err)
+			return err
 		}
 		if dockerCmdSlice, ok := dockerCmdValue.([]string); ok {
 			a.DockerCmd = dockerCmdSlice
@@ -91,9 +83,8 @@ func (a *DockerGenericAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns the raw output and command metadata
 func (a *DockerGenericAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, a.Output != "", map[string]interface{}{
 		"command": a.DockerCmd,
 		"output":  a.Output,
-		"success": a.Output != "",
-	}
+	})
 }

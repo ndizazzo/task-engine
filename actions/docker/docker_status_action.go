@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
@@ -19,39 +20,39 @@ type ContainerState struct {
 	Status string   `json:"status"`
 }
 
-// GetContainerStateActionBuilder provides a fluent interface for building GetContainerStateAction
+// GetContainerStateActionBuilder provides the new constructor pattern
 type GetContainerStateActionBuilder struct {
-	logger             *slog.Logger
-	containerNameParam task_engine.ActionParameter
+	common.BaseConstructor[*GetContainerStateAction]
 }
 
-// NewGetContainerStateAction creates a fluent builder for GetContainerStateAction
+// NewGetContainerStateAction creates a new GetContainerStateAction builder
 func NewGetContainerStateAction(logger *slog.Logger) *GetContainerStateActionBuilder {
 	return &GetContainerStateActionBuilder{
-		logger: logger,
+		BaseConstructor: *common.NewBaseConstructor[*GetContainerStateAction](logger),
 	}
 }
 
-// WithParameters sets the parameters for container name
-func (b *GetContainerStateActionBuilder) WithParameters(containerNameParam task_engine.ActionParameter) (*task_engine.Action[*GetContainerStateAction], error) {
-	b.containerNameParam = containerNameParam
+// WithParameters creates a GetContainerStateAction with the specified parameters
+func (b *GetContainerStateActionBuilder) WithParameters(
+	containerNameParam task_engine.ActionParameter,
+) (*task_engine.Action[*GetContainerStateAction], error) {
+	action := &GetContainerStateAction{
+		BaseAction:         task_engine.NewBaseAction(b.GetLogger()),
+		ContainerIDs:       []string{},
+		CommandProcessor:   command.NewDefaultCommandRunner(),
+		ContainerStates:    []ContainerState{},
+		ContainerName:      "",
+		ContainerNameParam: containerNameParam,
+	}
 
-	id := "get-container-state-action"
-	return &task_engine.Action[*GetContainerStateAction]{
-		ID:   id,
-		Name: "Get Container State",
-		Wrapped: &GetContainerStateAction{
-			BaseAction:         task_engine.NewBaseAction(b.logger),
-			ContainerName:      "",
-			CommandProcessor:   command.NewDefaultCommandRunner(),
-			ContainerNameParam: b.containerNameParam,
-		},
-	}, nil
+	return b.WrapAction(action, "Get Container State", "get-container-state-action"), nil
 }
 
 // GetContainerStateAction retrieves the state of Docker containers
 type GetContainerStateAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 	ContainerIDs     []string
 	CommandProcessor command.CommandRunner
 	ContainerStates  []ContainerState
@@ -67,36 +68,24 @@ func (a *GetContainerStateAction) SetCommandProcessor(processor command.CommandR
 }
 
 func (a *GetContainerStateAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve container name parameter if it exists
+	// Resolve container name parameter if it exists using ParameterResolver
 	if a.ContainerNameParam != nil {
-		containerNameValue, err := a.ContainerNameParam.Resolve(execCtx, globalContext)
+		names, err := a.ResolveStringSliceParameter(execCtx, a.ContainerNameParam, "container name")
 		if err != nil {
-			return fmt.Errorf("failed to resolve container name parameter: %w", err)
+			return err
 		}
-		switch v := containerNameValue.(type) {
-		case string:
-			a.ContainerName = v
-			if strings.TrimSpace(v) != "" {
-				a.ContainerIDs = []string{v}
+		filtered := make([]string, 0, len(names))
+		for _, name := range names {
+			trimmed := strings.TrimSpace(name)
+			if trimmed != "" {
+				filtered = append(filtered, trimmed)
 			}
-		case []string:
-			filtered := make([]string, 0, len(v))
-			for _, name := range v {
-				if strings.TrimSpace(name) != "" {
-					filtered = append(filtered, name)
-				}
-			}
-			if len(filtered) > 0 {
-				a.ContainerIDs = filtered
-			}
-		default:
-			return fmt.Errorf("container name parameter is not a string, got %T", containerNameValue)
+		}
+		if len(filtered) == 1 {
+			a.ContainerName = filtered[0]
+		}
+		if len(filtered) > 0 {
+			a.ContainerIDs = filtered
 		}
 	}
 
@@ -220,9 +209,7 @@ func (a *GetContainerStateAction) parseContainerOutput(output string) ([]Contain
 
 // GetOutput returns the retrieved container states
 func (a *GetContainerStateAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildOutputWithCount(a.ContainerStates, true, map[string]interface{}{
 		"containers": a.ContainerStates,
-		"count":      len(a.ContainerStates),
-		"success":    true,
-	}
+	})
 }

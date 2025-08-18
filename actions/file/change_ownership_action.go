@@ -7,22 +7,24 @@ import (
 	"os"
 
 	task_engine "github.com/ndizazzo/task-engine"
+	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/command"
 )
 
 // NewChangeOwnershipAction creates a new ChangeOwnershipAction with the given logger
 func NewChangeOwnershipAction(logger *slog.Logger) *ChangeOwnershipAction {
-	if logger == nil {
-		logger = slog.Default()
-	}
 	return &ChangeOwnershipAction{
-		BaseAction:    task_engine.NewBaseAction(logger),
-		commandRunner: command.NewDefaultCommandRunner(),
+		BaseAction:        task_engine.NewBaseAction(logger),
+		ParameterResolver: *common.NewParameterResolver(logger),
+		OutputBuilder:     *common.NewOutputBuilder(logger),
+		commandRunner:     command.NewDefaultCommandRunner(),
 	}
 }
 
 type ChangeOwnershipAction struct {
 	task_engine.BaseAction
+	common.ParameterResolver
+	common.OutputBuilder
 
 	// Parameters
 	PathParam  task_engine.ActionParameter
@@ -38,19 +40,21 @@ type ChangeOwnershipAction struct {
 	commandRunner command.CommandRunner
 }
 
-// WithParameters sets the parameters for path, owner, and group and returns a wrapped Action
-func (a *ChangeOwnershipAction) WithParameters(pathParam, ownerParam, groupParam task_engine.ActionParameter, recursive bool) (*task_engine.Action[*ChangeOwnershipAction], error) {
+// WithParameters sets the parameters for ownership change and returns a wrapped Action
+func (a *ChangeOwnershipAction) WithParameters(
+	pathParam task_engine.ActionParameter,
+	ownerParam task_engine.ActionParameter,
+	groupParam task_engine.ActionParameter,
+	recursive bool,
+) (*task_engine.Action[*ChangeOwnershipAction], error) {
 	a.PathParam = pathParam
 	a.OwnerParam = ownerParam
 	a.GroupParam = groupParam
 	a.Recursive = recursive
 
-	id := "change-ownership-action"
-	return &task_engine.Action[*ChangeOwnershipAction]{
-		ID:      id,
-		Name:    "Change Ownership",
-		Wrapped: a,
-	}, nil
+	// Create a temporary constructor to use the base functionality
+	constructor := common.NewBaseConstructor[*ChangeOwnershipAction](a.Logger)
+	return constructor.WrapAction(a, "Change Ownership", "change-ownership-action"), nil
 }
 
 func (a *ChangeOwnershipAction) SetCommandRunner(runner command.CommandRunner) {
@@ -58,47 +62,29 @@ func (a *ChangeOwnershipAction) SetCommandRunner(runner command.CommandRunner) {
 }
 
 func (a *ChangeOwnershipAction) Execute(execCtx context.Context) error {
-	// Extract GlobalContext from context
-	var globalContext *task_engine.GlobalContext
-	if gc, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext); ok {
-		globalContext = gc
-	}
-
-	// Resolve parameters if they exist
+	// Resolve parameters using the ParameterResolver
 	if a.PathParam != nil {
-		pathValue, err := a.PathParam.Resolve(execCtx, globalContext)
+		pathValue, err := a.ResolveStringParameter(execCtx, a.PathParam, "path")
 		if err != nil {
-			return fmt.Errorf("failed to resolve path parameter: %w", err)
+			return err
 		}
-		if pathStr, ok := pathValue.(string); ok {
-			a.Path = pathStr
-		} else {
-			return fmt.Errorf("path parameter is not a string, got %T", pathValue)
-		}
+		a.Path = pathValue
 	}
 
 	if a.OwnerParam != nil {
-		ownerValue, err := a.OwnerParam.Resolve(execCtx, globalContext)
+		ownerValue, err := a.ResolveStringParameter(execCtx, a.OwnerParam, "owner")
 		if err != nil {
-			return fmt.Errorf("failed to resolve owner parameter: %w", err)
+			return err
 		}
-		if ownerStr, ok := ownerValue.(string); ok {
-			a.Owner = ownerStr
-		} else {
-			return fmt.Errorf("owner parameter is not a string, got %T", ownerValue)
-		}
+		a.Owner = ownerValue
 	}
 
 	if a.GroupParam != nil {
-		groupValue, err := a.GroupParam.Resolve(execCtx, globalContext)
+		groupValue, err := a.ResolveStringParameter(execCtx, a.GroupParam, "group")
 		if err != nil {
-			return fmt.Errorf("failed to resolve group parameter: %w", err)
+			return err
 		}
-		if groupStr, ok := groupValue.(string); ok {
-			a.Group = groupStr
-		} else {
-			return fmt.Errorf("group parameter is not a string, got %T", groupValue)
-		}
+		a.Group = groupValue
 	}
 
 	if a.Path == "" {
@@ -142,11 +128,10 @@ func (a *ChangeOwnershipAction) Execute(execCtx context.Context) error {
 
 // GetOutput returns metadata about the ownership change
 func (a *ChangeOwnershipAction) GetOutput() interface{} {
-	return map[string]interface{}{
+	return a.BuildStandardOutput(nil, true, map[string]interface{}{
 		"path":      a.Path,
 		"owner":     a.Owner,
 		"group":     a.Group,
 		"recursive": a.Recursive,
-		"success":   true,
-	}
+	})
 }
