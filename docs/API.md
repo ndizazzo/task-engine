@@ -34,20 +34,41 @@ func (t *Task) GetError() error
 ```go
 type Action[T ActionInterface] struct {
     ID      string
+    Name    string
     Wrapped T
+    Logger  *slog.Logger
 }
 
-func (a *Action[T]) BeforeExecute(ctx context.Context) error
 func (a *Action[T]) Execute(ctx context.Context) error
-func (a *Action[T]) AfterExecute(ctx context.Context) error
 func (a *Action[T]) GetOutput() interface{}
 func (a *Action[T]) GetID() string
+func (a *Action[T]) GetName() string
+func (a *Action[T]) GetDuration() time.Duration
+func (a *Action[T]) GetLogger() *slog.Logger
 ```
 
 ### ActionWrapper
 
 ```go
-type ActionWrapper func() ActionInterface
+type ActionWrapper interface {
+    Execute(ctx context.Context) error
+    GetDuration() time.Duration
+    GetLogger() *slog.Logger
+    GetID() string
+    SetID(string)
+    GetName() string
+    GetOutput() interface{}
+}
+```
+
+### TaskHandle
+
+```go
+type TaskHandle struct { /* ... */ }
+
+func (h *TaskHandle) Done() <-chan struct{}
+func (h *TaskHandle) Err() error
+func (h *TaskHandle) TaskID() string
 ```
 
 ### TaskManager
@@ -59,11 +80,12 @@ type TaskManager struct {
 
 func NewTaskManager(logger *slog.Logger) *TaskManager
 func (tm *TaskManager) AddTask(task *Task) error
-func (tm *TaskManager) RunTask(ctx context.Context, taskID string) error
+func (tm *TaskManager) RunTask(taskID string) (*TaskHandle, error)
 func (tm *TaskManager) StopTask(taskID string) error
 func (tm *TaskManager) StopAllTasks()
 func (tm *TaskManager) GetRunningTasks() []string
 func (tm *TaskManager) IsTaskRunning(taskID string) bool
+func (tm *TaskManager) WaitForAllTasksToComplete(timeout time.Duration) error
 func (tm *TaskManager) GetGlobalContext() *GlobalContext
 func (tm *TaskManager) ResetGlobalContext()
 ```
@@ -149,9 +171,10 @@ func TaskOutputField(taskID, field string) TaskOutputParameter
 
 ### ActionResult
 
-````go
+```go
 func ActionResult(actionID string) ActionResultParameter
 func ActionResultField(actionID, field string) ActionResultParameter
+```
 
 ### TaskResult
 
@@ -181,8 +204,6 @@ func EntityOutput(entityType, entityID string) EntityOutputParameter
 func EntityOutputField(entityType, entityID, field string) EntityOutputParameter
 ```
 
-````
-
 ## Interfaces
 
 ### ActionInterface
@@ -198,7 +219,7 @@ type ActionInterface interface {
 
 ### TaskInterface
 
-````go
+```go
 type TaskInterface interface {
     GetID() string
     GetName() string
@@ -207,6 +228,7 @@ type TaskInterface interface {
     GetCompletedTasks() int
     GetTotalTime() time.Duration
 }
+```
 
 ### TaskWithResults
 
@@ -215,16 +237,14 @@ type TaskWithResults interface {
     TaskInterface
     ResultProvider
 }
-````
-
-````
+```
 
 ### TaskManagerInterface
 
 ```go
 type TaskManagerInterface interface {
     AddTask(task *Task) error
-    RunTask(taskID string) error
+    RunTask(taskID string) (*TaskHandle, error)
     StopTask(taskID string) error
     StopAllTasks()
     GetRunningTasks() []string
@@ -232,7 +252,7 @@ type TaskManagerInterface interface {
     GetGlobalContext() *GlobalContext
     ResetGlobalContext()
 }
-````
+```
 
 ### ResultProvider
 

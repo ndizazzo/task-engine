@@ -3,6 +3,7 @@ package file
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -29,13 +30,38 @@ const (
 	ZipArchive ArchiveType = "zip"
 )
 
-// NewExtractFileAction creates a new ExtractFileAction with the given logger
-func NewExtractFileAction(logger *slog.Logger) *ExtractFileAction {
-	return &ExtractFileAction{
-		BaseAction:        task_engine.NewBaseAction(logger),
-		ParameterResolver: *common.NewParameterResolver(logger),
-		OutputBuilder:     *common.NewOutputBuilder(logger),
+// ExtractOption is a functional option for configuring ExtractFileAction
+type ExtractOption func(*ExtractFileAction)
+
+// WithMaxDecompressedSize sets the maximum decompressed file size for the action.
+// size is in bytes; 0 uses default (100MB), -1 disables limit
+func WithMaxDecompressedSize(size int64) ExtractOption {
+	return func(a *ExtractFileAction) {
+		a.MaxDecompressedSize = size
 	}
+}
+
+// WithDirPermissions sets the directory permissions for extraction.
+// mode is the os.FileMode; 0 uses default (0o750)
+func WithDirPermissions(mode os.FileMode) ExtractOption {
+	return func(a *ExtractFileAction) {
+		a.DirPermissions = mode
+	}
+}
+
+// NewExtractFileAction creates a new ExtractFileAction with the given logger and optional configuration
+func NewExtractFileAction(logger *slog.Logger, opts ...ExtractOption) *ExtractFileAction {
+	action := &ExtractFileAction{
+		BaseAction:          task_engine.NewBaseAction(logger),
+		ParameterResolver:   *common.NewParameterResolver(logger),
+		OutputBuilder:       *common.NewOutputBuilder(logger),
+		MaxDecompressedSize: 0, // Will default to 100MB when used
+	}
+	// Apply any provided options
+	for _, opt := range opts {
+		opt(action)
+	}
+	return action
 }
 
 // WithParameters sets the parameters for source and destination paths and archive type
@@ -75,6 +101,17 @@ type ExtractFileAction struct {
 	// Parameter-aware fields
 	SourcePathParam      task_engine.ActionParameter
 	DestinationPathParam task_engine.ActionParameter
+
+	// MaxDecompressedSize is the maximum size (in bytes) for each decompressed file within an archive.
+	// If 0 (default), uses 100MB (100*1024*1024). Set to -1 to disable limit (not recommended for security reasons).
+	// Protects against decompression bombs - archives that decompress to extremely large files.
+	// Example: MaxDecompressedSize = 500*1024*1024 allows 500MB files.
+	MaxDecompressedSize int64
+
+	// DirPermissions is the permission mode for created directories during extraction.
+	// If 0 (default), uses 0o750. This affects os.MkdirAll calls for destination path and subdirectories.
+	// Example: DirPermissions = 0o755 allows world-readable directories.
+	DirPermissions os.FileMode
 }
 
 func (a *ExtractFileAction) Execute(execCtx context.Context) error {
@@ -101,6 +138,14 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 
 	if a.DestinationPath == "" {
 		return fmt.Errorf("destination path cannot be empty")
+	}
+
+	// Apply defaults for configurable limits
+	if a.MaxDecompressedSize == 0 {
+		a.MaxDecompressedSize = 100 * 1024 * 1024 // 100MB (100*1024*1024)
+	}
+	if a.DirPermissions == 0 {
+		a.DirPermissions = 0o750 // Default: rwxr-x---
 	}
 
 	// Auto-detect archive type if not specified
@@ -132,13 +177,13 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 	}
 
 	// Create destination directory if needed
-	if err := os.MkdirAll(a.DestinationPath, 0o750); err != nil {
+	if err := os.MkdirAll(a.DestinationPath, a.DirPermissions); err != nil {
 		a.Logger.Error("Failed to create destination directory", "path", a.DestinationPath, "error", err)
 		return fmt.Errorf("failed to create destination directory %s: %w", a.DestinationPath, err)
 	}
 	if a.ArchiveType == TarGzArchive {
-		if isCompressed, compressionType := a.detectCompression(a.SourcePath); isCompressed {
-			errMsg := fmt.Sprintf("file %s is compressed with %s. Please decompress it first using DecompressFileAction, then extract using ExtractFileAction", a.SourcePath, compressionType)
+		if isCompressed, _ := a.detectCompression(a.SourcePath); !isCompressed {
+			errMsg := fmt.Sprintf("expected gzip-compressed tar.gz but file is not gzip-compressed: %s", a.SourcePath)
 			a.Logger.Error(errMsg)
 			return errors.New(errMsg)
 		}
@@ -150,12 +195,28 @@ func (a *ExtractFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to open source file", "path", a.SourcePath, "error", err)
 		return fmt.Errorf("failed to open source file %s: %w", a.SourcePath, err)
 	}
-	defer sourceFile.Close()
+	defer func() {
+		if err := sourceFile.Close(); err != nil {
+			a.Logger.Error("Failed to close source file", "path", a.SourcePath, "error", err)
+		}
+	}()
 
 	// Extract based on archive type
 	switch a.ArchiveType {
-	case TarArchive, TarGzArchive:
+	case TarArchive:
 		err = a.extractTar(sourceFile, a.DestinationPath)
+	case TarGzArchive:
+		gzReader, gzErr := gzip.NewReader(sourceFile)
+		if gzErr != nil {
+			a.Logger.Error("Failed to create gzip reader", "path", a.SourcePath, "error", gzErr)
+			return fmt.Errorf("failed to create gzip reader for %s: %w", a.SourcePath, gzErr)
+		}
+		defer func() {
+			if err := gzReader.Close(); err != nil {
+				a.Logger.Error("Failed to close gzip reader", "error", err)
+			}
+		}()
+		err = a.extractTar(gzReader, a.DestinationPath)
 	case ZipArchive:
 		err = a.extractZip(sourceFile, a.DestinationPath)
 	default:
@@ -195,7 +256,7 @@ func (a *ExtractFileAction) validateAndSanitizePath(fileName, destination string
 func (a *ExtractFileAction) createTargetFile(targetPath string) (*os.File, error) {
 	// Ensure the target directory exists
 	targetDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+	if err := os.MkdirAll(targetDir, a.DirPermissions); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", targetDir, err)
 	}
 	targetFile, err := os.Create(targetPath)
@@ -208,9 +269,30 @@ func (a *ExtractFileAction) createTargetFile(targetPath string) (*os.File, error
 
 // copyWithLimit copies data from reader to file with a size limit to prevent decompression bombs
 func (a *ExtractFileAction) copyWithLimit(dst *os.File, src io.Reader, fileName string) error {
-	limitedReader := io.LimitReader(src, 100*1024*1024) // 100MB limit
+	// Determine the limit to use: configured value or default 100MB
+	limit := a.MaxDecompressedSize
+	if limit == 0 {
+		limit = 100 * 1024 * 1024 // Default: 100MB
+	}
+
+	// If limit is -1, no limit checking is performed
+	if limit < 0 {
+		if _, err := io.Copy(dst, src); err != nil {
+			return fmt.Errorf("failed to copy file content for %s: %w", fileName, err)
+		}
+		return nil
+	}
+
+	// Apply limit: copy up to limit bytes and check for overflow
+	limitedReader := io.LimitReader(src, limit)
 	if _, err := io.Copy(dst, limitedReader); err != nil {
 		return fmt.Errorf("failed to copy file content for %s: %w", fileName, err)
+	}
+
+	// Check if there's more data beyond the limit (decompression bomb detection)
+	n, _ := src.Read(make([]byte, 1))
+	if n > 0 {
+		return fmt.Errorf("file exceeds %d byte limit: %s", limit, fileName)
 	}
 	return nil
 }
@@ -255,11 +337,13 @@ func (a *ExtractFileAction) extractTar(source io.Reader, destination string) err
 
 		// Copy file content with size limit
 		if err := a.copyWithLimit(targetFile, tarReader, header.Name); err != nil {
-			_ = targetFile.Close()
+			_ = targetFile.Close() //nolint:errcheck // cleanup on error path
 			return err
 		}
 
-		_ = targetFile.Close()
+		if err := targetFile.Close(); err != nil {
+			return fmt.Errorf("failed to close file %s: %w", targetPath, err)
+		}
 
 		// Set file permissions
 		a.setFilePermissions(targetPath, header.Mode)
@@ -278,7 +362,7 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 	}
 
 	// Create a zip reader
-	zipReader, err := zip.NewReader(strings.NewReader(string(data)), int64(len(data)))
+	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return fmt.Errorf("failed to create zip reader: %w", err)
 	}
@@ -293,7 +377,7 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 
 		// If it's a directory, create it and continue
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, 0o750); err != nil {
+			if err := os.MkdirAll(targetPath, a.DirPermissions); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
 			}
 			continue
@@ -312,13 +396,15 @@ func (a *ExtractFileAction) extractZip(source io.Reader, destination string) err
 
 		// Copy file content with size limit
 		if err := a.copyWithLimit(targetFile, zipFile, file.Name); err != nil {
-			_ = zipFile.Close()
-			_ = targetFile.Close()
+			_ = zipFile.Close()    //nolint:errcheck // cleanup on error path
+			_ = targetFile.Close() //nolint:errcheck // cleanup on error path
 			return err
 		}
 
 		_ = zipFile.Close()
-		_ = targetFile.Close()
+		if err := targetFile.Close(); err != nil {
+			return fmt.Errorf("failed to close file %s: %w", targetPath, err)
+		}
 
 		// Set file permissions
 		a.setFilePermissions(targetPath, int64(file.Mode()))
@@ -342,7 +428,9 @@ func (a *ExtractFileAction) detectCompression(filePath string) (bool, string) {
 	if err != nil {
 		return false, ""
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close() //nolint:errcheck // best effort detection
+	}()
 
 	// Try to create a gzip reader to test if it's gzip compressed
 	_, err = gzip.NewReader(file)

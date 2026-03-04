@@ -10,12 +10,29 @@ import (
 
 var _ TaskManagerInterface = (*TaskManager)(nil)
 
+// TaskHandle provides access to a running task's completion status and result
+type TaskHandle struct {
+	taskID string
+	done   chan struct{}
+	err    error
+	mu     sync.Mutex
+}
+
+func (h *TaskHandle) Done() <-chan struct{} { return h.done }
+func (h *TaskHandle) Err() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.err
+}
+func (h *TaskHandle) TaskID() string { return h.taskID }
+
 // TaskManager implements TaskManagerInterface for managing task execution
 type TaskManager struct {
 	Tasks        map[string]*Task
 	runningTasks map[string]context.CancelFunc
 	Logger       *slog.Logger
 	mu           sync.Mutex
+	wg           sync.WaitGroup
 	// Global context for cross-task parameter passing. This enables actions
 	// in different tasks to reference outputs from other tasks.
 	globalContext *GlobalContext
@@ -38,6 +55,11 @@ func (tm *TaskManager) AddTask(task *Task) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
+	// Check for duplicate task IDs
+	if _, exists := tm.Tasks[task.ID]; exists {
+		return fmt.Errorf("task ID '%s' already exists", task.ID)
+	}
+
 	task.Logger = tm.Logger.With("taskID", task.ID)
 	tm.Tasks[task.ID] = task
 	tm.Logger.Info("Task added", "taskID", task.ID)
@@ -45,34 +67,39 @@ func (tm *TaskManager) AddTask(task *Task) error {
 	return nil
 }
 
-func (tm *TaskManager) RunTask(taskID string) error {
+func (tm *TaskManager) RunTask(taskID string) (*TaskHandle, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
 	task, exists := tm.Tasks[taskID]
 	if !exists {
 		tm.Logger.Error("Task not found", "taskID", taskID)
-		return fmt.Errorf("task %q not found", taskID)
+		return nil, fmt.Errorf("task %q not found", taskID)
 	}
 
-	// Create a context for every task
 	ctx, cancel := context.WithCancel(context.Background())
 	tm.runningTasks[taskID] = cancel
 
-	// Capture the current global context under lock to avoid races with ResetGlobalContext.
-	// Tasks will run against this snapshot even if the manager's global context is reset later.
 	gc := tm.globalContext
 
-	// Start every task in a goroutine
+	handle := &TaskHandle{taskID: taskID, done: make(chan struct{})}
+	tm.wg.Add(1)
+
 	go func(gcSnapshot *GlobalContext) {
+		defer tm.wg.Done()
+		defer close(handle.done)
 		defer func() {
 			tm.mu.Lock()
 			delete(tm.runningTasks, taskID)
 			tm.mu.Unlock()
 		}()
 
-		// Run task with the captured global context for parameter resolution
 		err := task.RunWithContext(ctx, gcSnapshot)
+
+		handle.mu.Lock()
+		handle.err = err
+		handle.mu.Unlock()
+
 		if err != nil {
 			if ctx.Err() != nil {
 				tm.Logger.Info("Task canceled", "taskID", taskID, "error", err)
@@ -84,22 +111,21 @@ func (tm *TaskManager) RunTask(taskID string) error {
 		}
 	}(gc)
 
-	return nil
+	return handle, nil
 }
 
 func (tm *TaskManager) StopTask(taskID string) error {
 	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
 	cancel, exists := tm.runningTasks[taskID]
 	if !exists {
+		tm.mu.Unlock()
 		return fmt.Errorf("task %q is not running", taskID)
 	}
+	delete(tm.runningTasks, taskID)
+	tm.mu.Unlock()
 
-	// Cancel the task's context
 	cancel()
 	tm.Logger.Info("Task stopped", "taskID", taskID)
-	delete(tm.runningTasks, taskID)
 	return nil
 }
 
@@ -135,25 +161,24 @@ func (tm *TaskManager) IsTaskRunning(taskID string) bool {
 	return exists
 }
 
-// WaitForAllTasksToComplete waits for all running tasks to complete
 func (tm *TaskManager) WaitForAllTasksToComplete(timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for {
+	done := make(chan struct{})
+	go func() {
+		tm.wg.Wait()
+		close(done)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
 		tm.mu.Lock()
 		runningCount := len(tm.runningTasks)
 		tm.mu.Unlock()
-
-		if runningCount == 0 {
-			return nil
-		}
-
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for %d tasks to complete", runningCount)
-		}
-
-		// Log the current state for debugging
-		tm.Logger.Debug("Waiting for tasks to complete", "runningCount", runningCount, "timeout", timeout)
-		time.Sleep(10 * time.Millisecond)
+		return fmt.Errorf("timeout waiting for %d tasks to complete", runningCount)
 	}
 }
 

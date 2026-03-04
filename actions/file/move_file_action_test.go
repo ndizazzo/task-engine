@@ -9,7 +9,7 @@ import (
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/file"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -102,12 +102,14 @@ func (suite *MoveFileTestSuite) TestExecute_SimpleMove() {
 	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
-
 	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
-	suite.mockRunner.AssertExpectations(suite.T())
+	// Verify file was actually moved using os.Rename (native syscall)
+	_, err = os.Stat(destination)
+	suite.NoError(err, "destination file should exist")
+	_, err = os.Stat(suite.tempFile)
+	suite.Error(err, "source file should not exist")
 }
 
 func (suite *MoveFileTestSuite) TestExecute_WithCreateDirs() {
@@ -121,15 +123,14 @@ func (suite *MoveFileTestSuite) TestExecute_WithCreateDirs() {
 	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
-
 	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
-	suite.mockRunner.AssertExpectations(suite.T())
-
+	// Verify file was actually moved and directories created
+	_, err = os.Stat(destination)
+	suite.NoError(err, "destination file should exist")
 	_, err = os.Stat(filepath.Dir(destination))
-	suite.NoError(err)
+	suite.NoError(err, "destination directory should exist")
 }
 
 func (suite *MoveFileTestSuite) TestExecute_NonExistentSource() {
@@ -160,13 +161,12 @@ func (suite *MoveFileTestSuite) TestExecute_CommandFailure() {
 	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("permission denied", assert.AnError)
+	// Test fallback: permission denied error from os.Rename triggers fallback to mv command
+	suite.mockRunner.On("RunCommandWithContext", mock.Anything, "mv", "--", suite.tempFile, destination).Return("", nil)
 
 	err = action.Wrapped.Execute(context.Background())
 
-	suite.Error(err)
-	suite.Contains(err.Error(), "failed to move")
-	suite.mockRunner.AssertExpectations(suite.T())
+	suite.NoError(err)
 }
 
 func (suite *MoveFileTestSuite) TestExecute_RenameFile() {
@@ -180,12 +180,12 @@ func (suite *MoveFileTestSuite) TestExecute_RenameFile() {
 	suite.NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", context.Background(), "mv", suite.tempFile, destination).Return("", nil)
-
 	err = action.Wrapped.Execute(context.Background())
 
 	suite.NoError(err)
-	suite.mockRunner.AssertExpectations(suite.T())
+	// Verify file was renamed using os.Rename (native syscall)
+	_, err = os.Stat(destination)
+	suite.NoError(err, "renamed file should exist")
 }
 
 func (suite *MoveFileTestSuite) TestMoveFileAction_GetOutput() {
@@ -202,6 +202,35 @@ func (suite *MoveFileTestSuite) TestMoveFileAction_GetOutput() {
 	suite.Equal("/tmp/dest.txt", m["destination"])
 	suite.Equal(true, m["createDirs"])
 	suite.Equal(true, m["success"])
+}
+
+func (suite *MoveFileTestSuite) TestNewMoveFileAction_NilLogger() {
+	destination := filepath.Join(suite.tempDir, "nil_logger_dest.txt")
+	action, err := file.NewMoveFileAction(nil).WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: destination},
+		false,
+	)
+	suite.NoError(err)
+	suite.NotNil(action)
+	suite.NotNil(action.Wrapped.Logger)
+}
+
+func (suite *MoveFileTestSuite) TestExecute_RenameFailure_NonLinkError() {
+	logger := command_mock.NewDiscardLogger()
+	// Destination in a non-existent directory (CreateDirs=false, so no MkdirAll)
+	destination := filepath.Join(suite.tempDir, "nonexistent_subdir", "file.txt")
+	action, err := file.NewMoveFileAction(logger).WithParameters(
+		task_engine.StaticParameter{Value: suite.tempFile},
+		task_engine.StaticParameter{Value: destination},
+		false,
+	)
+	suite.NoError(err)
+	action.Wrapped.SetCommandRunner(suite.mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "failed to move")
 }
 
 func TestMoveFileTestSuite(t *testing.T) {

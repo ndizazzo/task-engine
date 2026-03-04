@@ -10,6 +10,7 @@ import (
 	"github.com/ndizazzo/task-engine/actions/docker"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/mock"
 )
 
 // DockerComposeLsActionTestSuite tests the DockerComposeLsAction
@@ -67,7 +68,7 @@ myapp               running             /path/to/docker-compose.yml
 testapp             stopped             /path/to/compose.yml,/path/to/override.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -95,7 +96,7 @@ myapp               running             /path/to/docker-compose.yml
 testapp             stopped             /path/to/compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--all").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls", "--all").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeAll()))
 	suite.NoError(err)
@@ -115,7 +116,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_W
 myapp               running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--filter", "name=myapp").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls", "--filter", "name=myapp").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFilter("name=myapp")))
 	suite.NoError(err)
@@ -136,7 +137,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_W
 myapp               running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--format", "table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls", "--format", "table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeFormat("table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}")))
 	suite.NoError(err)
@@ -156,7 +157,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_W
 testapp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--quiet").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls", "--quiet").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig(docker.WithComposeLsQuiet()))
 	suite.NoError(err)
@@ -177,7 +178,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_C
 	expectedError := errors.New("docker compose command failed")
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return("", expectedError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return("", expectedError)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -198,7 +199,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_C
 	cancel() // Cancel immediately
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return("", context.Canceled)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return("", context.Canceled)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -222,7 +223,7 @@ devapp              created             /path/to/dev-compose.yml`
 
 	// Create a mock runner that returns our test output
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(output, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(output, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -253,7 +254,7 @@ func (suite *DockerComposeLsActionTestSuite) TestDockerComposeLsAction_Execute_E
 	expectedOutput := ""
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -274,7 +275,7 @@ myapp               running             /path/to/docker-compose.yml
 testapp             stopped             /path/to/compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(task_engine.StaticParameter{Value: ""}, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -335,7 +336,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithStaticParameter() {
 myapp               running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -369,7 +370,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithActionOutputParamet
 api-service         running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -403,7 +404,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithTaskOutputParameter
 frontend-service    running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -438,7 +439,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithEntityOutputParamet
 cache-service       running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)
@@ -567,7 +568,7 @@ func (suite *DockerComposeLsActionTestSuite) TestExecute_WithMixedParameterTypes
 static-service      running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls", "--all", "--filter", "name=static-service").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls", "--all", "--filter", "name=static-service").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(
 		workingDirParam,
@@ -611,7 +612,7 @@ func (suite *DockerComposeLsActionTestSuite) TestBackwardCompatibility_ExecuteWi
 myapp               running             /path/to/docker-compose.yml`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ls").Return(expectedOutput, nil)
 
 	action, err := docker.NewDockerComposeLsAction(logger).WithParameters(workingDirParam, docker.NewDockerComposeLsConfig())
 	suite.NoError(err)

@@ -10,6 +10,7 @@ import (
 	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/mock"
 )
 
 // DockerPsActionTestSuite tests the DockerPsAction
@@ -89,7 +90,7 @@ abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours    
 def456ghi789   redis     "docker-entrypoint.s"    1 hour ago      Up 1 hour      6379/tcp   myapp_redis_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -133,7 +134,7 @@ abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours    
 def456ghi789   redis     "docker-entrypoint.s"    1 hour ago      Exited (0) 1 hour ago     6379/tcp   myapp_redis_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--all").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--all").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -162,7 +163,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithFilter() {
 abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--filter", "status=running").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--filter", "status=running").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: "status=running"},
@@ -189,7 +190,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithFormat() {
 	expectedOutput := "myapp_web_1\tUp 2 hours\nmyapp_redis_1\tUp 1 hour"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--format", "{{.Names}}\t{{.Status}}").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--format", "{{.Names}}\t{{.Status}}").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -217,7 +218,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithLast() {
 abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--last", "1").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--last", "1").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -245,7 +246,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithLatest() {
 abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--latest").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -273,7 +274,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithNoTrunc() {
 sha256:abc123def456789012345678901234567890123456789012345678901234567890   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--no-trunc").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--no-trunc").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -301,7 +302,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithQuiet() {
 	expectedOutput := "abc123def456\ndef456ghi789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--quiet").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--quiet").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -328,7 +329,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WithSize() {
 abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1   133MB`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--size").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--size").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -355,7 +356,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_CommandError() 
 	expectedError := "docker ps failed"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return("", errors.New(expectedError))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return("", errors.New(expectedError))
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -382,7 +383,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_ContextCancella
 	logger := slog.Default()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return("", context.Canceled)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return("", context.Canceled)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -412,7 +413,7 @@ abc123def456   nginx     "nginx -g 'daemon off"   2 hours ago     Up 2 hours    
 def456ghi789   redis     "docker-entrypoint.s"    1 hour ago      Up 1 hour      6379/tcp   myapp_redis_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return(output, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return(output, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -517,7 +518,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_EmptyOutput() {
 	expectedOutput := ""
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return(expectedOutput, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -544,7 +545,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_WhitespaceOnlyO
 	output := "  \n  \n"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return(output, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return(output, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},
@@ -589,7 +590,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_WithOptionMethods() {
 	expected := `CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS   PORTS   NAMES`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps", "--all", "--filter", "status=running", "--format", "{{.Names}}", "--last", "2", "--latest", "--no-trunc", "--quiet", "--size").Return(expected, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps", "--all", "--filter", "status=running", "--format", "{{.Names}}", "--last", "2", "--latest", "--no-trunc", "--quiet", "--size").Return(expected, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		nil,
@@ -634,7 +635,7 @@ func (suite *DockerPsActionTestSuite) TestDockerPsAction_Execute_OutputWithTrail
 	output := "CONTAINER ID   IMAGE     COMMAND                  CREATED         STATUS         PORTS     NAMES\nabc123def456   nginx     \"nginx -g 'daemon off\"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   myapp_web_1\n  \n"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "ps").Return(output, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "ps").Return(output, nil)
 
 	action, err := NewDockerPsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: ""},

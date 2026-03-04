@@ -105,13 +105,24 @@ func (a *MoveFileAction) Execute(execCtx context.Context) error {
 
 	a.Logger.Info("Moving file/directory", "source", a.Source, "destination", a.Destination, "createDirs", a.CreateDirs)
 
-	output, err := a.commandRunner.RunCommandWithContext(execCtx, "mv", a.Source, a.Destination)
+	err := os.Rename(a.Source, a.Destination)
 	if err != nil {
-		a.Logger.Error("Failed to move file/directory", "error", err, "output", output)
-		return fmt.Errorf("failed to move %s to %s: %w. Output: %s", a.Source, a.Destination, err, output)
+		// Check if it's a cross-filesystem error
+		if linkErr, ok := err.(*os.LinkError); ok && linkErr.Err.Error() == "invalid cross-device link" {
+			// Fallback to mv command for cross-filesystem moves
+			output, cmdErr := a.commandRunner.RunCommandWithContext(execCtx, "mv", "--", a.Source, a.Destination)
+			if cmdErr != nil {
+				a.Logger.Error("Failed to move file/directory", "error", cmdErr, "output", output)
+				return fmt.Errorf("failed to move %s to %s: %w. Output: %s", a.Source, a.Destination, cmdErr, output)
+			}
+			a.Logger.Info("Successfully moved file/directory (cross-filesystem fallback)", "source", a.Source, "destination", a.Destination)
+			return nil
+		}
+		a.Logger.Error("Failed to move file/directory", "error", err)
+		return fmt.Errorf("failed to move %s to %s: %w", a.Source, a.Destination, err)
 	}
 
-	a.Logger.Info("Successfully moved file/directory", "source", a.Source, "destination", a.Destination)
+	a.Logger.Info("Successfully moved file/directory (native rename)", "source", a.Source, "destination", a.Destination)
 	return nil
 }
 

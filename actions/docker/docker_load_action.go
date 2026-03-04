@@ -134,7 +134,7 @@ func (a *DockerLoadAction) Execute(execCtx context.Context) error {
 	}
 
 	a.Logger.Info("Executing docker load", "tarFile", a.TarFilePath, "platform", a.Platform, "quiet", a.Quiet)
-	output, err := a.CommandProcessor.RunCommand("docker", args...)
+	output, err := a.CommandProcessor.RunCommandWithContext(execCtx, "docker", args...)
 	a.Output = output
 
 	if err != nil {

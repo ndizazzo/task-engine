@@ -263,7 +263,7 @@ func (a *DockerPsAction) Execute(execCtx context.Context) error {
 		"size", a.Size,
 	)
 
-	output, err := a.CommandProcessor.RunCommand("docker", args...)
+	output, err := a.CommandProcessor.RunCommandWithContext(execCtx, "docker", args...)
 	if err != nil {
 		a.Logger.Error("Failed to list Docker containers", "error", err.Error(), "output", output)
 		return fmt.Errorf("failed to list Docker containers: %w", err)

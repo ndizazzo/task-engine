@@ -34,11 +34,17 @@ type ActionOutputParameter struct {
 }
 
 func (p ActionOutputParameter) Resolve(ctx context.Context, globalContext *GlobalContext) (interface{}, error) {
+	if globalContext == nil {
+		return nil, fmt.Errorf("ActionOutputParameter: globalContext is nil")
+	}
 	if p.ActionID == "" {
 		return nil, fmt.Errorf("ActionOutputParameter: ActionID cannot be empty")
 	}
 
+	globalContext.mu.RLock()
 	output, exists := globalContext.ActionOutputs[p.ActionID]
+	globalContext.mu.RUnlock()
+
 	if !exists {
 		return nil, fmt.Errorf("ActionOutputParameter: action '%s' not found in context", p.ActionID)
 	}
@@ -64,11 +70,17 @@ type ActionResultParameter struct {
 }
 
 func (p ActionResultParameter) Resolve(ctx context.Context, globalContext *GlobalContext) (interface{}, error) {
+	if globalContext == nil {
+		return nil, fmt.Errorf("ActionResultParameter: globalContext is nil")
+	}
 	if p.ActionID == "" {
 		return nil, fmt.Errorf("ActionResultParameter: ActionID cannot be empty")
 	}
 
+	globalContext.mu.RLock()
 	resultProvider, exists := globalContext.ActionResults[p.ActionID]
+	globalContext.mu.RUnlock()
+
 	if !exists {
 		return nil, fmt.Errorf("ActionResultParameter: action '%s' not found in context", p.ActionID)
 	}
@@ -95,11 +107,17 @@ type TaskResultParameter struct {
 }
 
 func (p TaskResultParameter) Resolve(ctx context.Context, globalContext *GlobalContext) (interface{}, error) {
+	if globalContext == nil {
+		return nil, fmt.Errorf("TaskResultParameter: globalContext is nil")
+	}
 	if p.TaskID == "" {
 		return nil, fmt.Errorf("TaskResultParameter: TaskID cannot be empty")
 	}
 
+	globalContext.mu.RLock()
 	resultProvider, exists := globalContext.TaskResults[p.TaskID]
+	globalContext.mu.RUnlock()
+
 	if !exists {
 		return nil, fmt.Errorf("TaskResultParameter: task '%s' not found in context", p.TaskID)
 	}
@@ -125,11 +143,17 @@ type TaskOutputParameter struct {
 }
 
 func (p TaskOutputParameter) Resolve(ctx context.Context, globalContext *GlobalContext) (interface{}, error) {
+	if globalContext == nil {
+		return nil, fmt.Errorf("TaskOutputParameter: globalContext is nil")
+	}
 	if p.TaskID == "" {
 		return nil, fmt.Errorf("TaskOutputParameter: TaskID cannot be empty")
 	}
 
+	globalContext.mu.RLock()
 	output, exists := globalContext.TaskOutputs[p.TaskID]
+	globalContext.mu.RUnlock()
+
 	if !exists {
 		return nil, fmt.Errorf("TaskOutputParameter: task '%s' not found in context", p.TaskID)
 	}
@@ -156,6 +180,9 @@ type EntityOutputParameter struct {
 }
 
 func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *GlobalContext) (interface{}, error) {
+	if globalContext == nil {
+		return nil, fmt.Errorf("EntityOutputParameter: globalContext is nil")
+	}
 	if p.EntityType == "" || p.EntityID == "" {
 		return nil, fmt.Errorf("EntityOutputParameter: EntityType and EntityID cannot be empty")
 	}
@@ -168,7 +195,11 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 	switch p.EntityType {
 	case entityTypeAction:
 		// Try ActionOutputs first
-		if output, exists := globalContext.ActionOutputs[p.EntityID]; exists {
+		globalContext.mu.RLock()
+		output, existsOutput := globalContext.ActionOutputs[p.EntityID]
+		globalContext.mu.RUnlock()
+
+		if existsOutput {
 			if p.OutputKey != "" {
 				if outputMap, ok := output.(map[string]interface{}); ok {
 					if value, exists := outputMap[p.OutputKey]; exists {
@@ -180,8 +211,13 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 			}
 			return output, nil
 		}
+
 		// Try ActionResults if ActionOutputs doesn't have it
-		if resultProvider, exists := globalContext.ActionResults[p.EntityID]; exists {
+		globalContext.mu.RLock()
+		resultProvider, existsResult := globalContext.ActionResults[p.EntityID]
+		globalContext.mu.RUnlock()
+
+		if existsResult {
 			result := resultProvider.GetResult()
 			if p.OutputKey != "" {
 				if resultMap, ok := result.(map[string]interface{}); ok {
@@ -198,7 +234,11 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 
 	case entityTypeTask:
 		// Try TaskOutputs first
-		if output, exists := globalContext.TaskOutputs[p.EntityID]; exists {
+		globalContext.mu.RLock()
+		output, existsOutput := globalContext.TaskOutputs[p.EntityID]
+		globalContext.mu.RUnlock()
+
+		if existsOutput {
 			if p.OutputKey != "" {
 				if outputMap, ok := output.(map[string]interface{}); ok {
 					if value, exists := outputMap[p.OutputKey]; exists {
@@ -210,8 +250,13 @@ func (p EntityOutputParameter) Resolve(ctx context.Context, globalContext *Globa
 			}
 			return output, nil
 		}
+
 		// Try TaskResults if TaskOutputs doesn't have it
-		if resultProvider, exists := globalContext.TaskResults[p.EntityID]; exists {
+		globalContext.mu.RLock()
+		resultProvider, existsResult := globalContext.TaskResults[p.EntityID]
+		globalContext.mu.RUnlock()
+
+		if existsResult {
 			result := resultProvider.GetResult()
 			if p.OutputKey != "" {
 				if resultMap, ok := result.(map[string]interface{}); ok {

@@ -200,7 +200,7 @@ func (a *DockerComposeLsAction) Execute(execCtx context.Context) error {
 		"workingDir", a.WorkingDir,
 	)
 
-	output, err := a.CommandProcessor.RunCommand("docker", args...)
+	output, err := a.CommandProcessor.RunCommandWithContext(execCtx, "docker", args...)
 	if err != nil {
 		a.Logger.Error("Failed to list Docker Compose stacks", "error", err.Error(), "output", output)
 		return fmt.Errorf("failed to list Docker Compose stacks: %w", err)

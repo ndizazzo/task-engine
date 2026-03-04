@@ -109,13 +109,14 @@ func (a *ChangeOwnershipAction) Execute(execCtx context.Context) error {
 		ownerSpec = ":" + a.Group
 	}
 
-	args := []string{ownerSpec, a.Path}
+	args := []string{"--", ownerSpec, a.Path}
 	if a.Recursive {
 		args = append([]string{"-R"}, args...)
 	}
 
 	a.Logger.Info("Changing ownership", "path", a.Path, "owner", a.Owner, "group", a.Group, "recursive", a.Recursive)
 
+	// TODO: Consider using os.Chown for non-recursive case (requires user.Lookup/LookupGroup and Unix-only)
 	output, err := a.commandRunner.RunCommandWithContext(execCtx, "chown", args...)
 	if err != nil {
 		a.Logger.Error("Failed to change ownership", "error", err, "output", output)

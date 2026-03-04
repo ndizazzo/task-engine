@@ -397,3 +397,191 @@ func (suite *TaskTestSuite) TestTask_SimpleResultAggregation() {
 		suite.T().Fatal("unexpected result type")
 	}
 }
+
+// TestValidateActionParameters_DuplicateActionIDs verifies that duplicate action IDs are detected
+func (suite *TaskTestSuite) TestValidateActionParameters_DuplicateActionIDs() {
+	logger := mocks.NewDiscardLogger()
+
+	task := &engine.Task{
+		ID:     "test-duplicate-ids-task",
+		Name:   "Test Duplicate IDs Task",
+		Logger: logger,
+		Actions: []engine.ActionWrapper{
+			newMockAction(logger, "action-duplicate", nil, nil),
+			newMockAction(logger, "action-duplicate", nil, nil),
+		},
+	}
+
+	err := task.Run(context.Background())
+
+	assert.Error(suite.T(), err, "Task.Run should return an error when duplicate action IDs are found")
+	assert.Contains(suite.T(), err.Error(), "duplicate action ID", "Error should mention duplicate action ID")
+	assert.Contains(suite.T(), err.Error(), "action-duplicate", "Error should contain the duplicate ID")
+}
+
+// TestValidateActionParameters_ValidUniqueActionIDs verifies that tasks with unique action IDs pass validation
+func (suite *TaskTestSuite) TestValidateActionParameters_ValidUniqueActionIDs() {
+	logger := mocks.NewDiscardLogger()
+	action1Executed := false
+	action2Executed := false
+	action3Executed := false
+
+	task := &engine.Task{
+		ID:     "test-unique-ids-task",
+		Name:   "Test Unique IDs Task",
+		Logger: logger,
+		Actions: []engine.ActionWrapper{
+			newMockAction(logger, "action-1", nil, &action1Executed),
+			newMockAction(logger, "action-2", nil, &action2Executed),
+			newMockAction(logger, "action-3", nil, &action3Executed),
+		},
+	}
+
+	err := task.Run(context.Background())
+
+	assert.NoError(suite.T(), err, "Task.Run should succeed with unique action IDs")
+	assert.True(suite.T(), action1Executed, "Action 1 should have been executed")
+	assert.True(suite.T(), action2Executed, "Action 2 should have been executed")
+	assert.True(suite.T(), action3Executed, "Action 3 should have been executed")
+	assert.Equal(suite.T(), 3, task.CompletedTasks, "All 3 actions should be completed")
+}
+
+// TestValidateActionParameters_EmptyActionID verifies that empty action IDs are rejected
+func (suite *TaskTestSuite) TestValidateActionParameters_EmptyActionID() {
+	logger := mocks.NewDiscardLogger()
+
+	emptyIDAction := &engine.Action[*mockAction]{
+		ID: "", // Empty ID
+		Wrapped: &mockAction{
+			BaseAction: engine.BaseAction{Logger: logger},
+			Name:       "empty-id-action",
+		},
+	}
+
+	task := &engine.Task{
+		ID:      "test-empty-id-task",
+		Name:    "Test Empty ID Task",
+		Logger:  logger,
+		Actions: []engine.ActionWrapper{emptyIDAction},
+	}
+
+	err := task.Run(context.Background())
+
+	assert.Error(suite.T(), err, "Task.Run should return an error when an action has an empty ID")
+	assert.Contains(suite.T(), err.Error(), "empty ID", "Error should mention empty ID")
+}
+
+// TestValidateActionParameters_MultipleActionsMultipleDuplicates verifies detection of duplicates across multiple actions
+func (suite *TaskTestSuite) TestValidateActionParameters_MultipleActionsMultipleDuplicates() {
+	logger := mocks.NewDiscardLogger()
+
+	task := &engine.Task{
+		ID:     "test-multi-duplicate-task",
+		Name:   "Test Multiple Duplicates Task",
+		Logger: logger,
+		Actions: []engine.ActionWrapper{
+			newMockAction(logger, "action-a", nil, nil),
+			newMockAction(logger, "action-b", nil, nil),
+			newMockAction(logger, "action-a", nil, nil), // Duplicate of first
+		},
+	}
+
+	err := task.Run(context.Background())
+
+	assert.Error(suite.T(), err, "Task.Run should return an error when duplicate IDs are found")
+	assert.Contains(suite.T(), err.Error(), "duplicate action ID", "Error should mention duplicate action ID")
+	assert.Contains(suite.T(), err.Error(), "action-a", "Error should contain the duplicate ID")
+	assert.Contains(suite.T(), err.Error(), "index 0", "Error should indicate first occurrence")
+	assert.Contains(suite.T(), err.Error(), "and 2", "Error should indicate duplicate occurrence")
+}
+
+func TestTaskGetIDAndGetName(t *testing.T) {
+	task := &engine.Task{
+		ID:   "my-task-id",
+		Name: "My Task Name",
+	}
+	if task.GetID() != "my-task-id" {
+		t.Fatalf("expected 'my-task-id', got %q", task.GetID())
+	}
+	if task.GetName() != "My Task Name" {
+		t.Fatalf("expected 'My Task Name', got %q", task.GetName())
+	}
+}
+
+// Task cancellation should still store task output and task result
+func TestTaskCancellationStoresOutputAndResult(t *testing.T) {
+	logger := NewDiscardLogger()
+	gc := engine.NewGlobalContext()
+
+	task := &engine.Task{
+		ID:   "cancel-task",
+		Name: "Cancellation Test",
+		Actions: []engine.ActionWrapper{
+			&engine.Action[*DelayAction]{
+				ID:      "quick",
+				Wrapped: &DelayAction{BaseAction: engine.BaseAction{Logger: logger}, Delay: 1 * time.Millisecond},
+				Logger:  logger,
+			},
+			&engine.Action[*CancelAwareAction]{
+				ID:      "slow",
+				Wrapped: &CancelAwareAction{BaseAction: engine.BaseAction{Logger: logger}, Delay: 2 * time.Second},
+				Logger:  logger,
+			},
+		},
+		Logger: logger,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
+	_ = task.RunWithContext(ctx, gc)
+
+	if _, ok := gc.TaskOutputs[task.ID]; !ok {
+		t.Fatalf("expected TaskOutputs to contain task output on cancellation")
+	}
+	if _, ok := gc.TaskResults[task.ID]; !ok {
+		t.Fatalf("expected TaskResults to contain task result provider on cancellation")
+	}
+	out := gc.TaskOutputs[task.ID].(map[string]interface{})
+	if out["success"].(bool) {
+		t.Fatalf("expected success=false on cancellation")
+	}
+}
+
+// ResultBuilder error should set task error and mark success=false in outputs
+func TestTaskResultBuilderErrorPath(t *testing.T) {
+	logger := NewDiscardLogger()
+	gc := engine.NewGlobalContext()
+
+	errSentinel := errors.New("builder failed")
+	builderTask := &engine.Task{
+		ID:   "builder-error",
+		Name: "Builder Error",
+		Actions: []engine.ActionWrapper{
+			&engine.Action[*DelayAction]{ID: "noop", Wrapped: &DelayAction{}, Logger: logger},
+		},
+		Logger: logger,
+		ResultBuilder: func(ctx *engine.TaskContext) (interface{}, error) {
+			return nil, errSentinel
+		},
+	}
+
+	_ = builderTask.RunWithContext(context.Background(), gc)
+	out, ok := gc.TaskOutputs[builderTask.ID]
+	if !ok {
+		t.Fatalf("expected TaskOutputs to contain output")
+	}
+	outMap := out.(map[string]interface{})
+	if outMap["success"].(bool) {
+		t.Fatalf("expected success=false when builder fails")
+	}
+	res, ok := engine.TaskResultAs[map[string]interface{}](gc, builderTask.ID)
+	if !ok {
+		t.Fatalf("expected typed task result from task provider")
+	}
+	if res["success"].(bool) {
+		t.Fatalf("expected task result success=false when builder fails")
+	}
+}

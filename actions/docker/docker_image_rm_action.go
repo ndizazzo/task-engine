@@ -135,7 +135,7 @@ func (a *DockerImageRmAction) Execute(execCtx context.Context) error {
 	}
 
 	a.Logger.Info("Executing docker image rm", "identifier", identifier, "force", force, "noPrune", noPrune)
-	output, err := a.CommandProcessor.RunCommand("docker", args...)
+	output, err := a.CommandProcessor.RunCommandWithContext(execCtx, "docker", args...)
 	a.Output = output
 
 	if err != nil {

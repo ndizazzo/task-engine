@@ -79,17 +79,10 @@ func (a *ContentProcessingAction) Execute(ctx context.Context) error {
 		return a.processingError
 	}
 
-	// Get the content from the read action
-	readOutput, exists := globalCtx.ActionOutputs["read-source-file"]
-	if !exists {
-		a.processingError = fmt.Errorf("read action output not found")
-		return a.processingError
-	}
-
-	// Extract the content from the read action output
-	readOutputMap, ok := readOutput.(map[string]interface{})
-	if !ok {
-		a.processingError = fmt.Errorf("read action output is not a map")
+	// Get the content from the read action using safe accessor
+	readOutputMap, err := engine.ActionOutputFieldAs[map[string]interface{}](globalCtx, "read-source-file", "")
+	if err != nil {
+		a.processingError = fmt.Errorf("read action output not found: %w", err)
 		return a.processingError
 	}
 

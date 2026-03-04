@@ -41,7 +41,8 @@ func (p *ExampleTaskProcessor) ProcessTask(taskID string) error {
 	}
 
 	// Run the task
-	return p.taskManager.RunTask(taskID)
+	_, err := p.taskManager.RunTask(taskID)
+	return err
 }
 
 // MockUsageExampleTestSuite tests the mock usage examples
@@ -62,7 +63,7 @@ func (suite *MockUsageExampleTestSuite) TestExampleTaskProcessor_ProcessTask() {
 	// Set up mock expectations
 	taskManagerMock.On("IsTaskRunning", "test-task").Return(false)
 	taskManagerMock.On("AddTask", mock.AnythingOfType("*task_engine.Task")).Return(nil)
-	taskManagerMock.On("RunTask", "test-task").Return(nil)
+	taskManagerMock.On("RunTask", "test-task").Return((*task_engine.TaskHandle)(nil), nil)
 
 	// Create processor and process task
 	processor := NewExampleTaskProcessor(taskManagerMock)

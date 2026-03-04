@@ -89,7 +89,7 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerAndGroup() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser:testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "--", "testuser:testgroup", suite.tempFile).Return("", nil)
 
 	err = action.Wrapped.Execute(ctx)
 
@@ -110,7 +110,7 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_OwnerOnly() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "--", "testuser", suite.tempFile).Return("", nil)
 
 	err = action.Wrapped.Execute(ctx)
 
@@ -131,7 +131,7 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_GroupOnly() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", ":testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "--", ":testgroup", suite.tempFile).Return("", nil)
 
 	err = action.Wrapped.Execute(ctx)
 
@@ -152,7 +152,7 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_Recursive() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "-R", "testuser:testgroup", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "-R", "--", "testuser:testgroup", suite.tempFile).Return("", nil)
 
 	err = action.Wrapped.Execute(ctx)
 
@@ -192,7 +192,7 @@ func (suite *ChangeOwnershipTestSuite) TestExecute_CommandFailure() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "testuser:testgroup", suite.tempFile).Return("permission denied", assert.AnError)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chown", "--", "testuser:testgroup", suite.tempFile).Return("permission denied", assert.AnError)
 
 	err = action.Wrapped.Execute(ctx)
 

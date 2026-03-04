@@ -32,25 +32,14 @@ func main() {
         ID:   "my-first-task",
         Name: "Create Project Structure",
         Actions: []task_engine.ActionWrapper{
-            // Action 1: Create directory
-            func() task_engine.ActionInterface {
-                action, _ := file.NewCreateDirectoriesAction(logger).WithParameters(
-                    task_engine.StaticParameter{Value: "/tmp/myproject"},
-                    task_engine.StaticParameter{Value: []string{"src", "docs"}},
-                )
-                return action
-            },
-
-            // Action 2: Write file
-            func() task_engine.ActionInterface {
-                action, _ := file.NewWriteFileAction(logger).WithParameters(
-                    task_engine.StaticParameter{Value: "/tmp/myproject/README.md"},
-                    task_engine.StaticParameter{Value: []byte("# My Project\n\nCreated with Task Engine!")},
-                    true, // overwrite
-                    nil,  // inputBuffer
-                )
-                return action
-            },
+            file.NewCreateDirectoriesAction([]string{"src", "docs"}, logger),
+            file.NewWriteFileAction(
+                "/tmp/myproject/README.md",
+                []byte("# My Project\n\nCreated with Task Engine!"),
+                true,
+                nil,
+                logger,
+            ),
         },
         Logger: logger,
     }
@@ -92,31 +81,22 @@ if err := fileTask.Run(context.Background()); err != nil {
 Pass data between actions:
 
 ```go
-task := &task_engine.Task{
-    ID:   "file-pipeline",
-    Name: "Process File",
-    Actions: []task_engine.ActionWrapper{
-        // Read file
-        func() task_engine.ActionInterface {
-            var content []byte
-            action, _ := file.NewReadFileAction("/tmp/input.txt", &content, logger)
-            action.ID = "read-file"
-            return action
-        },
-
-        // Process content (using output from read action)
-        func() task_engine.ActionInterface {
-            action := file.NewReplaceLinesAction(logger).WithParameters(
-                task_engine.StaticParameter{Value: "/tmp/output.txt"},
+    task := &task_engine.Task{
+        ID:   "file-pipeline",
+        Name: "Process File",
+        Actions: []task_engine.ActionWrapper{
+            file.NewReadFileAction("read-file", "/tmp/input.txt", logger),
+            file.NewReplaceLinesAction(
+                "replace-lines",
+                "/tmp/output.txt",
                 map[*regexp.Regexp]task_engine.ActionParameter{
                     regexp.MustCompile("old"): task_engine.ActionOutputField("read-file", "content"),
                 },
-            )
-            return action
+                logger,
+            ),
         },
-    },
-    Logger: logger,
-}
+        Logger: logger,
+    }
 ```
 
 ## Task Manager
@@ -127,20 +107,27 @@ Manage multiple tasks with shared context:
 manager := task_engine.NewTaskManager(logger)
 
 // Add tasks
-task1ID := manager.AddTask(fileTask)
-task2ID := manager.AddTask(dockerTask)
-
-// Run tasks
-if err := manager.RunTask(context.Background(), task1ID); err != nil {
-    logger.Error("Task 1 failed", "error", err)
+if err := manager.AddTask(fileTask); err != nil {
+    logger.Error("Failed to add task", "error", err)
+}
+if err := manager.AddTask(dockerTask); err != nil {
+    logger.Error("Failed to add task", "error", err)
 }
 
-if err := manager.RunTask(context.Background(), task2ID); err != nil {
-    logger.Error("Task 2 failed", "error", err)
+// Run tasks — returns a TaskHandle for async tracking
+handle1, err := manager.RunTask("file-operations")
+if err != nil {
+    logger.Error("Task 1 failed to start", "error", err)
 }
+<-handle1.Done()
+
+handle2, err := manager.RunTask("docker-setup")
+if err != nil {
+    logger.Error("Task 2 failed to start", "error", err)
+}
+<-handle2.Done()
 
 // Stop tasks
-manager.StopTask(task1ID)
 manager.StopAllTasks()
 ```
 
@@ -171,9 +158,7 @@ func NewGreetingAction(name string, logger *slog.Logger) *task_engine.Action[*Gr
 
 // Use in task
 greetingAction := NewGreetingAction("World", logger)
-task.Actions = append(task.Actions, func() task_engine.ActionInterface {
-    return greetingAction
-})
+task.Actions = append(task.Actions, greetingAction)
 ```
 
 ## Error Handling

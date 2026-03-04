@@ -80,7 +80,7 @@ func (a *ShutdownAction) Execute(ctx context.Context) error {
 	}
 
 	additionalFlags := shutdownArgs(operation, delay)
-	_, err := a.CommandProcessor.RunCommand("shutdown", additionalFlags...)
+	_, err := a.CommandProcessor.RunCommandWithContext(ctx, "shutdown", additionalFlags...)
 	return err
 }
 

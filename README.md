@@ -83,12 +83,23 @@ preflightMode := task_engine.TaskResultField("preflight", "UpdateMode")
 ```go
 manager := task_engine.NewTaskManager(logger)
 
-// Add and run tasks
-taskID := manager.AddTask(task)
-err := manager.RunTask(context.Background(), taskID)
+// Add tasks (returns error on duplicate ID or nil task)
+if err := manager.AddTask(task); err != nil {
+    logger.Error("Failed to add task", "error", err)
+}
+
+// Run tasks — returns a TaskHandle for async tracking
+handle, err := manager.RunTask("my-task-id")
+if err != nil {
+    logger.Error("Failed to start task", "error", err)
+}
+<-handle.Done() // wait for completion
+if err := handle.Err(); err != nil {
+    logger.Error("Task failed", "error", err)
+}
 
 // Stop tasks
-manager.StopTask(taskID)
+manager.StopTask("my-task-id")
 manager.StopAllTasks()
 ```
 

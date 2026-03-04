@@ -127,13 +127,21 @@ func (a *CompressFileAction) Execute(execCtx context.Context) error {
 		a.Logger.Error("Failed to open source file", "path", a.SourcePath, "error", err)
 		return fmt.Errorf("failed to open source file %s: %w", a.SourcePath, err)
 	}
-	defer sourceFile.Close()
+	defer func() {
+		if err := sourceFile.Close(); err != nil {
+			a.Logger.Error("Failed to close source file", "path", a.SourcePath, "error", err)
+		}
+	}()
 	destFile, err := os.Create(a.DestinationPath)
 	if err != nil {
 		a.Logger.Error("Failed to create destination file", "path", a.DestinationPath, "error", err)
 		return fmt.Errorf("failed to create destination file %s: %w", a.DestinationPath, err)
 	}
-	defer destFile.Close()
+	defer func() {
+		if err := destFile.Close(); err != nil {
+			a.Logger.Error("Failed to close destination file", "path", a.DestinationPath, "error", err)
+		}
+	}()
 
 	// Compress based on compression type
 	switch a.CompressionType {
@@ -168,7 +176,11 @@ func (a *CompressFileAction) Execute(execCtx context.Context) error {
 // compressGzip compresses a file using gzip compression
 func (a *CompressFileAction) compressGzip(source io.Reader, destination io.Writer) error {
 	gzipWriter := gzip.NewWriter(destination)
-	defer gzipWriter.Close()
+	defer func() {
+		if err := gzipWriter.Close(); err != nil {
+			a.Logger.Error("Failed to close gzip writer", "error", err)
+		}
+	}()
 
 	_, err := io.Copy(gzipWriter, source)
 	if err != nil {

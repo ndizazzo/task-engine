@@ -188,13 +188,17 @@ func (a *CopyFileAction) copyFile(src, dst string, mode os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close() //nolint:errcheck // best effort cleanup
+	}()
 	// nosec G304 - Path is sanitized by SanitizePath function
 	dstFile, err := os.Create(sanitizedDst)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() {
+		_ = dstFile.Close() //nolint:errcheck // best effort cleanup
+	}()
 
 	// Copy content
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
@@ -246,14 +250,18 @@ func (a *CopyFileAction) executeFileCopy() error {
 		a.Logger.Debug("Failed to open source file", "error", err, "file", a.Source)
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close() //nolint:errcheck // best effort cleanup
+	}()
 
 	destFile, err := os.Create(a.Destination)
 	if err != nil {
 		a.Logger.Debug("Failed to create destination file", "error", err, "file", a.Destination)
 		return err
 	}
-	defer destFile.Close()
+	defer func() {
+		_ = destFile.Close() //nolint:errcheck // best effort cleanup
+	}()
 
 	_, err = io.Copy(destFile, srcFile)
 	if err != nil {

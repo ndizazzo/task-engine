@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/common"
@@ -79,10 +80,20 @@ func (a *ChangePermissionsAction) Execute(execCtx context.Context) error {
 		return fmt.Errorf("path does not exist: %s", a.Path)
 	}
 
-	args := []string{a.Permissions, a.Path}
-	if a.Recursive {
-		args = append([]string{"-R"}, args...)
+	if !a.Recursive {
+		mode, err := strconv.ParseUint(a.Permissions, 8, 32)
+		if err != nil {
+			return fmt.Errorf("invalid permission format %q: %w", a.Permissions, err)
+		}
+		if err := os.Chmod(a.Path, os.FileMode(mode)); err != nil {
+			a.Logger.Error("Failed to change permissions", "path", a.Path, "permissions", a.Permissions, "error", err)
+			return fmt.Errorf("failed to change permissions of %s to %s: %w", a.Path, a.Permissions, err)
+		}
+		a.Logger.Info("Successfully changed permissions", "path", a.Path, "permissions", a.Permissions)
+		return nil
 	}
+
+	args := []string{"-R", "--", a.Permissions, a.Path}
 
 	a.Logger.Info("Changing permissions", "path", a.Path, "permissions", a.Permissions, "recursive", a.Recursive)
 

@@ -3,6 +3,7 @@ package file_test
 import (
 	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"os"
 	"path/filepath"
@@ -73,7 +74,8 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar.gz file")
 
-	tarWriter := tar.NewWriter(tarFile)
+	gzWriter := gzip.NewWriter(tarFile)
+	tarWriter := tar.NewWriter(gzWriter)
 
 	content := "This is test content for tar.gz extraction"
 	header := &tar.Header{
@@ -88,6 +90,7 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessTarGz() {
 	suite.Require().NoError(err, "Setup: Failed to write tar content")
 
 	tarWriter.Close()
+	gzWriter.Close()
 	tarFile.Close()
 
 	logger := command_mock.NewDiscardLogger()
@@ -265,7 +268,8 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
 	tarFile, err := os.Create(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to create tar.gz file")
 
-	tarWriter := tar.NewWriter(tarFile)
+	gzWriter := gzip.NewWriter(tarFile)
+	tarWriter := tar.NewWriter(gzWriter)
 	content := "Auto-detected tar.gz content"
 	header := &tar.Header{
 		Name: "test.txt",
@@ -279,6 +283,7 @@ func (suite *ExtractFileTestSuite) TestExecuteSuccessAutoDetectTarGz() {
 	suite.Require().NoError(err, "Setup: Failed to write tar content")
 
 	tarWriter.Close()
+	gzWriter.Close()
 	tarFile.Close()
 
 	logger := command_mock.NewDiscardLogger()
@@ -548,7 +553,7 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureUnsupportedArchiveType() {
 	suite.ErrorContains(err, "unsupported archive type")
 }
 
-func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
+func (suite *ExtractFileTestSuite) TestExecuteSuccessCompressedTarGz() {
 	cwd, err := os.Getwd()
 	suite.Require().NoError(err, "Failed to get current working directory")
 	projectRoot := filepath.Join(cwd, "..", "..")
@@ -567,9 +572,40 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureCompressedTarGz() {
 	suite.Require().NoError(err)
 
 	err = action.Wrapped.Execute(context.Background())
+	suite.NoError(err)
+}
+
+func (suite *ExtractFileTestSuite) TestExecuteFailureUncompressedTarGz() {
+	sourceFile := filepath.Join(suite.tempDir, "test.tar.gz")
+	destDir := filepath.Join(suite.tempDir, "extracted")
+
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar.gz file")
+
+	tarWriter := tar.NewWriter(tarFile)
+
+	content := "This is uncompressed tar content"
+	header := &tar.Header{
+		Name: "test.txt",
+		Mode: 0o644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err, "Setup: Failed to write tar header")
+
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write tar content")
+
+	tarWriter.Close()
+	tarFile.Close()
+
+	logger := command_mock.NewDiscardLogger()
+	action, err := file.NewExtractFileAction(logger).WithParameters(task_engine.StaticParameter{Value: sourceFile}, task_engine.StaticParameter{Value: destDir}, file.TarGzArchive)
+	suite.Require().NoError(err)
+
+	err = action.Wrapped.Execute(context.Background())
 	suite.Error(err)
-	suite.ErrorContains(err, "is compressed with gzip")
-	suite.ErrorContains(err, "Please decompress it first using DecompressFileAction")
+	suite.ErrorContains(err, "expected gzip-compressed tar.gz but file is not gzip-compressed")
 }
 
 func (suite *ExtractFileTestSuite) TestExecuteSuccessCreatesDestinationDirectory() {
@@ -958,12 +994,10 @@ func (suite *ExtractFileTestSuite) TestDetectCompressionFileOpenFailure() {
 }
 
 func (suite *ExtractFileTestSuite) TestDetectCompressionFileSeekFailure() {
-	// Create a file that can't be seeked (simulate by using a pipe)
 	sourceFile := filepath.Join(suite.tempDir, "test.gz")
-	err := os.WriteFile(sourceFile, []byte{0x1f, 0x8b}, 0o644) // gzip magic number
+	err := os.WriteFile(sourceFile, []byte{0x1f, 0x8b}, 0o644)
 	suite.Require().NoError(err, "Setup: Failed to create test file")
 
-	// Open the file and close it to make it unseekable in some contexts
 	fileHandle, err := os.Open(sourceFile)
 	suite.Require().NoError(err, "Setup: Failed to open test file")
 	fileHandle.Close()
@@ -974,17 +1008,32 @@ func (suite *ExtractFileTestSuite) TestDetectCompressionFileSeekFailure() {
 		DestinationPath: suite.tempDir,
 		ArchiveType:     file.TarGzArchive,
 	}
-	// which will call detectCompression internally
 	err = action.Execute(context.Background())
 	suite.Error(err)
-	suite.ErrorContains(err, "is compressed with gzip")
+	suite.ErrorContains(err, "failed to create gzip reader")
 }
 
 func (suite *ExtractFileTestSuite) TestDetectCompressionFileReadFailure() {
-	// Create a file that can't be read (no permissions)
-	sourceFile := filepath.Join(suite.tempDir, "test.gz")
-	err := os.WriteFile(sourceFile, []byte{0x1f, 0x8b}, 0o000) // No permissions
-	suite.Require().NoError(err, "Setup: Failed to create test file")
+	sourceFile := filepath.Join(suite.tempDir, "test.tar.gz")
+
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+	tarWriter := tar.NewWriter(tarFile)
+	content := "test content"
+	header := &tar.Header{
+		Name: "test.txt",
+		Mode: 0o644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err)
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err)
+	tarWriter.Close()
+	tarFile.Close()
+
+	err = os.Chmod(sourceFile, 0o000)
+	suite.Require().NoError(err, "Setup: Failed to change permissions")
 
 	action := &file.ExtractFileAction{
 		BaseAction:      task_engine.BaseAction{Logger: command_mock.NewDiscardLogger()},
@@ -992,12 +1041,10 @@ func (suite *ExtractFileTestSuite) TestDetectCompressionFileReadFailure() {
 		DestinationPath: suite.tempDir,
 		ArchiveType:     file.TarGzArchive,
 	}
-	// which will call detectCompression internally
 	err = action.Execute(context.Background())
 	suite.Error(err)
-	suite.ErrorContains(err, "failed to open source file")
+	suite.ErrorContains(err, "expected gzip-compressed tar.gz but file is not gzip-compressed")
 
-	// Restore permissions for cleanup
 	_ = os.Chmod(sourceFile, 0o644)
 }
 
@@ -1082,6 +1129,71 @@ func (suite *ExtractFileTestSuite) TestExecuteFailureZipFileContentCopy() {
 	_ = os.Chmod(destDir, 0o755)
 }
 
+func (suite *ExtractFileTestSuite) TestExtractFileCustomDirPermissions() {
+	// Create a tar archive with a subdirectory
+	sourceFile := filepath.Join(suite.tempDir, "test.tar")
+	destDir := filepath.Join(suite.tempDir, "extracted_custom_perms")
+
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err, "Setup: Failed to create tar file")
+
+	tarWriter := tar.NewWriter(tarFile)
+
+	// Write a subdirectory entry
+	dirHeader := &tar.Header{
+		Name:     "subdir/",
+		Mode:     0o755,
+		Typeflag: tar.TypeDir,
+	}
+	err = tarWriter.WriteHeader(dirHeader)
+	suite.Require().NoError(err, "Setup: Failed to write tar dir header")
+
+	// Write a file in the subdirectory
+	content := "Test content in custom perms dir"
+	fileHeader := &tar.Header{
+		Name: "subdir/test.txt",
+		Mode: 0o644,
+		Size: int64(len(content)),
+	}
+	err = tarWriter.WriteHeader(fileHeader)
+	suite.Require().NoError(err, "Setup: Failed to write tar file header")
+
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err, "Setup: Failed to write tar content")
+
+	tarWriter.Close()
+	tarFile.Close()
+
+	logger := command_mock.NewDiscardLogger()
+
+	// Create action with custom directory permissions (0o755 = rwxr-xr-x)
+	action := file.NewExtractFileAction(logger, file.WithDirPermissions(0o755))
+	wrappedAction, err := action.WithParameters(task_engine.StaticParameter{Value: sourceFile}, task_engine.StaticParameter{Value: destDir}, file.TarArchive)
+	suite.Require().NoError(err)
+
+	err = wrappedAction.Wrapped.Execute(context.Background())
+	suite.NoError(err)
+
+	// Verify the extracted file exists
+	extractedFile := filepath.Join(destDir, "subdir", "test.txt")
+	extractedContent, err := os.ReadFile(extractedFile)
+	suite.NoError(err)
+	suite.Equal(content, string(extractedContent))
+
+	// Verify the destination directory has custom permissions
+	destDirInfo, err := os.Stat(destDir)
+	suite.NoError(err)
+	suite.True(destDirInfo.IsDir())
+	// Check that the custom permission bits are set (0o755)
+	suite.Equal(os.FileMode(0o755)|os.ModeDir, destDirInfo.Mode().Perm()|os.ModeDir)
+
+	// Verify the subdirectory also has custom permissions
+	subdirInfo, err := os.Stat(filepath.Join(destDir, "subdir"))
+	suite.NoError(err)
+	suite.True(subdirInfo.IsDir())
+	suite.Equal(os.FileMode(0o755)|os.ModeDir, subdirInfo.Mode().Perm()|os.ModeDir)
+}
+
 func (suite *ExtractFileTestSuite) TestExtractFileAction_GetOutput() {
 	action := &file.ExtractFileAction{
 		SourcePath:      "/tmp/archive.tar.gz",
@@ -1096,6 +1208,78 @@ func (suite *ExtractFileTestSuite) TestExtractFileAction_GetOutput() {
 	suite.Equal("/tmp/extracted", m["destination"])
 	suite.Equal(string(file.TarGzArchive), m["archiveType"])
 	suite.Equal(true, m["success"])
+}
+
+func (suite *ExtractFileTestSuite) TestWithMaxDecompressedSizeOption() {
+	logger := command_mock.NewDiscardLogger()
+	action := file.NewExtractFileAction(logger, file.WithMaxDecompressedSize(500))
+	suite.Equal(int64(500), action.MaxDecompressedSize)
+}
+
+func (suite *ExtractFileTestSuite) TestExtractWithUnlimitedDecompressedSize() {
+	sourceFile := filepath.Join(suite.tempDir, "unlimited.tar")
+	destDir := filepath.Join(suite.tempDir, "extracted_unlimited")
+
+	// Create tar with content
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err)
+	tarWriter := tar.NewWriter(tarFile)
+	content := "This is content for unlimited decompression test"
+	header := &tar.Header{Name: "test.txt", Mode: 0o644, Size: int64(len(content))}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err)
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err)
+	tarWriter.Close()
+	tarFile.Close()
+
+	logger := command_mock.NewDiscardLogger()
+	action := file.NewExtractFileAction(logger, file.WithMaxDecompressedSize(-1))
+	wrappedAction, err := action.WithParameters(
+		task_engine.StaticParameter{Value: sourceFile},
+		task_engine.StaticParameter{Value: destDir},
+		file.TarArchive,
+	)
+	suite.Require().NoError(err)
+
+	err = wrappedAction.Wrapped.Execute(context.Background())
+	suite.NoError(err)
+
+	extractedContent, err := os.ReadFile(filepath.Join(destDir, "test.txt"))
+	suite.NoError(err)
+	suite.Equal(content, string(extractedContent))
+}
+
+func (suite *ExtractFileTestSuite) TestExtractDecompressionBombDetection() {
+	sourceFile := filepath.Join(suite.tempDir, "bomb.tar")
+	destDir := filepath.Join(suite.tempDir, "extracted_bomb")
+
+	// Create tar with content larger than limit
+	tarFile, err := os.Create(sourceFile)
+	suite.Require().NoError(err)
+	tarWriter := tar.NewWriter(tarFile)
+	content := "This content is definitely longer than 10 bytes and should trigger bomb detection"
+	header := &tar.Header{Name: "big.txt", Mode: 0o644, Size: int64(len(content))}
+	err = tarWriter.WriteHeader(header)
+	suite.Require().NoError(err)
+	_, err = tarWriter.Write([]byte(content))
+	suite.Require().NoError(err)
+	tarWriter.Close()
+	tarFile.Close()
+
+	logger := command_mock.NewDiscardLogger()
+	action := file.NewExtractFileAction(logger, file.WithMaxDecompressedSize(10))
+	wrappedAction, err := action.WithParameters(
+		task_engine.StaticParameter{Value: sourceFile},
+		task_engine.StaticParameter{Value: destDir},
+		file.TarArchive,
+	)
+	suite.Require().NoError(err)
+
+	err = wrappedAction.Wrapped.Execute(context.Background())
+	suite.Error(err)
+	suite.ErrorContains(err, "exceeds")
+	suite.ErrorContains(err, "10")
 }
 
 func TestExtractFileTestSuite(t *testing.T) {
