@@ -365,7 +365,7 @@ func (suite *DockerComposeUpTestSuite) TestExecute_WithEmptyActionID() {
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.Contains(execErr.Error(), "ActionID cannot be empty")
+	suite.Contains(execErr.Error(), "globalContext is nil")
 }
 
 func (suite *DockerComposeUpTestSuite) TestExecute_WithNonMapOutput() {

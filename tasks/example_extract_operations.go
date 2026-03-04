@@ -215,10 +215,18 @@ func (a CreateArchiveAction) createTarArchive() error {
 	if err != nil {
 		return err
 	}
-	defer tarFile.Close()
+	defer func() {
+		if err := tarFile.Close(); err != nil {
+			a.Logger.Error("Failed to close tar file", "path", a.DestPath, "error", err)
+		}
+	}()
 
 	tarWriter := tar.NewWriter(tarFile)
-	defer tarWriter.Close()
+	defer func() {
+		if err := tarWriter.Close(); err != nil {
+			a.Logger.Error("Failed to close tar writer", "error", err)
+		}
+	}()
 
 	// Walk through the source directory
 	return filepath.Walk(a.SourceDir, func(path string, info os.FileInfo, err error) error {
@@ -255,7 +263,9 @@ func (a CreateArchiveAction) createTarArchive() error {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() {
+				_ = file.Close() //nolint:errcheck // cleanup in walk callback
+			}()
 
 			if _, err := io.Copy(tarWriter, file); err != nil {
 				return err
@@ -271,10 +281,18 @@ func (a CreateArchiveAction) createZipArchive() error {
 	if err != nil {
 		return err
 	}
-	defer zipFile.Close()
+	defer func() {
+		if err := zipFile.Close(); err != nil {
+			a.Logger.Error("Failed to close zip file", "path", a.DestPath, "error", err)
+		}
+	}()
 
 	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
+	defer func() {
+		if err := zipWriter.Close(); err != nil {
+			a.Logger.Error("Failed to close zip writer", "error", err)
+		}
+	}()
 
 	// Walk through the source directory
 	return filepath.Walk(a.SourceDir, func(path string, info os.FileInfo, err error) error {
@@ -312,7 +330,9 @@ func (a CreateArchiveAction) createZipArchive() error {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() {
+				_ = file.Close() //nolint:errcheck // cleanup in walk callback
+			}()
 
 			if _, err := io.Copy(writer, file); err != nil {
 				return err
@@ -363,10 +383,18 @@ func (a CreateComplexTarAction) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer tarFile.Close()
+	defer func() {
+		if err := tarFile.Close(); err != nil {
+			a.Logger.Error("Failed to close tar file", "path", a.DestPath, "error", err)
+		}
+	}()
 
 	tarWriter := tar.NewWriter(tarFile)
-	defer tarWriter.Close()
+	defer func() {
+		if err := tarWriter.Close(); err != nil {
+			a.Logger.Error("Failed to close tar writer", "error", err)
+		}
+	}()
 
 	// Walk through the testdata directory
 	return filepath.Walk("testing/testdata", func(path string, info os.FileInfo, err error) error {
@@ -403,7 +431,9 @@ func (a CreateComplexTarAction) Execute(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() {
+				_ = file.Close() //nolint:errcheck // cleanup in walk callback
+			}()
 
 			if _, err := io.Copy(tarWriter, file); err != nil {
 				return err

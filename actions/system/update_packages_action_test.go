@@ -8,6 +8,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -53,8 +54,8 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -78,7 +79,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -102,8 +103,8 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "install", "-y", "curl", "wget").Return("Packages installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -126,7 +127,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "brew", "install", "curl", "wget").Return("Packages installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -203,7 +204,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("", errors.New("update failed"))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("", errors.New("update failed"))
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -226,8 +227,8 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl").Return("", errors.New("install failed"))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "install", "-y", "curl").Return("", errors.New("install failed"))
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -250,7 +251,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl").Return("", errors.New("install failed"))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "brew", "install", "curl").Return("", errors.New("install failed"))
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -313,8 +314,8 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	action.Wrapped.PackageManager = AptPackageManager
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "install", "-y", "curl").Return("Packages installed successfully", nil)
 	action.Wrapped.SetCommandRunner(mockRunner)
 
 	err = action.Wrapped.Execute(context.Background())
@@ -359,8 +360,8 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "update").Return("Reading package lists... Done", nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "apt", "install", "-y", "curl", "wget", "git").Return("Packages installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "update").Return("Reading package lists... Done", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "apt", "install", "-y", "curl", "wget", "git").Return("Packages installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(
@@ -383,7 +384,7 @@ func (suite *UpdatePackagesActionTestSuite) TestNewUpdatePackagesActionConstruct
 	logger := mocks.NewDiscardLogger()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "brew", "install", "curl").Return("Package installed successfully", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "brew", "install", "curl").Return("Package installed successfully", nil)
 
 	constructor := NewUpdatePackagesAction(logger)
 	action, err := constructor.WithParameters(

@@ -8,6 +8,7 @@ import (
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -75,7 +76,7 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_Success() {
 	expectedOutput := "nginx:latest: Pulling from library/nginx\nDigest: sha256:...\nStatus: Downloaded newer image for nginx:latest"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -104,9 +105,9 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_SuccessMult
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "alpine:3.18").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "redis:7-alpine").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "alpine:3.18").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "redis:7-alpine").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -147,8 +148,8 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchSu
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
 
 	multiArchImages := map[string]MultiArchImageSpec{
 		"nginx": {
@@ -177,8 +178,8 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchPa
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return("", assert.AnError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return("", assert.AnError)
 
 	multiArchImages := map[string]MultiArchImageSpec{
 		"nginx": {
@@ -205,8 +206,8 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MultiArchCo
 	logger := slog.Default()
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return("", assert.AnError)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return("", assert.AnError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return("", assert.AnError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return("", assert.AnError)
 
 	multiArchImages := map[string]MultiArchImageSpec{
 		"nginx": {
@@ -234,9 +235,9 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_MixedImages
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "alpine:3.18").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "alpine:3.18").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"alpine": {
@@ -273,7 +274,7 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_Failure() {
 	expectedError := "Error response from daemon: manifest for nonexistent:latest not found"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nonexistent:latest").Return(expectedError, assert.AnError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nonexistent:latest").Return(expectedError, assert.AnError)
 
 	images := map[string]ImageSpec{
 		"nonexistent": {
@@ -303,8 +304,8 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_PartialFail
 	errorOutput := "Error response from daemon: manifest for nonexistent:latest not found"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(successOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nonexistent:latest").Return(errorOutput, assert.AnError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(successOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nonexistent:latest").Return(errorOutput, assert.AnError)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -361,7 +362,7 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithQuietOp
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--quiet", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--quiet", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -385,7 +386,7 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithPlatfor
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "linux/amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "linux/amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -409,7 +410,7 @@ func (suite *DockerPullActionTestSuite) TestDockerPullAction_Execute_WithArchite
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
 
 	images := map[string]ImageSpec{
 		"nginx": {
@@ -575,7 +576,7 @@ func (suite *DockerPullActionTestSuite) TestNewDockerPullActionConstructor_Execu
 	expectedOutput := "nginx:latest: Pulling from library/nginx\nDigest: sha256:...\nStatus: Downloaded newer image for nginx:latest"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	// Create test images data
 	images := map[string]ImageSpec{
@@ -615,7 +616,7 @@ func (suite *DockerPullActionTestSuite) TestNewDockerPullActionConstructor_Execu
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--quiet", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--quiet", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	// Create test images data
 	images := map[string]ImageSpec{
@@ -650,7 +651,7 @@ func (suite *DockerPullActionTestSuite) TestNewDockerPullActionConstructor_Execu
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "linux/amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "linux/amd64", "nginx:latest").Return(expectedOutput, nil)
 
 	// Create test images data
 	images := map[string]ImageSpec{
@@ -685,8 +686,8 @@ func (suite *DockerPullActionTestSuite) TestNewDockerPullActionConstructor_Execu
 	expectedOutput := "Image pulled successfully"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
-	mockRunner.On("RunCommandWithContext", context.Background(), "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return(expectedOutput, nil)
 
 	// Create test multiarch images data
 	multiArchImages := map[string]MultiArchImageSpec{
@@ -719,4 +720,181 @@ func (suite *DockerPullActionTestSuite) TestNewDockerPullActionConstructor_Execu
 	assert.Contains(suite.T(), action.Wrapped.Output, "Pulled 1 images, failed 0 images")
 
 	mockRunner.AssertExpectations(suite.T())
+}
+
+// Test WithAllTags option function
+func (suite *DockerPullActionTestSuite) TestWithAllTagsOption() {
+	logger := slog.Default()
+	images := map[string]ImageSpec{"nginx": {Image: "nginx", Tag: "latest"}}
+	action := NewDockerPullActionLegacy(logger, images, WithAllTags())
+	assert.True(suite.T(), action.Wrapped.AllTags)
+}
+
+// Test map[string]interface{} coercion for images parameter
+func (suite *DockerPullActionTestSuite) TestExecute_ImagesParamMapInterfaceCoercion() {
+	logger := slog.Default()
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return("ok", nil)
+
+	imagesParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return map[string]interface{}{
+				"nginx": map[string]interface{}{
+					"Image":        "nginx",
+					"Tag":          "latest",
+					"Architecture": "amd64",
+				},
+			}, nil
+		},
+	}
+
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(
+		imagesParam,
+		nil, // no multiarch
+		nil, // no allTags
+		nil, // no quiet
+		nil, // no platform
+	)
+	assert.NoError(suite.T(), err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	mockRunner.AssertExpectations(suite.T())
+}
+
+// Test map[string]interface{} coercion for multiarch images parameter with []interface{} architectures
+func (suite *DockerPullActionTestSuite) TestExecute_MultiArchParamMapInterfaceCoercion() {
+	logger := slog.Default()
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "amd64", "nginx:latest").Return("ok", nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "--platform", "arm64", "nginx:latest").Return("ok", nil)
+
+	multiArchParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return map[string]interface{}{
+				"nginx": map[string]interface{}{
+					"Image":         "nginx",
+					"Tag":           "latest",
+					"Architectures": []interface{}{"amd64", "arm64"},
+				},
+			}, nil
+		},
+	}
+
+	imagesParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return map[string]ImageSpec{}, nil
+		},
+	}
+
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(imagesParam, multiArchParam, nil, nil, nil)
+	assert.NoError(suite.T(), err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+
+	err = action.Wrapped.Execute(context.Background())
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), action.Wrapped.PulledImages, 1)
+	mockRunner.AssertExpectations(suite.T())
+}
+
+// Test unsupported images parameter type error
+func (suite *DockerPullActionTestSuite) TestExecute_UnsupportedImagesParamType() {
+	logger := slog.Default()
+	imagesParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return 42, nil // int is unsupported
+		},
+	}
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(imagesParam, nil, nil, nil, nil)
+	assert.NoError(suite.T(), err)
+	err = action.Wrapped.Execute(context.Background())
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "unsupported images parameter type")
+}
+
+// Test unsupported multiarch images parameter type error
+func (suite *DockerPullActionTestSuite) TestExecute_UnsupportedMultiArchParamType() {
+	logger := slog.Default()
+	imagesParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return map[string]ImageSpec{"x": {Image: "x", Tag: "1"}}, nil
+		},
+	}
+	multiArchParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return "not-a-map", nil
+		},
+	}
+	mockRunner := &mocks.MockCommandRunner{}
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "pull", "x:1").Return("ok", nil)
+
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(imagesParam, multiArchParam, nil, nil, nil)
+	assert.NoError(suite.T(), err)
+	action.Wrapped.SetCommandRunner(mockRunner)
+	err = action.Wrapped.Execute(context.Background())
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "unsupported multiarch images parameter type")
+}
+
+// Test AllTags parameter with non-bool type error
+func (suite *DockerPullActionTestSuite) TestExecute_AllTagsParamNonBool() {
+	logger := slog.Default()
+	allTagsParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return "true", nil // string, not bool
+		},
+	}
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: map[string]ImageSpec{"x": {Image: "x", Tag: "1"}}},
+		nil, allTagsParam, nil, nil,
+	)
+	assert.NoError(suite.T(), err)
+	err = action.Wrapped.Execute(context.Background())
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "allTags parameter is not a bool")
+}
+
+// Test Quiet parameter with non-bool type error
+func (suite *DockerPullActionTestSuite) TestExecute_QuietParamNonBool() {
+	logger := slog.Default()
+	quietParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return "true", nil // string, not bool
+		},
+	}
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: map[string]ImageSpec{"x": {Image: "x", Tag: "1"}}},
+		nil, nil, quietParam, nil,
+	)
+	assert.NoError(suite.T(), err)
+	err = action.Wrapped.Execute(context.Background())
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "quiet parameter is not a bool")
+}
+
+// Test Platform parameter with non-string type error
+func (suite *DockerPullActionTestSuite) TestExecute_PlatformParamNonString() {
+	logger := slog.Default()
+	platformParam := &mocks.MockActionParameter{
+		ResolveFunc: func(ctx context.Context, gc *task_engine.GlobalContext) (interface{}, error) {
+			return 123, nil // int, not string
+		},
+	}
+	constructor := NewDockerPullAction(logger)
+	action, err := constructor.WithParameters(
+		task_engine.StaticParameter{Value: map[string]ImageSpec{"x": {Image: "x", Tag: "1"}}},
+		nil, nil, nil, platformParam,
+	)
+	assert.NoError(suite.T(), err)
+	err = action.Wrapped.Execute(context.Background())
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "platform parameter is not a string")
 }

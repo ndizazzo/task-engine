@@ -8,6 +8,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -48,7 +49,7 @@ nginx               latest              sha256:abc123def456 2 weeks ago         
 redis               alpine              sha256:def456ghi789 3 weeks ago         32.3MB`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -84,7 +85,7 @@ nginx               latest              sha256:abc123def456 2 weeks ago         
 <none>              <none>              sha256:def456ghi789 3 weeks ago         0B`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--all").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--all").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -116,7 +117,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 nginx               latest              sha256:abc123def456 2 weeks ago         133MB`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--filter", "dangling=true").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--filter", "dangling=true").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -146,7 +147,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 	expectedOutput := "sha256:abc123def456\nsha256:def456ghi789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--quiet").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--quiet").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -175,7 +176,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 	expectedOutput := "nginx:latest\nredis:alpine"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -205,7 +206,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 nginx               latest              sha256:abc123def456789abcdef123456789abcdef123456789abcdef123456789abcdef 2 weeks ago         133MB`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--digests", "--no-trunc").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--digests", "--no-trunc").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -259,7 +260,7 @@ func (suite *DockerImageListActionTestSuite) TestNewDockerImageListActionConstru
 	expectedError := "docker image ls failed"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls").Return("", errors.New(expectedError))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls").Return("", errors.New(expectedError))
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(
@@ -333,7 +334,7 @@ func (suite *DockerImageListActionTestSuite) TestDockerImageListAction_SetOption
 nginx               latest              sha256:abc123def456 2 weeks ago         133MB`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "ls", "--all", "--digests", "--filter", "dangling=true", "--format", "{{.Repository}}", "--no-trunc", "--quiet").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "ls", "--all", "--digests", "--filter", "dangling=true", "--format", "{{.Repository}}", "--no-trunc", "--quiet").Return(expectedOutput, nil)
 
 	constructor := NewDockerImageListAction(logger)
 	action, err := constructor.WithParameters(

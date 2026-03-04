@@ -123,8 +123,14 @@ func ExampleSymlinkOperations() {
 	}
 
 	// Execute the task
-	if err := taskManager.RunTask("symlink-examples"); err != nil {
+	handle, err := taskManager.RunTask("symlink-examples")
+	if err != nil {
 		logger.Error("Failed to run symlink examples task", "error", err)
+		return
+	}
+	<-handle.Done()
+	if err := handle.Err(); err != nil {
+		logger.Error("Task execution failed", "error", err)
 		return
 	}
 

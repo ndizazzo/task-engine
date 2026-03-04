@@ -2,6 +2,7 @@ package testing
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -61,7 +62,7 @@ func (pt *PerformanceTester) BenchmarkTaskExecution(
 	errors := make([]error, iterations)
 
 	if concurrent {
-		// Run tasks concurrently
+		// Run tasks concurrently — each goroutine writes its own index (safe)
 		for i := 0; i < iterations; i++ {
 			wg.Add(1)
 			go func(index int) {
@@ -82,6 +83,7 @@ func (pt *PerformanceTester) BenchmarkTaskExecution(
 	}
 
 	totalTime := time.Since(startTime)
+	// NOTE: calculateMetrics is called with pt.mu already held — it must NOT re-lock
 	pt.calculateMetrics(executionTimes, errors, totalTime, concurrent)
 
 	pt.logger.Info("Benchmark completed",
@@ -91,13 +93,15 @@ func (pt *PerformanceTester) BenchmarkTaskExecution(
 	return pt.metrics
 }
 
-// executeSingleTask executes a single task and measures its execution time
+// executeSingleTask executes a single task and measures its execution time.
+// It waits for real task completion via the TaskHandle.Done() channel instead
+// of sleeping for a fixed duration.
 func (pt *PerformanceTester) executeSingleTask(ctx context.Context, task *task_engine.Task) (time.Duration, error) {
 	startTime := time.Now()
 
 	// Create a copy of the task to avoid conflicts
 	taskCopy := &task_engine.Task{
-		ID:      task.ID + "_" + time.Now().Format("20060102150405"),
+		ID:      task.ID + "_" + time.Now().Format("20060102150405.000"),
 		Name:    task.Name,
 		Actions: task.Actions,
 		Logger:  pt.logger,
@@ -105,16 +109,19 @@ func (pt *PerformanceTester) executeSingleTask(ctx context.Context, task *task_e
 
 	err := pt.taskManager.AddTask(taskCopy)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to add task %q: %w", taskCopy.ID, err)
 	}
 
-	err = pt.taskManager.RunTask(taskCopy.ID)
+	handle, err := pt.taskManager.RunTask(taskCopy.ID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to run task %q: %w", taskCopy.ID, err)
 	}
 
 	// Wait for task completion or context cancellation
 	select {
+	case <-handle.Done():
+		executionTime := time.Since(startTime)
+		return executionTime, handle.Err()
 	case <-ctx.Done():
 		// Stop the task when context is cancelled
 		if stopErr := pt.taskManager.StopTask(taskCopy.ID); stopErr != nil {
@@ -123,30 +130,32 @@ func (pt *PerformanceTester) executeSingleTask(ctx context.Context, task *task_e
 				"error", stopErr)
 		}
 		return time.Since(startTime), ctx.Err()
-	default:
-		// Simple wait - in a real implementation, you might want to poll the task status
-		time.Sleep(100 * time.Millisecond)
 	}
-
-	executionTime := time.Since(startTime)
-	return executionTime, nil
 }
 
-// calculateMetrics calculates performance metrics from execution data
+// calculateMetrics calculates performance metrics from execution data.
+// IMPORTANT: The caller MUST hold pt.mu — this method does NOT lock.
 func (pt *PerformanceTester) calculateMetrics(
 	executionTimes []time.Duration,
 	errors []error,
 	totalTime time.Duration,
 	concurrent bool,
 ) {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
-
 	pt.metrics.TotalTasksExecuted = len(executionTimes)
 	pt.metrics.TotalExecutionTime = totalTime
 	pt.metrics.ConcurrentTasks = 1
 	if concurrent {
 		pt.metrics.ConcurrentTasks = len(executionTimes)
+	}
+
+	// Guard against empty slices to prevent index-out-of-range panic
+	if len(executionTimes) == 0 {
+		pt.metrics.AverageExecutionTime = 0
+		pt.metrics.MinExecutionTime = 0
+		pt.metrics.MaxExecutionTime = 0
+		pt.metrics.TaskThroughput = 0
+		pt.metrics.ErrorRate = 0
+		return
 	}
 
 	// Calculate timing metrics
@@ -180,12 +189,12 @@ func (pt *PerformanceTester) calculateMetrics(
 			errorCount++
 		}
 	}
-	if len(errors) > 0 {
-		pt.metrics.ErrorRate = float64(errorCount) / float64(len(errors)) * 100
-	}
+	pt.metrics.ErrorRate = float64(errorCount) / float64(len(errors)) * 100
 }
 
-// LoadTest simulates high-load scenarios
+// LoadTest simulates high-load scenarios.
+// Uses a local mutex to protect concurrent slice appends from goroutines,
+// separate from pt.mu which protects the metrics field.
 func (pt *PerformanceTester) LoadTest(
 	ctx context.Context,
 	task *task_engine.Task,
@@ -193,9 +202,6 @@ func (pt *PerformanceTester) LoadTest(
 	concurrentLimit int,
 	duration time.Duration,
 ) *PerformanceMetrics {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
-
 	pt.logger.Info("Starting load test",
 		"totalTasks", totalTasks,
 		"concurrentLimit", concurrentLimit,
@@ -206,6 +212,9 @@ func (pt *PerformanceTester) LoadTest(
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, concurrentLimit)
+
+	// Use a local mutex to protect concurrent appends (fixes data race)
+	var resultsMu sync.Mutex
 	executionTimes := make([]time.Duration, 0, totalTasks)
 	errors := make([]error, 0, totalTasks)
 
@@ -219,8 +228,11 @@ func (pt *PerformanceTester) LoadTest(
 				defer func() { <-semaphore }()
 
 				execTime, err := pt.executeSingleTask(ctx, task)
+
+				resultsMu.Lock()
 				executionTimes = append(executionTimes, execTime)
 				errors = append(errors, err)
+				resultsMu.Unlock()
 			}()
 			taskCount++
 		case <-ctx.Done():
@@ -231,7 +243,10 @@ loopEnd:
 
 	wg.Wait()
 	totalTime := time.Since(startTime)
+
+	pt.mu.Lock()
 	pt.calculateMetrics(executionTimes, errors, totalTime, true)
+	pt.mu.Unlock()
 
 	pt.logger.Info("Load test completed",
 		"tasksExecuted", taskCount,
@@ -241,7 +256,8 @@ loopEnd:
 	return pt.metrics
 }
 
-// StressTest pushes the system to its limits
+// StressTest pushes the system to its limits by running load tests at
+// increasing concurrency levels until the system shows signs of stress.
 func (pt *PerformanceTester) StressTest(
 	ctx context.Context,
 	task *task_engine.Task,
@@ -249,9 +265,6 @@ func (pt *PerformanceTester) StressTest(
 	maxConcurrency int,
 	stepDuration time.Duration,
 ) *PerformanceMetrics {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
-
 	pt.logger.Info("Starting stress test",
 		"initialConcurrency", initialConcurrency,
 		"maxConcurrency", maxConcurrency,
@@ -265,11 +278,16 @@ func (pt *PerformanceTester) StressTest(
 		pt.logger.Info("Testing concurrency level", "concurrency", concurrency)
 
 		stepStart := time.Now()
+		// LoadTest manages its own locking — no deadlock
 		stepMetrics := pt.LoadTest(ctx, task, concurrency*10, concurrency, stepDuration)
 
-		// Collect metrics from this step
+		// Collect the actual metrics from this step
 		allExecutionTimes = append(allExecutionTimes, stepMetrics.AverageExecutionTime)
-		allErrors = append(allErrors, nil) // Simplified for this example
+		if stepMetrics.ErrorRate > 0 {
+			allErrors = append(allErrors, fmt.Errorf("step error rate: %.1f%%", stepMetrics.ErrorRate))
+		} else {
+			allErrors = append(allErrors, nil)
+		}
 
 		stepTime := time.Since(stepStart)
 		totalTime += stepTime
@@ -282,7 +300,10 @@ func (pt *PerformanceTester) StressTest(
 		}
 	}
 
+	pt.mu.Lock()
 	pt.calculateMetrics(allExecutionTimes, allErrors, totalTime, true)
+	pt.mu.Unlock()
+
 	pt.logger.Info("Stress test completed", "totalTime", totalTime)
 
 	return pt.metrics
@@ -323,7 +344,8 @@ func (pt *PerformanceTester) GenerateReport() map[string]interface{} {
 	return report
 }
 
-// calculatePerformanceScore calculates a performance score based on metrics
+// calculatePerformanceScore calculates a performance score based on metrics.
+// Caller MUST hold pt.mu (at least RLock).
 func (pt *PerformanceTester) calculatePerformanceScore() float64 {
 	if pt.metrics.TotalTasksExecuted == 0 {
 		return 0

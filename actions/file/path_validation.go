@@ -53,14 +53,12 @@ func ValidatePath(path, pathType string) error {
 		return nil
 	}
 
-	// Permit a single leading ".." (one parent up) to satisfy allowed use-cases,
-	// but reject if the single ".." occurs anywhere except at the start
+	// Reject ANY path starting with ".." - no parent directory traversal allowed
 	if parts[0] == ".." {
-		// traversalCount already guards against multiple traversals
-		return nil
+		return fmt.Errorf("invalid %s path: %s (contains potentially dangerous path traversal)", pathType, path)
 	}
-	// If the single traversal appears not at the start, reject
-	if traversalCount == 1 {
+	// Reject if ANY ".." appears anywhere in the path
+	if traversalCount >= 1 {
 		return fmt.Errorf("invalid %s path: %s (contains potentially dangerous path traversal)", pathType, path)
 	}
 
@@ -128,20 +126,14 @@ func SanitizePath(path string) (string, error) {
 		return strings.TrimPrefix(cleanPath, "./"), nil
 	}
 
-	// Allow a single leading ".." but no additional traversal segments
+	// Reject ANY path starting with ".." - no parent directory traversal allowed
 	if parts[0] == ".." {
-		return cleanPath, nil
-	}
-
-	// Disallow any other occurrences of ".." or a single traversal not at the start
-	if traversalCount == 1 {
 		return "", fmt.Errorf("invalid path: %s (contains potentially dangerous path traversal)", path)
 	}
-	// Extra guard on cleaned components
-	for _, segment := range parts {
-		if segment == ".." {
-			return "", fmt.Errorf("invalid path: %s (contains potentially dangerous path traversal)", path)
-		}
+
+	// Reject if ANY ".." appears anywhere in the path
+	if traversalCount >= 1 {
+		return "", fmt.Errorf("invalid path: %s (contains potentially dangerous path traversal)", path)
 	}
 
 	return cleanPath, nil

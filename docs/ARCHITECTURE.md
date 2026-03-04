@@ -32,10 +32,18 @@ type ActionInterface interface {
 
 ### ActionWrapper
 
-`ActionWrapper` is a function type that returns an action. This enables lazy initialization and parameter injection.
+`ActionWrapper` is an interface that all actions satisfy. It provides the execution contract, identity, and output access used by the task runner.
 
 ```go
-type ActionWrapper func() ActionInterface
+type ActionWrapper interface {
+    Execute(ctx context.Context) error
+    GetID() string
+    GetName() string
+    GetOutput() interface{}
+    GetDuration() time.Duration
+    GetLogger() *slog.Logger
+    SetID(string)
+}
 ```
 
 ### TaskManager
@@ -87,7 +95,7 @@ engine.TaskResultField("preflight", "UpdateMode")
 
 ## Execution Flow
 
-1. **Task Creation**: Actions are wrapped in functions for lazy initialization
+1. **Task Creation**: Actions are created and added to a task's `Actions` slice as `ActionWrapper` values
 2. **Parameter Resolution**: Parameters are resolved at execution time using the global context
 3. **Action Execution**: Each action runs Before → Execute → After hooks
 4. **Output Storage**: Action outputs are stored in the global context for parameter passing
@@ -115,7 +123,3 @@ Context is shared across tasks via the `TaskManager` and embedded in the executi
 - **Mocks**: Complete mock implementations for all interfaces
 - **Testable Manager**: Enhanced TaskManager with testing hooks
 - **Performance Testing**: Built-in benchmarking and load testing utilities
-
-```
-
-```

@@ -7,6 +7,7 @@ import (
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/system"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -24,14 +25,14 @@ func (suite *ShutdownActionTestSuite) TestRun_DefaultShutdownCommand() {
 	action, err := system.NewShutdownAction(nil).WithParameters(task_engine.StaticParameter{Value: "shutdown"}, task_engine.StaticParameter{Value: delay})
 	suite.Require().NoError(err)
 
-	suite.mockProcessor.On("RunCommand", "shutdown", "-h", "now").Return("", nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "shutdown", "-h", "now").Return("", nil)
 
 	action.Wrapped.CommandProcessor = suite.mockProcessor
 
 	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
-	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "shutdown", "-h", "now")
+	suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "shutdown", "-h", "now")
 }
 
 func (suite *ShutdownActionTestSuite) TestRun_RestartWithNumericDelay() {
@@ -39,14 +40,14 @@ func (suite *ShutdownActionTestSuite) TestRun_RestartWithNumericDelay() {
 	action, err := system.NewShutdownAction(nil).WithParameters(task_engine.StaticParameter{Value: "restart"}, task_engine.StaticParameter{Value: delay})
 	suite.Require().NoError(err)
 
-	suite.mockProcessor.On("RunCommand", "shutdown", "-r", "+5").Return("", nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "shutdown", "-r", "+5").Return("", nil)
 
 	action.Wrapped.CommandProcessor = suite.mockProcessor
 
 	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
-	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "shutdown", "-r", "+5")
+	suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "shutdown", "-r", "+5")
 }
 
 func (suite *ShutdownActionTestSuite) TestRun_RestartWithZeroDelay() {
@@ -54,14 +55,14 @@ func (suite *ShutdownActionTestSuite) TestRun_RestartWithZeroDelay() {
 	action, err := system.NewShutdownAction(nil).WithParameters(task_engine.StaticParameter{Value: "restart"}, task_engine.StaticParameter{Value: delay})
 	suite.Require().NoError(err)
 
-	suite.mockProcessor.On("RunCommand", "shutdown", "-r", "now").Return("", nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "shutdown", "-r", "now").Return("", nil)
 
 	action.Wrapped.CommandProcessor = suite.mockProcessor
 
 	err = action.Execute(suite.T().Context())
 
 	suite.NoError(err)
-	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "shutdown", "-r", "now")
+	suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "shutdown", "-r", "now")
 }
 
 func TestShutdownActionTestSuite(t *testing.T) {
@@ -78,11 +79,11 @@ func (suite *ShutdownActionTestSuite) TestShutdownAction_SetCommandRunner() {
 
 	// Use the setter to cover SetCommandRunner
 	action.Wrapped.SetCommandRunner(suite.mockProcessor)
-	suite.mockProcessor.On("RunCommand", "shutdown", "-h", "now").Return("", nil)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "shutdown", "-h", "now").Return("", nil)
 
 	err = action.Execute(suite.T().Context())
 	suite.NoError(err)
-	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "shutdown", "-h", "now")
+	suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "shutdown", "-h", "now")
 }
 
 func (suite *ShutdownActionTestSuite) TestShutdownAction_GetOutput() {

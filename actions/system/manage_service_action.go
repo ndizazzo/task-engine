@@ -69,7 +69,7 @@ func (a *ManageServiceAction) Execute(execCtx context.Context) error {
 		return fmt.Errorf("invalid action type: %s; must be 'start', 'stop', or 'restart'", a.ActionType)
 	}
 
-	_, err = a.CommandProcessor.RunCommand("systemctl", a.ActionType, a.ServiceName)
+	_, err = a.CommandProcessor.RunCommandWithContext(execCtx, "systemctl", a.ActionType, a.ServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to %s service %s: %w", a.ActionType, a.ServiceName, err)
 	}

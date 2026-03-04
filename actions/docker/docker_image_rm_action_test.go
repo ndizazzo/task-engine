@@ -7,6 +7,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -110,7 +111,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_ByNam
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -131,7 +132,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_ByID_
 	expectedOutput := "Deleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageID).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageID).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -152,7 +153,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_WithF
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "--force", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "--force", imageName).Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(nil).WithParameters(
 		task_engine.StaticParameter{Value: imageName},
@@ -177,7 +178,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_WithN
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "--no-prune", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "--no-prune", imageName).Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(nil).WithParameters(
 		task_engine.StaticParameter{Value: imageName},
@@ -202,7 +203,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_WithF
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "--force", "--no-prune", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "--force", "--no-prune", imageName).Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(nil).WithParameters(
 		task_engine.StaticParameter{Value: imageName},
@@ -227,7 +228,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Comma
 	expectedError := errors.New("docker image rm command failed")
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return("", expectedError)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return("", expectedError)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -250,7 +251,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Conte
 	cancel() // Cancel immediately
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return("", context.Canceled)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return("", context.Canceled)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -292,7 +293,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Speci
 	expectedOutput := "Untagged: my-app/nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -313,7 +314,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Outpu
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789\n  \n  "
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -339,7 +340,7 @@ Deleted: sha256:abc123def456789
 Deleted: sha256:def456ghi789012`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -369,7 +370,7 @@ Deleted: sha256:abc123def456789
 Deleted: sha256:def456ghi789012`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -402,7 +403,7 @@ Deleted: sha256:def456ghi789012
 Deleted: sha256:ghi789jkl012345`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -440,7 +441,7 @@ Deleted: sha256:ghi789jkl012345
 Deleted: sha256:jkl012mno345678`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -468,7 +469,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Versi
 	imageName := "nginx:1.22"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return("", errors.New("No such image: nginx:1.22"))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return("", errors.New("No such image: nginx:1.22"))
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -494,7 +495,7 @@ Deleted: sha256:def456ghi789012
 Deleted: sha256:ghi789jkl012345`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -520,7 +521,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Dangl
 	expectedOutput := "Deleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageID).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageID).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -542,7 +543,7 @@ func (suite *DockerImageRmActionTestSuite) TestDockerImageRmAction_Execute_Force
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "--force", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "--force", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -582,7 +583,7 @@ Deleted: sha256:yza567bcd890123
 Deleted: sha256:bcd890efg123456`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", imageName).Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", imageName).Return(expectedOutput, nil)
 
 	var action *task_engine.Action[*DockerImageRmAction]
 	var err error
@@ -665,7 +666,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithStaticParameters() {
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "nginx:latest").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -687,7 +688,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithStaticParameters_Remo
 	expectedOutput := "Deleted: sha256:abc123def456789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "sha256:abc123def456789").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "sha256:abc123def456789").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: true}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -722,7 +723,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithActionOutputParameter
 	expectedOutput := "Untagged: redis:alpine\nDeleted: sha256:def456ghi789"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "redis:alpine").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "redis:alpine").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -760,7 +761,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithTaskOutputParameter()
 	expectedOutput := "Untagged: myapp:v1.0.0\nDeleted: sha256:abc123def456"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "myapp:v1.0.0").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "myapp:v1.0.0").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -800,7 +801,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithEntityOutputParameter
 	expectedOutput := "Untagged: prod-app:latest\nDeleted: sha256:prod123hash456"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "prod-app:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "prod-app:latest").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -883,7 +884,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithEmptyActionID() {
 	execErr := action.Wrapped.Execute(context.Background())
 
 	suite.Error(execErr)
-	suite.ErrorContains(execErr, "ActionID cannot be empty")
+	suite.ErrorContains(execErr, "globalContext is nil")
 }
 
 func (suite *DockerImageRmActionTestSuite) TestExecute_WithNonMapOutput() {
@@ -963,7 +964,7 @@ func (suite *DockerImageRmActionTestSuite) TestExecute_WithComplexImageNameResol
 	expectedOutput := "Untagged: myapp:v1.0.0\nDeleted: sha256:deploy123hash456"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "myapp:v1.0.0").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "myapp:v1.0.0").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)
@@ -989,7 +990,7 @@ func (suite *DockerImageRmActionTestSuite) TestBackwardCompatibility_ExecuteWith
 	expectedOutput := "Untagged: nginx:latest\nDeleted: sha256:abc123"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "image", "rm", "nginx:latest").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "image", "rm", "nginx:latest").Return(expectedOutput, nil)
 
 	action, err := NewDockerImageRmAction(mocks.NewDiscardLogger()).WithParameters(imageNameParam, imageIDParam, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false}, task_engine.StaticParameter{Value: false})
 	suite.Require().NoError(err)

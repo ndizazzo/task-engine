@@ -3,8 +3,11 @@ package testing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,7 +63,7 @@ func TestTestableTaskManager(t *testing.T) {
 		err := tm.AddTask(task)
 		require.NoError(t, err)
 		assert.True(t, taskAddedCalled)
-		err = tm.RunTask("test-task")
+		_, err = tm.RunTask("test-task")
 		require.NoError(t, err)
 		assert.True(t, taskStartedCalled)
 		err = tm.StopTask("test-task")
@@ -128,9 +131,9 @@ func TestTestableTaskManager(t *testing.T) {
 		assert.Equal(t, "task2", addedCalls[1].ID)
 
 		// Run tasks
-		err = tm.RunTask("task1")
+		_, err = tm.RunTask("task1")
 		require.NoError(t, err)
-		err = tm.RunTask("task2")
+		_, err = tm.RunTask("task2")
 		require.NoError(t, err)
 		startedCalls := tm.GetTaskStartedCalls()
 		assert.Len(t, startedCalls, 2)
@@ -239,11 +242,17 @@ func TestTestableTaskManager(t *testing.T) {
 		err := tm.AddTask(task)
 		require.NoError(t, err)
 
-		err = tm.RunTask("integration-test")
+		handle, err := tm.RunTask("integration-test")
 		require.NoError(t, err)
 
-		// Wait for task to complete
-		time.Sleep(200 * time.Millisecond)
+		// Wait for task to complete deterministically via handle
+		select {
+		case <-handle.Done():
+			// Task completed
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timed out waiting for task to complete")
+		}
+
 		addedCalls := tm.GetTaskAddedCalls()
 		assert.Len(t, addedCalls, 1)
 		assert.Equal(t, "integration-test", addedCalls[0].ID)
@@ -255,6 +264,97 @@ func TestTestableTaskManager(t *testing.T) {
 		// Clean up: wait for all tasks to complete naturally
 		err = tm.WaitForAllTasksToComplete(100 * time.Millisecond)
 		require.NoError(t, err, "All tasks should complete within timeout")
+	})
+
+	t.Run("Concurrent Operations", func(t *testing.T) {
+		tm := NewTestableTaskManager(logger)
+		const numGoroutines = 10
+		var wg sync.WaitGroup
+
+		// Pre-create tasks
+		for i := 0; i < numGoroutines; i++ {
+			task := &task_engine.Task{
+				ID:      fmt.Sprintf("concurrent-task-%d", i),
+				Name:    fmt.Sprintf("Concurrent Task %d", i),
+				Actions: []task_engine.ActionWrapper{},
+			}
+			err := tm.AddTask(task)
+			require.NoError(t, err)
+		}
+
+		// Concurrently run and stop tasks
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				taskID := fmt.Sprintf("concurrent-task-%d", index)
+
+				handle, err := tm.RunTask(taskID)
+				if err != nil {
+					return // task may have been stopped already
+				}
+
+				// Wait for task to complete
+				select {
+				case <-handle.Done():
+				case <-time.After(2 * time.Second):
+					t.Errorf("Timed out waiting for task %s", taskID)
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		// Verify tracking data is consistent
+		addedCalls := tm.GetTaskAddedCalls()
+		assert.Len(t, addedCalls, numGoroutines)
+		startedCalls := tm.GetTaskStartedCalls()
+		assert.Len(t, startedCalls, numGoroutines)
+
+		// Clean up
+		err := tm.WaitForAllTasksToComplete(2 * time.Second)
+		require.NoError(t, err)
+	})
+
+	t.Run("Concurrent Hook Invocation", func(t *testing.T) {
+		tm := NewTestableTaskManager(logger)
+
+		var addedCount int64
+		tm.SetTaskAddedHook(func(task *task_engine.Task) {
+			atomic.AddInt64(&addedCount, 1)
+		})
+
+		var startedCount int64
+		tm.SetTaskStartedHook(func(taskID string) {
+			atomic.AddInt64(&startedCount, 1)
+		})
+
+		const numTasks = 20
+		var wg sync.WaitGroup
+
+		for i := 0; i < numTasks; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				task := &task_engine.Task{
+					ID:      fmt.Sprintf("hook-task-%d", index),
+					Name:    fmt.Sprintf("Hook Task %d", index),
+					Actions: []task_engine.ActionWrapper{},
+				}
+				err := tm.AddTask(task)
+				if err != nil {
+					return
+				}
+				_, _ = tm.RunTask(fmt.Sprintf("hook-task-%d", index))
+			}(i)
+		}
+		wg.Wait()
+
+		assert.Equal(t, int64(numTasks), atomic.LoadInt64(&addedCount))
+		assert.Equal(t, int64(numTasks), atomic.LoadInt64(&startedCount))
+
+		// Clean up
+		err := tm.WaitForAllTasksToComplete(2 * time.Second)
+		require.NoError(t, err)
 	})
 }
 

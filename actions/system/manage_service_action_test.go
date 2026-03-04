@@ -7,6 +7,7 @@ import (
 	"github.com/ndizazzo/task-engine/actions/system"
 	command_mock "github.com/ndizazzo/task-engine/testing/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -46,9 +47,9 @@ func (suite *ManageServiceTestSuite) runActionTest(actionType, serviceName strin
 	suite.NoError(err)
 
 	if shouldError {
-		suite.mockProcessor.On("RunCommand", "systemctl", actionType, serviceName).Return("", assert.AnError)
+		suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", actionType, serviceName).Return("", assert.AnError)
 	} else {
-		suite.mockProcessor.On("RunCommand", "systemctl", actionType, serviceName).Return("success", nil)
+		suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", actionType, serviceName).Return("success", nil)
 	}
 
 	err = action.Wrapped.Execute(suite.T().Context())
@@ -56,11 +57,11 @@ func (suite *ManageServiceTestSuite) runActionTest(actionType, serviceName strin
 	if shouldError {
 		suite.Error(err, "Expected an error for invalid action type")
 		if actionType != "invalid" {
-			suite.mockProcessor.AssertNotCalled(suite.T(), "RunCommand", "systemctl", actionType, serviceName)
+			suite.mockProcessor.AssertNotCalled(suite.T(), "RunCommandWithContext", mock.Anything, "systemctl", actionType, serviceName)
 		}
 	} else {
 		suite.NoError(err, "Expected no error for valid action type")
-		suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "systemctl", actionType, serviceName)
+		suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "systemctl", actionType, serviceName)
 	}
 }
 
@@ -74,12 +75,12 @@ func (suite *ManageServiceTestSuite) TestCommandError() {
 	)
 	suite.NoError(err)
 
-	suite.mockProcessor.On("RunCommand", "systemctl", "restart", "mock-service").Return("", assert.AnError)
+	suite.mockProcessor.On("RunCommandWithContext", mock.Anything, "systemctl", "restart", "mock-service").Return("", assert.AnError)
 
 	err = action.Wrapped.Execute(suite.T().Context())
 
 	suite.Error(err, "Expected an error due to simulated command failure")
-	suite.mockProcessor.AssertCalled(suite.T(), "RunCommand", "systemctl", "restart", "mock-service")
+	suite.mockProcessor.AssertCalled(suite.T(), "RunCommandWithContext", mock.Anything, "systemctl", "restart", "mock-service")
 }
 
 func (suite *ManageServiceTestSuite) TestManageServiceAction_GetOutput() {

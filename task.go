@@ -24,7 +24,7 @@ type Task struct {
 	Logger         *slog.Logger
 	TotalTime      time.Duration
 	CompletedTasks int
-	mu             sync.Mutex // protects concurrent access to TotalTime and CompletedTasks
+	mu             sync.RWMutex // protects concurrent access to TotalTime and CompletedTasks
 	// ResultProvider support
 	executionError error
 	customResult   interface{}
@@ -72,7 +72,7 @@ func (t *Task) RunWithContext(ctx context.Context, globalContext *GlobalContext)
 	taskContext := NewTaskContext(t.ID, globalContext, t.Logger)
 
 	// Validate parameters before execution
-	if err := t.validateParameters(taskContext); err != nil {
+	if err := t.validateParameters(); err != nil {
 		t.log("Task parameter validation failed", "taskID", t.ID, "runID", runID, "error", err)
 		return fmt.Errorf("task %s (run %s) parameter validation failed: %w", t.ID, runID, err)
 	}
@@ -195,20 +195,36 @@ func (t *Task) storeTaskOutput(globalContext *GlobalContext) {
 // validateParameters validates that all action parameters can be resolved.
 // This ensures that all parameter references can be resolved and prevents
 // runtime errors during action execution.
-func (t *Task) validateParameters(taskContext *TaskContext) error {
+func (t *Task) validateParameters() error {
 	for i, action := range t.Actions {
-		if err := t.validateActionParameters(action, i, taskContext); err != nil {
+		if err := t.validateActionParameters(action, i); err != nil {
 			return fmt.Errorf("action %d (%s): %w", i, action.GetName(), err)
 		}
 	}
 	return nil
 }
 
-// validateActionParameters validates parameters for a specific action
-func (t *Task) validateActionParameters(action ActionWrapper, index int, taskContext *TaskContext) error {
-	// For now, we'll do basic validation
-	// In the future, this could be extended to validate specific parameter types
-	// based on action implementation
+// validateActionParameters validates parameters for a specific action.
+// It checks for duplicate action IDs and logs warnings for tasks with no actions.
+func (t *Task) validateActionParameters(action ActionWrapper, index int) error {
+	// Check for duplicate action IDs at task level
+	actionID := action.GetID()
+	if actionID == "" {
+		return fmt.Errorf("action %d has empty ID", index)
+	}
+
+	// Check if this action ID was already seen in previous actions
+	for i := 0; i < index; i++ {
+		if t.Actions[i].GetID() == actionID {
+			return fmt.Errorf("duplicate action ID '%s': found at index %d and %d", actionID, i, index)
+		}
+	}
+
+	// On first action, check if task has any actions (warning only, not an error)
+	if index == 0 && len(t.Actions) == 0 {
+		t.log("Task has no actions", "taskID", t.ID)
+	}
+
 	return nil
 }
 
@@ -220,15 +236,15 @@ func (t *Task) log(message string, keyvals ...interface{}) {
 
 // GetTotalTime returns the total time in a thread-safe manner
 func (t *Task) GetTotalTime() time.Duration {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return t.TotalTime
 }
 
 // GetCompletedTasks returns the completed tasks count in a thread-safe manner
 func (t *Task) GetCompletedTasks() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return t.CompletedTasks
 }
 

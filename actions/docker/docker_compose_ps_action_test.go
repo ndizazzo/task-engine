@@ -8,6 +8,7 @@ import (
 
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/testing/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -48,7 +49,7 @@ myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web            
 myapp_db_1          postgres:13         "docker-entrypoint.s"    db                  2 hours ago         Up 2 hours         5432/tcp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -89,7 +90,7 @@ myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web            
 myapp_stopped_1     nginx:alpine        "nginx -g 'daemon off"   stopped             3 hours ago         Exited (0) 1 hour ago`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--all").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "--all").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -122,7 +123,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--filter", "status=running").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "--filter", "status=running").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -153,7 +154,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_db_1	Up 2 hours`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--format", "table {{.Name}}\t{{.Status}}").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "--format", "table {{.Name}}\t{{.Status}}").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -183,7 +184,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_db_1`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--quiet").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "--quiet").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -216,7 +217,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -248,7 +249,7 @@ myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web            
 myapp_stopped_1     nginx:alpine        "nginx -g 'daemon off"   stopped             3 hours ago         Exited (0) 1 hour ago`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "--all", "--filter", "status=exited", "--format", "table {{.Name}}\t{{.Status}}", "web").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "--all", "--filter", "status=exited", "--format", "table {{.Name}}\t{{.Status}}", "web").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -319,7 +320,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -348,7 +349,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 myapp_web_1         nginx:latest        "nginx -g 'daemon off"   web                 2 hours ago         Up 2 hours         0.0.0.0:8080->80/tcp`
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps", "web", "db").Return(expectedOutput, nil)
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(
@@ -376,7 +377,7 @@ func (suite *DockerComposePsActionTestSuite) TestNewDockerComposePsActionConstru
 	expectedError := "docker compose ps failed"
 
 	mockRunner := &mocks.MockCommandRunner{}
-	mockRunner.On("RunCommand", "docker", "compose", "ps").Return("", errors.New(expectedError))
+	mockRunner.On("RunCommandWithContext", mock.Anything, "docker", "compose", "ps").Return("", errors.New(expectedError))
 
 	constructor := NewDockerComposePsAction(logger)
 	action, err := constructor.WithParameters(

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 
 	task_engine "github.com/ndizazzo/task-engine"
@@ -59,6 +60,12 @@ func (a *ReadMACAddressAction) Execute(ctx context.Context) error {
 
 	if interfaceName == "" {
 		return fmt.Errorf("interface name cannot be empty")
+	}
+
+	// Validate interface name to prevent path traversal attacks
+	interfaceRegex := regexp.MustCompile("^[a-zA-Z0-9._-]+$")
+	if !interfaceRegex.MatchString(interfaceName) {
+		return fmt.Errorf("invalid interface name: %s", interfaceName)
 	}
 
 	// Store resolved interface name for GetOutput

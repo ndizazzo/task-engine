@@ -47,10 +47,10 @@ func (suite *MocksTestSuite) TestEnhancedTaskManagerMock() {
 
 	suite.Run("RunTask tracking", func() {
 		taskManagerMock := NewEnhancedTaskManagerMock()
-		taskManagerMock.Mock.On("RunTask", "test-task").Return(nil)
+		taskManagerMock.Mock.On("RunTask", "test-task").Return((*task_engine.TaskHandle)(nil), nil)
 		taskManagerMock.Mock.On("IsTaskRunning", "test-task").Return(true)
 
-		err := taskManagerMock.RunTask("test-task")
+		_, err := taskManagerMock.RunTask("test-task")
 
 		assert.NoError(suite.T(), err)
 		assert.Len(suite.T(), taskManagerMock.GetRunTaskCalls(), 1)
@@ -119,7 +119,7 @@ func (suite *MocksTestSuite) TestEnhancedTaskManagerMock() {
 	suite.Run("ClearHistory", func() {
 		taskManagerMock := NewEnhancedTaskManagerMock()
 		taskManagerMock.Mock.On("AddTask", mock.Anything).Return(nil)
-		taskManagerMock.Mock.On("RunTask", "test-task").Return(nil)
+		taskManagerMock.Mock.On("RunTask", "test-task").Return((*task_engine.TaskHandle)(nil), nil)
 
 		task := &task_engine.Task{ID: "test-task", Name: "Test Task"}
 		taskManagerMock.AddTask(task)

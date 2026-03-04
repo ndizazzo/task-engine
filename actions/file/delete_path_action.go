@@ -80,6 +80,8 @@ func (a *DeletePathAction) Execute(execCtx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("invalid path: %w", err)
 	}
+	// Update a.Path to use sanitized version for all subsequent operations
+	a.Path = sanitizedPath
 	info, err := os.Stat(sanitizedPath)
 	if os.IsNotExist(err) {
 		a.Logger.Warn("Path does not exist, skipping deletion", "path", sanitizedPath)

@@ -45,10 +45,11 @@ func (suite *PathValidationTestSuite) TestValidatePath() {
 			expectError: false,
 		},
 		{
-			name:        "relative path with double dot",
-			path:        "../config/settings.json",
-			pathType:    "source",
-			expectError: false,
+			name:          "relative path with double dot",
+			path:          "../config/settings.json",
+			pathType:      "source",
+			expectError:   true,
+			errorContains: "contains potentially dangerous path traversal",
 		},
 		{
 			name:        "simple relative path",
@@ -256,10 +257,10 @@ func (suite *PathValidationTestSuite) TestSanitizePath() {
 			expectError:  false,
 		},
 		{
-			name:         "parent directory prefix allowed",
-			path:         "../config/settings.json",
-			expectedPath: "../config/settings.json",
-			expectError:  false,
+			name:          "parent directory prefix not allowed",
+			path:          "../config/settings.json",
+			expectError:   true,
+			errorContains: "contains potentially dangerous path traversal",
 		},
 		{
 			name:         "multiple redundant slashes",
@@ -358,12 +359,10 @@ func (suite *PathValidationTestSuite) TestPathValidationAllowedPaths() {
 	allowedPaths := []string{
 		"/absolute/path/to/file.txt",
 		"./relative/path/file.txt",
-		"../parent/directory/file.txt",
 		"simple_file.txt",
 		"config/settings.json",
 		"data/input/large_file.dat",
 		"./config",
-		"../config",
 		".",
 	}
 
@@ -375,6 +374,30 @@ func (suite *PathValidationTestSuite) TestPathValidationAllowedPaths() {
 			result, err := file.SanitizePath(allowedPath)
 			suite.NoError(err, "SanitizePath should allow safe path: %s", allowedPath)
 			suite.NotEmpty(result)
+		})
+	}
+}
+
+func (suite *PathValidationTestSuite) TestPathValidationRejectsAllDoubleDotTraversal() {
+	rejectPaths := []string{
+		"../foo",
+		"..",
+		"../",
+		"config/../foo",
+		"./config/../foo",
+		"foo/../bar",
+		"../foo/../bar",
+	}
+
+	for _, rejectPath := range rejectPaths {
+		suite.Run("reject_"+rejectPath, func() {
+			err := file.ValidatePath(rejectPath, "test")
+			suite.Error(err, "Should reject path with .. traversal: %s", rejectPath)
+			suite.Contains(err.Error(), "potentially dangerous path traversal")
+
+			_, err = file.SanitizePath(rejectPath)
+			suite.Error(err, "SanitizePath should reject path with .. traversal: %s", rejectPath)
+			suite.Contains(err.Error(), "potentially dangerous path traversal")
 		})
 	}
 }

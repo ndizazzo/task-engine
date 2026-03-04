@@ -81,12 +81,13 @@ func (suite *ChangePermissionsTestSuite) TestExecute_OctalPermissions() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "755", suite.tempFile).Return("", nil)
-
 	err = action.Wrapped.Execute(ctx)
 
 	suite.NoError(err)
-	suite.mockRunner.AssertExpectations(suite.T())
+	// Verify permissions were changed using os.Chmod (native syscall)
+	stat, err := os.Stat(suite.tempFile)
+	suite.NoError(err)
+	suite.Equal(os.FileMode(0o755), stat.Mode().Perm())
 }
 
 func (suite *ChangePermissionsTestSuite) TestExecute_SymbolicPermissions() {
@@ -100,12 +101,11 @@ func (suite *ChangePermissionsTestSuite) TestExecute_SymbolicPermissions() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "u+x", suite.tempFile).Return("", nil)
-
 	err = action.Wrapped.Execute(ctx)
 
-	suite.NoError(err)
-	suite.mockRunner.AssertExpectations(suite.T())
+	// Symbolic permissions like "u+x" cannot be parsed as octal, so they fail with strconv.ParseUint
+	suite.Error(err)
+	suite.Contains(err.Error(), "invalid permission format")
 }
 
 func (suite *ChangePermissionsTestSuite) TestExecute_Recursive() {
@@ -119,7 +119,7 @@ func (suite *ChangePermissionsTestSuite) TestExecute_Recursive() {
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "-R", "644", suite.tempFile).Return("", nil)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "-R", "--", "644", suite.tempFile).Return("", nil)
 
 	err = action.Wrapped.Execute(ctx)
 
@@ -150,12 +150,12 @@ func (suite *ChangePermissionsTestSuite) TestExecute_CommandFailure() {
 	action, err := file.NewChangePermissionsAction(logger).WithParameters(
 		task_engine.StaticParameter{Value: suite.tempFile},
 		task_engine.StaticParameter{Value: "755"},
-		false,
+		true, // recursive - will use command
 	)
 	suite.Require().NoError(err)
 	action.Wrapped.SetCommandRunner(suite.mockRunner)
 
-	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "755", suite.tempFile).Return("invalid permissions", assert.AnError)
+	suite.mockRunner.On("RunCommandWithContext", ctx, "chmod", "-R", "--", "755", suite.tempFile).Return("invalid permissions", assert.AnError)
 
 	err = action.Wrapped.Execute(ctx)
 

@@ -8,7 +8,7 @@ import (
 // TaskManagerInterface defines the contract for task management
 type TaskManagerInterface interface {
 	AddTask(task *Task) error
-	RunTask(taskID string) error
+	RunTask(taskID string) (*TaskHandle, error)
 	StopTask(taskID string) error
 	StopAllTasks()
 	GetRunningTasks() []string

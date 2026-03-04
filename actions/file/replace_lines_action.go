@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 
 	task_engine "github.com/ndizazzo/task-engine"
@@ -88,7 +89,7 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 		resolvedReplacements = a.ReplacePatterns
 	}
 
-	file, err := os.Open(a.FilePath)
+	readFile, err := os.Open(a.FilePath)
 	if err != nil {
 		a.Logger.Error("Failed to open file",
 			"FilePath", a.FilePath,
@@ -96,10 +97,14 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 		)
 		return fmt.Errorf("failed to open file %s: %w", a.FilePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := readFile.Close(); err != nil {
+			a.Logger.Error("Failed to close file", "path", a.FilePath, "error", err)
+		}
+	}()
 
 	var updatedLines []string
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(readFile)
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -122,33 +127,67 @@ func (a *ReplaceLinesAction) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to read file %s: %w", a.FilePath, err)
 	}
 
-	file, err = os.Create(a.FilePath)
+	// Create temp file in same directory (same filesystem for atomic rename)
+	dir := filepath.Dir(a.FilePath)
+	tmpFile, err := os.CreateTemp(dir, ".replace-lines-*.tmp")
 	if err != nil {
-		a.Logger.Error("Failed to open file for writing",
+		a.Logger.Error("Failed to create temp file",
 			"FilePath", a.FilePath,
 			"error", err,
 		)
-		return fmt.Errorf("failed to open file for writing %s: %w", a.FilePath, err)
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer file.Close()
+	tmpPath := tmpFile.Name()
 
-	writer := bufio.NewWriter(file)
+	// Write all content to temp file
+	writer := bufio.NewWriter(tmpFile)
 	for _, line := range updatedLines {
 		if _, err := writer.WriteString(line + "\n"); err != nil {
-			a.Logger.Error("Failed to write line to file",
+			_ = tmpFile.Close()    //nolint:errcheck // cleanup on error path
+			_ = os.Remove(tmpPath) //nolint:errcheck // cleanup on error path
+			a.Logger.Error("Failed to write line to temp file",
 				"FilePath", a.FilePath,
+				"TempPath", tmpPath,
 				"Line", line,
 				"error", err,
 			)
-			return fmt.Errorf("failed to write line to file %s: %w", a.FilePath, err)
+			return fmt.Errorf("failed to write: %w", err)
 		}
 	}
 	if err := writer.Flush(); err != nil {
+		_ = tmpFile.Close()    //nolint:errcheck // cleanup on error path
+		_ = os.Remove(tmpPath) //nolint:errcheck // cleanup on error path
 		a.Logger.Error("Failed to flush writer",
 			"FilePath", a.FilePath,
+			"TempPath", tmpPath,
 			"error", err,
 		)
-		return fmt.Errorf("failed to flush writer for file %s: %w", a.FilePath, err)
+		return fmt.Errorf("failed to flush: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath) //nolint:errcheck // cleanup on error path
+		a.Logger.Error("Failed to close temp file",
+			"FilePath", a.FilePath,
+			"TempPath", tmpPath,
+			"error", err,
+		)
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Preserve original file permissions
+	if info, err := os.Stat(a.FilePath); err == nil {
+		_ = os.Chmod(tmpPath, info.Mode()) //nolint:errcheck // best effort
+	}
+
+	// Atomic rename (POSIX guarantees atomicity on same filesystem)
+	if err := os.Rename(tmpPath, a.FilePath); err != nil {
+		_ = os.Remove(tmpPath) //nolint:errcheck // cleanup on error path
+		a.Logger.Error("Failed to rename temp file",
+			"FilePath", a.FilePath,
+			"TempPath", tmpPath,
+			"error", err,
+		)
+		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil

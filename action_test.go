@@ -780,3 +780,63 @@ func testContext() context.Context {
 func NewDiscardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
+
+func TestNewBaseAction(t *testing.T) {
+	t.Run("with logger", func(t *testing.T) {
+		logger := NewDiscardLogger()
+		ba := NewBaseAction(logger)
+		if ba.Logger != logger {
+			t.Fatal("expected provided logger")
+		}
+	})
+	t.Run("nil logger gets discard", func(t *testing.T) {
+		ba := NewBaseAction(nil)
+		if ba.Logger == nil {
+			t.Fatal("expected non-nil discard logger")
+		}
+	})
+}
+
+func TestActionGetNameFallback(t *testing.T) {
+	logger := NewDiscardLogger()
+
+	t.Run("name set", func(t *testing.T) {
+		a := NewAction[*TestAction](&TestAction{}, "My Action", logger)
+		if a.GetName() != "My Action" {
+			t.Fatalf("expected 'My Action', got %q", a.GetName())
+		}
+	})
+	t.Run("empty name falls back to ID", func(t *testing.T) {
+		a := &Action[*TestAction]{
+			ID:      "fallback-id",
+			Wrapped: &TestAction{},
+			Logger:  logger,
+		}
+		if a.GetName() != "fallback-id" {
+			t.Fatalf("expected 'fallback-id', got %q", a.GetName())
+		}
+	})
+}
+
+func TestNewActionConstructor(t *testing.T) {
+	logger := NewDiscardLogger()
+
+	t.Run("with explicit ID", func(t *testing.T) {
+		a := NewAction[*TestAction](&TestAction{}, "My Action", logger, "custom-id")
+		if a.ID != "custom-id" {
+			t.Fatalf("expected 'custom-id', got %q", a.ID)
+		}
+	})
+	t.Run("ID generated from name", func(t *testing.T) {
+		a := NewAction[*TestAction](&TestAction{}, "My Action", logger)
+		if a.ID == "" {
+			t.Fatal("expected non-empty generated ID")
+		}
+	})
+	t.Run("empty name and no ID", func(t *testing.T) {
+		a := NewAction[*TestAction](&TestAction{}, "", logger)
+		if a.ID != "" {
+			t.Fatalf("expected empty ID, got %q", a.ID)
+		}
+	})
+}

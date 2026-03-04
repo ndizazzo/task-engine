@@ -43,10 +43,10 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "test-task").Return(nil)
+		mockTM.On("RunTask", "test-task").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("IsTaskRunning", "test-task").Return(true)
 
-		err := mockTM.RunTask("test-task")
+		_, err := mockTM.RunTask("test-task")
 		require.NoError(t, err)
 		runCalls := mockTM.GetRunTaskCalls()
 		assert.Len(t, runCalls, 1)
@@ -60,12 +60,12 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "test-task").Return(nil)
+		mockTM.On("RunTask", "test-task").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("StopTask", "test-task").Return(nil)
 		mockTM.On("IsTaskRunning", "test-task").Return(false)
 
 		// Start task first
-		err := mockTM.RunTask("test-task")
+		_, err := mockTM.RunTask("test-task")
 		require.NoError(t, err)
 
 		// Stop task
@@ -83,14 +83,14 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "task1").Return(nil)
-		mockTM.On("RunTask", "task2").Return(nil)
+		mockTM.On("RunTask", "task1").Return((*task_engine.TaskHandle)(nil), nil)
+		mockTM.On("RunTask", "task2").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("StopAllTasks").Return()
 
 		// Start multiple tasks
-		err := mockTM.RunTask("task1")
+		_, err := mockTM.RunTask("task1")
 		require.NoError(t, err)
-		err = mockTM.RunTask("task2")
+		_, err = mockTM.RunTask("task2")
 		require.NoError(t, err)
 
 		// Stop all tasks
@@ -109,11 +109,11 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "task1").Return(nil)
+		mockTM.On("RunTask", "task1").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("GetRunningTasks").Return([]string{"task1"})
 
 		// Start task
-		err := mockTM.RunTask("task1")
+		_, err := mockTM.RunTask("task1")
 		require.NoError(t, err)
 
 		// Get running tasks
@@ -130,11 +130,11 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "task1").Return(nil)
+		mockTM.On("RunTask", "task1").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("IsTaskRunning", "task1").Return(true)
 
 		// Start task
-		err := mockTM.RunTask("task1")
+		_, err := mockTM.RunTask("task1")
 		require.NoError(t, err)
 		isRunning := mockTM.IsTaskRunning("task1")
 		assert.True(t, isRunning)
@@ -214,12 +214,12 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "task1").Return(nil)
+		mockTM.On("RunTask", "task1").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("IsTaskRunning", "task1").Return(true).Once()
 		mockTM.On("IsTaskRunning", "task1").Return(false).Once()
 
 		// Start task
-		err := mockTM.RunTask("task1")
+		_, err := mockTM.RunTask("task1")
 		require.NoError(t, err)
 		assert.True(t, mockTM.IsTaskRunning("task1"))
 
@@ -234,11 +234,11 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		mockTM := NewEnhancedTaskManagerMock()
 
 		// Set up expectations
-		mockTM.On("RunTask", "task1").Return(nil)
+		mockTM.On("RunTask", "task1").Return((*task_engine.TaskHandle)(nil), nil)
 		mockTM.On("IsTaskRunning", "task1").Return(false).Once()
 
 		// Start task
-		err := mockTM.RunTask("task1")
+		_, err := mockTM.RunTask("task1")
 		require.NoError(t, err)
 
 		// Simulate failure
@@ -261,7 +261,7 @@ func TestEnhancedTaskManagerMock(t *testing.T) {
 		err := mockTM.AddTask(task)
 		assert.NoError(t, err)
 
-		err = mockTM.RunTask("test-task")
+		_, err = mockTM.RunTask("test-task")
 		assert.NoError(t, err)
 
 		err = mockTM.StopTask("test-task")

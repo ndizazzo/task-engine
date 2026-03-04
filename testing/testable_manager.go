@@ -169,7 +169,7 @@ func (tm *TestableTaskManager) AddTask(task *task_engine.Task) error {
 }
 
 // Override RunTask to include hooks and call tracking
-func (tm *TestableTaskManager) RunTask(taskID string) error {
+func (tm *TestableTaskManager) RunTask(taskID string) (*task_engine.TaskHandle, error) {
 	// Track the call and execute hook (protected by our lock)
 	tm.mu.Lock()
 	tm.taskStartedCalls = append(tm.taskStartedCalls, taskID)

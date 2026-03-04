@@ -44,9 +44,14 @@ func ExampleReadFileOperations() {
 	}
 
 	// Run the task
-	err := taskManager.RunTask("read-file-example")
+	handle, err := taskManager.RunTask("read-file-example")
 	if err != nil {
 		logger.Error("Failed to run task", "error", err)
+		return
+	}
+	<-handle.Done()
+	if err := handle.Err(); err != nil {
+		logger.Error("Task execution failed", "error", err)
 		return
 	}
 
@@ -81,8 +86,13 @@ func ExampleReadFileWithErrorHandling() {
 		return
 	}
 
-	err := taskManager.RunTask("read-file-error-handling")
+	handle, err := taskManager.RunTask("read-file-error-handling")
 	if err != nil {
+		logger.Info("Failed to start task", "error", err)
+		return
+	}
+	<-handle.Done()
+	if err := handle.Err(); err != nil {
 		logger.Info("Expected error occurred", "error", err)
 	} else {
 		logger.Info("Unexpected success")
@@ -159,9 +169,14 @@ func ExampleReadFileInWorkflow() {
 		return
 	}
 
-	err := taskManager.RunTask("read-file-workflow")
+	handle, err := taskManager.RunTask("read-file-workflow")
 	if err != nil {
-		logger.Error("Workflow failed", "error", err)
+		logger.Error("Failed to start workflow", "error", err)
+		return
+	}
+	<-handle.Done()
+	if err := handle.Err(); err != nil {
+		logger.Error("Workflow execution failed", "error", err)
 		return
 	}
 

@@ -60,7 +60,7 @@ func (m *EnhancedTaskManagerMock) AddTask(task *task_engine.Task) error {
 }
 
 // RunTask mocks RunTask with state tracking
-func (m *EnhancedTaskManagerMock) RunTask(taskID string) error {
+func (m *EnhancedTaskManagerMock) RunTask(taskID string) (*task_engine.TaskHandle, error) {
 	args := m.Called(taskID)
 
 	m.mu.Lock()
@@ -69,7 +69,10 @@ func (m *EnhancedTaskManagerMock) RunTask(taskID string) error {
 	m.runningTasks[taskID] = true
 	m.runTaskCalls = append(m.runTaskCalls, taskID)
 
-	return args.Error(0)
+	if args.Get(0) != nil {
+		return args.Get(0).(*task_engine.TaskHandle), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
 // StopTask mocks StopTask with state tracking
@@ -300,7 +303,7 @@ func (m *EnhancedTaskManagerMock) SimulateTaskFailure(taskID string, err error) 
 func (m *EnhancedTaskManagerMock) SetExpectedBehavior() {
 	// Set up common expectations
 	m.On("AddTask", mock.AnythingOfType("*task_engine.Task")).Return(nil)
-	m.On("RunTask", mock.AnythingOfType("string")).Return(nil)
+	m.On("RunTask", mock.AnythingOfType("string")).Return((*task_engine.TaskHandle)(nil), nil)
 	m.On("StopTask", mock.AnythingOfType("string")).Return(nil)
 	m.On("StopAllTasks").Return()
 	m.On("GetRunningTasks").Return([]string{})

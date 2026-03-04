@@ -94,6 +94,36 @@ func (suite *ReadMacActionTestSuite) TestExecuteEmptyInterfaceName() {
 	suite.Contains(err.Error(), "interface name cannot be empty")
 }
 
+func (suite *ReadMacActionTestSuite) TestExecutePathTraversalDoubleParent() {
+	logger := command_mock.NewDiscardLogger()
+	action := utility.NewReadMACAddressAction(logger)
+	action.InterfaceNameParam = engine.StaticParameter{Value: "../../etc/shadow"}
+
+	err := action.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "invalid interface name")
+}
+
+func (suite *ReadMacActionTestSuite) TestExecutePathTraversalSingleParent() {
+	logger := command_mock.NewDiscardLogger()
+	action := utility.NewReadMACAddressAction(logger)
+	action.InterfaceNameParam = engine.StaticParameter{Value: "../passwd"}
+
+	err := action.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "invalid interface name")
+}
+
+func (suite *ReadMacActionTestSuite) TestExecuteCommandInjectionAttempt() {
+	logger := command_mock.NewDiscardLogger()
+	action := utility.NewReadMACAddressAction(logger)
+	action.InterfaceNameParam = engine.StaticParameter{Value: "eth0;rm -rf /"}
+
+	err := action.Execute(context.Background())
+	suite.Error(err)
+	suite.Contains(err.Error(), "invalid interface name")
+}
+
 func (suite *ReadMacActionTestSuite) TestExecuteInvalidParameterType() {
 	logger := command_mock.NewDiscardLogger()
 	action := utility.NewReadMACAddressAction(logger)
