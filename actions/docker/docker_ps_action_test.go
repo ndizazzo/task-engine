@@ -9,8 +9,8 @@ import (
 	task_engine "github.com/ndizazzo/task-engine"
 	"github.com/ndizazzo/task-engine/actions/common"
 	"github.com/ndizazzo/task-engine/testing/mocks"
-	"github.com/stretchr/testify/suite"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
 )
 
 // DockerPsActionTestSuite tests the DockerPsAction
