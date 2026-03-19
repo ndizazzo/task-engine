@@ -20,31 +20,42 @@ import (
     "log/slog"
     "os"
 
-    "github.com/ndizazzo/task-engine"
+    engine "github.com/ndizazzo/task-engine"
     "github.com/ndizazzo/task-engine/actions/file"
 )
 
 func main() {
     logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-    // Create task with two actions
-    task := &task_engine.Task{
-        ID:   "my-first-task",
-        Name: "Create Project Structure",
-        Actions: []task_engine.ActionWrapper{
-            file.NewCreateDirectoriesAction([]string{"src", "docs"}, logger),
-            file.NewWriteFileAction(
-                "/tmp/myproject/README.md",
-                []byte("# My Project\n\nCreated with Task Engine!"),
-                true,
-                nil,
-                logger,
-            ),
-        },
-        Logger: logger,
+    // Build actions using the builder pattern
+    createDirs, err := file.NewCreateDirectoriesAction(logger).WithParameters(
+        engine.StaticParameter{Value: "/tmp/myproject"},
+        engine.StaticParameter{Value: []string{"src", "docs"}},
+    )
+    if err != nil {
+        logger.Error("Failed to create action", "error", err)
+        os.Exit(1)
     }
 
-    // Run the task
+    writeReadme, err := file.NewWriteFileAction(logger).WithParameters(
+        engine.StaticParameter{Value: "/tmp/myproject/README.md"},
+        engine.StaticParameter{Value: []byte("# My Project\n\nCreated with Task Engine!")},
+        true,  // overwrite
+        nil,   // inputBuffer
+    )
+    if err != nil {
+        logger.Error("Failed to create action", "error", err)
+        os.Exit(1)
+    }
+
+    // Create and run the task
+    task := &engine.Task{
+        ID:      "my-first-task",
+        Name:    "Create Project Structure",
+        Actions: []engine.ActionWrapper{createDirs, writeReadme},
+        Logger:  logger,
+    }
+
     if err := task.Run(context.Background()); err != nil {
         logger.Error("Task failed", "error", err)
         os.Exit(1)
@@ -78,24 +89,28 @@ if err := fileTask.Run(context.Background()); err != nil {
 
 ## Parameter Passing
 
-Pass data between actions:
+Pass data between actions using the builder pattern. Action outputs are resolved at runtime from the global context.
 
 ```go
-    task := &task_engine.Task{
-        ID:   "file-pipeline",
-        Name: "Process File",
-        Actions: []task_engine.ActionWrapper{
-            file.NewReadFileAction("read-file", "/tmp/input.txt", logger),
-            file.NewReplaceLinesAction(
-                "replace-lines",
-                "/tmp/output.txt",
-                map[*regexp.Regexp]task_engine.ActionParameter{
-                    regexp.MustCompile("old"): task_engine.ActionOutputField("read-file", "content"),
-                },
-                logger,
-            ),
-        },
-        Logger: logger,
+    var content []byte
+    readFile, _ := file.NewReadFileAction(logger).WithParameters(
+        engine.StaticParameter{Value: "/tmp/input.txt"},
+        &content, // buffer filled at execution time
+    )
+    readFile.ID = "read-file" // set ID so subsequent actions can reference it
+
+    writeFile, _ := file.NewWriteFileAction(logger).WithParameters(
+        engine.StaticParameter{Value: "/tmp/output.txt"},
+        engine.ActionOutputField("read-file", "content"), // resolved at runtime
+        true,
+        nil,
+    )
+
+    task := &engine.Task{
+        ID:      "file-pipeline",
+        Name:    "Process File",
+        Actions: []engine.ActionWrapper{readFile, writeFile},
+        Logger:  logger,
     }
 ```
 

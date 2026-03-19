@@ -83,15 +83,17 @@ func (a *MyAction) Execute(ctx context.Context) error {
 **Problem**: Container name/ID doesn't exist.
 
 ```go
-// ❌ Container might not exist
-docker.NewGetContainerStateAction(logger, "my-container")
+// ❌ Container might not exist — verify the container name before referencing it
+statusAction, _ := docker.NewGetContainerStateAction(logger).WithParameters(
+    engine.StaticParameter{Value: []string{"my-container"}},
+)
 
-// ✅ Check if container exists first
-containers := docker.NewGetAllContainersStateAction(logger)
-// Filter by name/ID
+// ✅ Pass nil to get all containers, then inspect the output to verify existence
+allAction, _ := docker.NewGetContainerStateAction(logger).WithParameters(nil)
+// Filter the output map by container name/ID
 ```
 
-**Solution**: Use `GetAllContainersStateAction` to verify container existence.
+**Solution**: Pass `nil` to `GetContainerStateAction` to retrieve all containers, then check the output before referencing a specific one.
 
 ### Permission denied
 
@@ -99,7 +101,9 @@ containers := docker.NewGetAllContainersStateAction(logger)
 
 ```go
 // ❌ Might fail without proper permissions
-docker.NewDockerRunAction(logger, "nginx", nil, nil, nil)
+runAction, _ := docker.NewDockerRunAction(logger).WithParameters(
+    engine.StaticParameter{Value: "nginx"}, nil,
+)
 
 // ✅ Ensure user is in docker group
 // Run: sudo usermod -aG docker $USER
@@ -115,7 +119,10 @@ docker.NewDockerRunAction(logger, "nginx", nil, nil, nil)
 
 ```go
 // ❌ Path might not exist
-file.NewReadFileAction("/nonexistent/file", &content, logger)
+var content []byte
+readAction, _ := file.NewReadFileAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/nonexistent/file"}, &content,
+)
 
 // ✅ Create directories first
 file.NewCreateDirectoriesAction(logger).WithParameters(
@@ -132,10 +139,18 @@ file.NewCreateDirectoriesAction(logger).WithParameters(
 
 ```go
 // ❌ Might fail without proper permissions
-file.NewWriteFileAction("/etc/config", content, true, nil, logger)
+writeAction, _ := file.NewWriteFileAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/etc/config"},
+    engine.StaticParameter{Value: content},
+    true, nil,
+)
 
 // ✅ Check permissions or use appropriate paths
-file.NewWriteFileAction("/tmp/config", content, true, nil, logger)
+writeAction, _ := file.NewWriteFileAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/tmp/config"},
+    engine.StaticParameter{Value: content},
+    true, nil,
+)
 ```
 
 **Solution**: Use appropriate paths or check file permissions.
@@ -148,7 +163,9 @@ file.NewWriteFileAction("/tmp/config", content, true, nil, logger)
 
 ```go
 // ❌ Service might not exist
-system.NewGetServiceStatusAction(logger, "nonexistent-service")
+statusAction, _ := system.NewServiceStatusAction(logger).WithParameters(
+    engine.StaticParameter{Value: []string{"nonexistent-service"}},
+)
 
 // ✅ Check service existence first
 // Use systemctl list-units --type=service

@@ -25,7 +25,7 @@ func NewMyAction(logger *slog.Logger) *task_engine.Action[*MyAction] {
         Wrapped: action,
         Name:    "My Action",
         ID:      "my-action",
-    }, nil
+    }
 }
 ```
 
@@ -81,13 +81,13 @@ func (c *MyActionConstructor) WithParameters(
 // Old style - manual parameter resolution
 func (a *MyAction) Execute(execCtx context.Context) error {
     // Extract GlobalContext
-    globalCtx, ok := execCtx.Value("global_context").(task_engine.GlobalContext)
+    globalCtx, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
     if !ok {
         return fmt.Errorf("global context not found in execution context")
     }
 
     // Resolve parameters manually
-    sourcePath, err := a.resolveStringParameter(globalCtx, a.SourcePathParam, "source path")
+    sourcePath, err := a.resolveStringParameter(execCtx, globalCtx, a.SourcePathParam, "source path")
     if err != nil {
         return err
     }
@@ -290,7 +290,7 @@ func NewExampleAction(logger *slog.Logger) *task_engine.Action[*ExampleAction] {
         Wrapped: action,
         Name:    "Example Action",
         ID:      "example-action",
-    }, nil
+    }
 }
 
 type ExampleAction struct {
@@ -302,17 +302,17 @@ type ExampleAction struct {
 }
 
 func (a *ExampleAction) Execute(execCtx context.Context) error {
-    globalCtx, ok := execCtx.Value("global_context").(task_engine.GlobalContext)
+    globalCtx, ok := execCtx.Value(task_engine.GlobalContextKey).(*task_engine.GlobalContext)
     if !ok {
         return fmt.Errorf("global context not found in execution context")
     }
 
-    sourcePath, err := a.resolveStringParameter(globalCtx, a.SourcePathParam, "source path")
+    sourcePath, err := a.resolveStringParameter(execCtx, globalCtx, a.SourcePathParam, "source path")
     if err != nil {
         return err
     }
 
-    targetPath, err := a.resolveStringParameter(globalCtx, a.TargetPathParam, "target path")
+    targetPath, err := a.resolveStringParameter(execCtx, globalCtx, a.TargetPathParam, "target path")
     if err != nil {
         return err
     }
@@ -339,12 +339,12 @@ func (a *ExampleAction) GetOutput() interface{} {
     }
 }
 
-func (a *ExampleAction) resolveStringParameter(globalCtx task_engine.GlobalContext, param task_engine.ActionParameter, name string) (string, error) {
+func (a *ExampleAction) resolveStringParameter(ctx context.Context, globalCtx *task_engine.GlobalContext, param task_engine.ActionParameter, name string) (string, error) {
     if param == nil {
         return "", fmt.Errorf("%s parameter is required", name)
     }
 
-    value, err := param.Resolve(globalCtx)
+    value, err := param.Resolve(ctx, globalCtx)
     if err != nil {
         return "", fmt.Errorf("failed to resolve %s parameter: %w", name, err)
     }

@@ -9,7 +9,7 @@ Complete list of available actions. See `tasks/` directory for usage examples.
 Creates multiple directories.
 
 ```go
-file.NewCreateDirectoriesAction(logger).WithParameters(
+action, err := file.NewCreateDirectoriesAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path/to/root"},
     engine.StaticParameter{Value: []string{"src", "tests", "docs"}},
 )
@@ -20,21 +20,24 @@ file.NewCreateDirectoriesAction(logger).WithParameters(
 Writes content to files.
 
 ```go
-file.NewWriteFileAction(logger).WithParameters(
+action, err := file.NewWriteFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path/to/file"},
     engine.StaticParameter{Value: []byte("content")},
-    true, // overwrite
-    nil,  // inputBuffer
+    true,  // overwrite
+    nil,   // inputBuffer (use content param instead)
 )
 ```
 
 ### ReadFileAction
 
-Reads file contents.
+Reads file contents into a buffer.
 
 ```go
 var content []byte
-file.NewReadFileAction("/path/to/file", &content, logger)
+action, err := file.NewReadFileAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/path/to/file"},
+    &content,
+)
 ```
 
 ### CompressFileAction
@@ -42,7 +45,7 @@ file.NewReadFileAction("/path/to/file", &content, logger)
 Compresses files (gzip).
 
 ```go
-file.NewCompressFileAction(logger).WithParameters(
+action, err := file.NewCompressFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/source/file"},
     engine.StaticParameter{Value: "/dest/file.gz"},
     file.GzipCompression,
@@ -54,7 +57,7 @@ file.NewCompressFileAction(logger).WithParameters(
 Decompresses files with auto-detection.
 
 ```go
-file.NewDecompressFileAction(logger).WithParameters(
+action, err := file.NewDecompressFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/source/file.gz"},
     engine.StaticParameter{Value: "/dest/file"},
     "", // auto-detect
@@ -66,7 +69,7 @@ file.NewDecompressFileAction(logger).WithParameters(
 Copies files and directories.
 
 ```go
-file.NewCopyFileAction(logger).WithParameters(
+action, err := file.NewCopyFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/source"},
     engine.StaticParameter{Value: "/dest"},
     true,  // createDirs
@@ -79,10 +82,12 @@ file.NewCopyFileAction(logger).WithParameters(
 Safely deletes files and directories.
 
 ```go
-file.NewDeletePathAction(logger).WithParameters(
+action, err := file.NewDeletePathAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path/to/delete"},
     true,  // recursive
     false, // dryRun
+    false, // includeHidden
+    nil,   // excludePatterns
 )
 ```
 
@@ -91,11 +96,24 @@ file.NewDeletePathAction(logger).WithParameters(
 Replaces text using regex patterns.
 
 ```go
-file.NewReplaceLinesAction(logger).WithParameters(
+action, err := file.NewReplaceLinesAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path/to/file"},
     map[*regexp.Regexp]engine.ActionParameter{
         regexp.MustCompile("old"): engine.StaticParameter{Value: "new"},
     },
+)
+```
+
+### CreateSymlinkAction
+
+Creates symbolic links.
+
+```go
+action, err := file.NewCreateSymlinkAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/path/to/target"},
+    engine.StaticParameter{Value: "/path/to/link"},
+    false, // overwrite existing link
+    true,  // createDirs (create parent directories)
 )
 ```
 
@@ -104,7 +122,7 @@ file.NewReplaceLinesAction(logger).WithParameters(
 Changes file ownership.
 
 ```go
-file.NewChangeOwnershipAction(logger).WithParameters(
+action, err := file.NewChangeOwnershipAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path"},
     engine.StaticParameter{Value: "user"},
     engine.StaticParameter{Value: "group"},
@@ -117,7 +135,7 @@ file.NewChangeOwnershipAction(logger).WithParameters(
 Changes file permissions.
 
 ```go
-file.NewChangePermissionsAction(logger).WithParameters(
+action, err := file.NewChangePermissionsAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path"},
     engine.StaticParameter{Value: "755"},
     true, // recursive
@@ -129,7 +147,7 @@ file.NewChangePermissionsAction(logger).WithParameters(
 Moves/renames files.
 
 ```go
-file.NewMoveFileAction(logger).WithParameters(
+action, err := file.NewMoveFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/source"},
     engine.StaticParameter{Value: "/dest"},
     true, // createDirs
@@ -141,7 +159,7 @@ file.NewMoveFileAction(logger).WithParameters(
 Extracts archives (tar, zip) with security features.
 
 ```go
-file.NewExtractFileAction(logger).WithParameters(
+action, err := file.NewExtractFileAction(logger).WithParameters(
     engine.StaticParameter{Value: "/archive.tar"},
     engine.StaticParameter{Value: "/extract/dir"},
     file.AutoDetect, // or file.TarArchive, file.ZipArchive
@@ -152,18 +170,16 @@ file.NewExtractFileAction(logger).WithParameters(
 
 ### GetContainerStateAction
 
-Gets container status by ID or name.
+Gets container status by name or ID. Pass multiple names/IDs via a `[]string`; omit the parameter (pass `nil`) to get all containers.
 
 ```go
-docker.NewGetContainerStateAction(logger, "container1", "container2")
-```
+// Get specific containers
+action, err := docker.NewGetContainerStateAction(logger).WithParameters(
+    engine.StaticParameter{Value: []string{"container1", "container2"}},
+)
 
-### GetAllContainersStateAction
-
-Gets status of all containers.
-
-```go
-docker.NewGetAllContainersStateAction(logger)
+// Get all containers
+action, err := docker.NewGetContainerStateAction(logger).WithParameters(nil)
 ```
 
 ### DockerComposeUpAction
@@ -171,9 +187,9 @@ docker.NewGetAllContainersStateAction(logger)
 Starts Docker Compose services.
 
 ```go
-docker.NewDockerComposeUpAction(logger).WithParameters(
-    engine.StaticParameter{Value: []string{"web", "db"}},
-    engine.StaticParameter{Value: "/path/to/compose"},
+action, err := docker.NewDockerComposeUpAction(logger).WithParameters(
+    engine.StaticParameter{Value: "/path/to/compose"}, // workingDir
+    engine.StaticParameter{Value: []string{"web", "db"}}, // services
 )
 ```
 
@@ -182,9 +198,9 @@ docker.NewDockerComposeUpAction(logger).WithParameters(
 Stops Docker Compose services.
 
 ```go
-docker.NewDockerComposeDownAction(logger).WithParameters(
-    engine.StaticParameter{Value: []string{"web"}},
+action, err := docker.NewDockerComposeDownAction(logger).WithParameters(
     engine.StaticParameter{Value: "/path/to/compose"},
+    engine.StaticParameter{Value: []string{"web"}},
 )
 ```
 
@@ -193,7 +209,7 @@ docker.NewDockerComposeDownAction(logger).WithParameters(
 Executes commands in containers.
 
 ```go
-docker.NewDockerComposeExecAction(logger).WithParameters(
+action, err := docker.NewDockerComposeExecAction(logger).WithParameters(
     engine.StaticParameter{Value: "web"},
     engine.StaticParameter{Value: []string{"ls", "-la"}},
     engine.StaticParameter{Value: "/path/to/compose"},
@@ -202,14 +218,20 @@ docker.NewDockerComposeExecAction(logger).WithParameters(
 
 ### DockerRunAction
 
-Runs Docker containers.
+Runs a Docker container. Accepts an image parameter, an optional output buffer, and variadic run arguments.
 
 ```go
-docker.NewDockerRunAction(logger).WithParameters(
-    engine.StaticParameter{Value: "nginx:latest"},
-    engine.StaticParameter{Value: []string{"nginx", "-g", "daemon off;"}},
-    engine.StaticParameter{Value: []string{"-p", "8080:80"},
-    nil, // inputBuffer
+action, err := docker.NewDockerRunAction(logger).WithParameters(
+    engine.StaticParameter{Value: "nginx:latest"}, // image
+    nil,                                           // outputBuffer (*bytes.Buffer)
+    "-p", "8080:80", "-d",                         // runArgs (variadic)
+)
+
+// With dynamic image from a previous action/task:
+action, err := docker.NewDockerRunAction(logger).WithParameters(
+    engine.TaskOutputField("build-task", "imageID"),
+    nil,
+    "-p", "8080:80", "-d",
 )
 ```
 
@@ -218,10 +240,10 @@ docker.NewDockerRunAction(logger).WithParameters(
 Performs health checks with retries.
 
 ```go
-docker.NewCheckContainerHealthAction(logger).WithParameters(
+action, err := docker.NewCheckContainerHealthAction(logger).WithParameters(
     engine.StaticParameter{Value: "container"},
-    engine.StaticParameter{Value: 3},           // maxRetries
-    engine.StaticParameter{Value: time.Second}, // retryDelay
+    engine.StaticParameter{Value: 3},            // maxRetries
+    engine.StaticParameter{Value: time.Second},  // retryDelay
     engine.StaticParameter{Value: "/workdir"},
 )
 ```
@@ -349,20 +371,22 @@ docker.NewDockerGenericAction(logger, []string{"images", "-q"})
 
 ## System Management
 
-### GetServiceStatusAction
+### ServiceStatusAction
 
-Gets systemd service status.
+Gets systemd service status for one or more services.
 
 ```go
-system.NewGetServiceStatusAction(logger, "nginx", "mysql")
+action, err := system.NewServiceStatusAction(logger).WithParameters(
+    engine.StaticParameter{Value: []string{"nginx", "mysql"}},
+)
 ```
 
 ### ManageServiceAction
 
-Controls systemd services.
+Controls systemd services (start, stop, restart, enable, disable).
 
 ```go
-system.NewManageServiceAction(logger).WithParameters(
+action, err := system.NewManageServiceAction(logger).WithParameters(
     engine.StaticParameter{Value: "nginx"},
     engine.StaticParameter{Value: "restart"},
 )
@@ -373,7 +397,7 @@ system.NewManageServiceAction(logger).WithParameters(
 Shuts down or restarts system.
 
 ```go
-system.NewShutdownAction(logger).WithParameters(
+action, err := system.NewShutdownAction(logger).WithParameters(
     engine.StaticParameter{Value: "restart"},
     engine.StaticParameter{Value: "5"}, // delay in minutes
 )
@@ -381,10 +405,13 @@ system.NewShutdownAction(logger).WithParameters(
 
 ### UpdatePackagesAction
 
-Installs packages (apt/brew).
+Installs packages (apt/brew). Package manager is auto-detected from the OS; pass an empty string to auto-detect.
 
 ```go
-system.NewUpdatePackagesAction(logger, []string{"git", "curl"})
+action, err := system.NewUpdatePackagesAction(logger).WithParameters(
+    engine.StaticParameter{Value: []string{"git", "curl"}},
+    engine.StaticParameter{Value: ""}, // package manager: "" = auto-detect, "apt", or "brew"
+)
 ```
 
 ## Utilities
@@ -394,21 +421,22 @@ system.NewUpdatePackagesAction(logger, []string{"git", "curl"})
 Waits for specified duration.
 
 ```go
-utility.NewWaitAction(logger).WithParameters(
+action, err := utility.NewWaitAction(logger).WithParameters(
     engine.StaticParameter{Value: time.Second * 5},
 )
 ```
 
 ### PrerequisiteCheckAction
 
-Conditional execution based on custom checks.
+Conditional execution based on custom checks. The check function returns `(abortTask bool, err error)`.
 
 ```go
-utility.NewPrerequisiteCheckAction(logger).WithParameters(
-    engine.StaticParameter{Value: func(ctx context.Context) (bool, error) {
-        // custom check logic
-        return true, nil
-    }},
+action, err := utility.NewPrerequisiteCheckAction(logger).WithParameters(
+    engine.StaticParameter{Value: "checking disk space"},
+    engine.StaticParameter{Value: utility.PrerequisiteCheckFunc(func(ctx context.Context, logger *slog.Logger) (bool, error) {
+        // Return (true, nil) to abort the task, (false, nil) to continue
+        return false, nil
+    })},
 )
 ```
 
@@ -425,7 +453,7 @@ utility.NewFetchInterfacesAction(logger)
 Reads MAC address of network interface.
 
 ```go
-utility.NewReadMacAction(logger).WithParameters(
+action, err := utility.NewReadMacAction(logger).WithParameters(
     engine.StaticParameter{Value: "eth0"},
 )
 ```
